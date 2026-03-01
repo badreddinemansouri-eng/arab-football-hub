@@ -23,7 +23,7 @@ SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
 
 # --- Admin password (change this to something secure) ---
-ADMIN_PASSWORD_HASH = hashlib.sha256("badr11101999.".encode()).hexdigest()  # Change this!
+ADMIN_PASSWORD_HASH = hashlib.sha256("badr11101999.".encode()).hexdigest()
 
 # --- Connect to Supabase ---
 @st.cache_resource
@@ -48,25 +48,34 @@ st.markdown("""
 <script type="text/javascript" src="//resources.infolinks.com/js/infolinks_main.js"></script>
 """, unsafe_allow_html=True)
 
-# --- Professional RTL styling ---
+# --- Professional RTL styling with mobile responsiveness ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
     
-    * { font-family: 'Cairo', sans-serif; }
-    .main, .block-container, [data-testid="stMarkdownContainer"] { direction: rtl; text-align: right; }
+    * {
+        font-family: 'Cairo', sans-serif;
+    }
     
+    .main, .block-container, [data-testid="stMarkdownContainer"] {
+        direction: rtl;
+        text-align: right;
+    }
+    
+    /* Responsive match card */
     .match-card {
         background: linear-gradient(135deg, #1e1e2f 0%, #2a2a40 100%);
         color: white;
-        padding: 25px;
+        padding: 20px;
         border-radius: 20px;
-        margin: 20px 0;
+        margin: 15px 0;
         box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         border: 1px solid #333;
         transition: transform 0.3s;
     }
-    .match-card:hover { transform: translateY(-5px); }
+    .match-card:hover {
+        transform: translateY(-5px);
+    }
     
     .featured-card {
         border: 3px solid gold;
@@ -76,7 +85,7 @@ st.markdown("""
     .live-badge {
         background: linear-gradient(45deg, #ff4444, #ff6b6b);
         color: white;
-        padding: 5px 15px;
+        padding: 5px 12px;
         border-radius: 25px;
         font-size: 14px;
         font-weight: bold;
@@ -92,7 +101,7 @@ st.markdown("""
     .stream-btn {
         background: #ff6b6b;
         color: white;
-        padding: 10px 20px;
+        padding: 8px 16px;
         border-radius: 30px;
         text-decoration: none;
         font-weight: 600;
@@ -101,6 +110,7 @@ st.markdown("""
         border: none;
         cursor: pointer;
         transition: background 0.3s;
+        font-size: 14px;
     }
     .stream-btn:hover {
         background: #ff5252;
@@ -138,10 +148,29 @@ st.markdown("""
         margin-left: 5px;
     }
     
-    .countdown { color: #ffd700; font-weight: bold; }
-    .importance-high { color: gold; font-weight: bold; }
-    .logo-small { width: 30px; height: 30px; margin: 0 5px; vertical-align: middle; }
-    .country-flag { width: 20px; height: 15px; margin: 0 3px; vertical-align: middle; }
+    .countdown {
+        color: #ffd700;
+        font-weight: bold;
+    }
+    
+    .importance-high {
+        color: gold;
+        font-weight: bold;
+    }
+    
+    .logo-small {
+        width: 30px;
+        height: 30px;
+        margin: 0 5px;
+        vertical-align: middle;
+    }
+    
+    .country-flag {
+        width: 20px;
+        height: 15px;
+        margin: 0 3px;
+        vertical-align: middle;
+    }
     
     .league-filter {
         background: #2a2a40;
@@ -157,10 +186,55 @@ st.markdown("""
         border-radius: 10px;
         margin: 10px 0;
     }
+    
+    /* Responsive adjustments for mobile */
+    @media only screen and (max-width: 768px) {
+        .match-card {
+            padding: 15px;
+        }
+        .match-card h2, .match-card h3 {
+            font-size: 1.2rem;
+        }
+        .match-card .logo-small {
+            width: 24px;
+            height: 24px;
+        }
+        .stream-btn {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        .live-badge {
+            font-size: 12px;
+            padding: 4px 8px;
+        }
+        /* Adjust columns in upcoming matches */
+        .st-emotion-cache-1y4p8pa {
+            padding: 1rem 0.5rem;
+        }
+    }
+    
+    /* Even smaller screens */
+    @media only screen and (max-width: 480px) {
+        .match-card h2, .match-card h3 {
+            font-size: 1rem;
+        }
+        .match-card .logo-small {
+            width: 20px;
+            height: 20px;
+        }
+        .stream-btn {
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+        .live-badge {
+            font-size: 10px;
+            padding: 3px 6px;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Header ---
+# --- Header (unchanged) ---
 col1, col2, col3 = st.columns([1, 3, 1])
 with col2:
     st.image("https://img.icons8.com/color/96/000000/football2--v1.png", width=80)
@@ -170,7 +244,7 @@ with col2:
 
 st.markdown("---")
 
-# --- Sidebar ---
+# --- Sidebar (unchanged) ---
 with st.sidebar:
     st.header("📢 **ادعم الموقع**")
     st.info("الإعلانات تساعدنا في استمرار الخدمة مجاناً للجميع.")
@@ -201,7 +275,6 @@ with st.sidebar:
     
     @st.cache_data(ttl=300)
     def get_distinct_leagues():
-        # Fetch all matches, extract unique league names (simpler than group by)
         response = supabase.table("matches").select("league").execute()
         leagues = list(set([m["league"] for m in response.data if m.get("league")]))
         return sorted(leagues)
@@ -212,7 +285,7 @@ with st.sidebar:
     # Importance filter
     st.markdown("---")
     st.header("⭐ **أهمية المباراة**")
-    min_importance = st.slider("أقل أهمية", 0, 100, 0)
+    min_importance = st.slider("أقل أهمية", 0, 100, 0)  # Default to 0 so all matches show
     
     # Admin section
     st.markdown("---")
@@ -357,7 +430,7 @@ featured = [m for m in matches if m.get("is_featured") or m.get("importance_scor
 
 if featured:
     cols = st.columns(3)
-    for i, match in enumerate(featured[:6]):  # Show top 6 featured
+    for i, match in enumerate(featured[:6]):
         with cols[i % 3]:
             streams = match.get("streams", [])
             if isinstance(streams, str):
@@ -478,6 +551,7 @@ if upcoming:
     # Display each league section
     for league, league_matches in sorted(leagues_dict.items()):
         with st.expander(f"🏆 {league} ({len(league_matches)} مباراة)"):
+            # Use 2 columns on larger screens, but stack on mobile automatically
             cols = st.columns(2)
             for i, match in enumerate(league_matches):
                 with cols[i % 2]:
@@ -524,24 +598,17 @@ st.header("🌍 **البطولات حول العالم**")
 
 @st.cache_data(ttl=3600)
 def get_league_stats():
-    """Get league statistics without using group_by (compatible with all Supabase versions)"""
     try:
-        # Simply fetch all matches and count leagues manually
         response = supabase.table("matches").select("league").execute()
-        
         if response.data:
-            # Count occurrences of each league
             league_counts = {}
             for match in response.data:
                 league = match.get("league")
                 if league:
                     league_counts[league] = league_counts.get(league, 0) + 1
-            
-            # Sort by count descending
             sorted_leagues = sorted(league_counts.items(), key=lambda x: x[1], reverse=True)
-            return sorted_leagues[:20]  # Return top 20
-        else:
-            return []
+            return sorted_leagues[:20]
+        return []
     except Exception as e:
         st.error(f"خطأ في إحصائيات البطولات: {e}")
         return []
