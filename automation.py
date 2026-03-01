@@ -82,9 +82,7 @@ def parse_match(match):
     """
     Convert a football-data.org match object to our database format.
     """
-    area = match.get("area", {})
     competition = match.get("competition", {})
-    season = match.get("season", {})
     home_team = match.get("homeTeam", {})
     away_team = match.get("awayTeam", {})
     score = match.get("score", {})
@@ -103,15 +101,12 @@ def parse_match(match):
     home_score = full_time.get("home") if full_time.get("home") is not None else 0
     away_score = full_time.get("away") if full_time.get("away") is not None else 0
 
-    # Build match data
+    # Build match data – no logo fields
     match_data = {
         "fixture_id": match["id"],
         "league": competition.get("name", "Unknown"),
-        "league_logo": None,   # football-data.org doesn't provide logos
         "home_team": home_team.get("name", "Unknown"),
         "away_team": away_team.get("name", "Unknown"),
-        "home_logo": None,
-        "away_logo": None,
         "match_time": match.get("utcDate"),
         "status": status_cat,
         "home_score": home_score,
@@ -120,7 +115,6 @@ def parse_match(match):
         "broadcasters": []
     }
     return match_data
-
 def search_youtube_streams(match):
     """Search YouTube for free streams (unchanged)."""
     query = f"{match['home_team']} vs {match['away_team']} live"
