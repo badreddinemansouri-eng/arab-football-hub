@@ -6,7 +6,7 @@ import time
 import requests
 import json
 
-# --- Page config ---
+# --- Page config MUST be first ---
 st.set_page_config(
     page_title="مركز الكرة العربية | مشاهدة المباريات مجاناً",
     page_icon="⚽",
@@ -14,8 +14,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- Auto-refresh page every 5 minutes ---
-# Auto-refresh page every 5 minutes using meta tag
+# --- Auto-refresh page every 5 minutes using meta refresh ---
 st.markdown('<meta http-equiv="refresh" content="300">', unsafe_allow_html=True)
 
 # --- Load secrets ---
@@ -29,13 +28,13 @@ def init_supabase():
 
 supabase = init_supabase()
 
-# --- Inject ad scripts into <head> using st.markdown with unsafe_allow_html ---
-# PropellerAds push notification script (place in head)
+# --- Inject ad scripts into <head> (PropellerAds, Infolinks) ---
+# PropellerAds push notification script (replace with your actual script)
 st.markdown("""
 <script type="text/javascript" data-cfasync="false" src="https://your-propellerads-script.com"></script>
 """, unsafe_allow_html=True)
 
-# Infolinks in-text ads script
+# Infolinks in-text ads script (replace PID)
 st.markdown("""
 <script type="text/javascript">
     var infolinks_pid = 1234567;  // Replace with your PID
@@ -44,7 +43,7 @@ st.markdown("""
 <script type="text/javascript" src="//resources.infolinks.com/js/infolinks_main.js"></script>
 """, unsafe_allow_html=True)
 
-# --- Professional RTL styling ---
+# --- Professional RTL styling with custom fonts ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
@@ -130,6 +129,13 @@ st.markdown("""
         margin: 10px 0;
     }
     
+    .logo-small {
+        width: 30px;
+        height: 30px;
+        margin: 0 5px;
+        vertical-align: middle;
+    }
+    
     /* Sidebar */
     .css-1d391kg {
         background-color: #1e1e2f;
@@ -140,7 +146,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- Header ---
+# --- Header with logo and trust message ---
 col1, col2, col3 = st.columns([1, 3, 1])
 with col2:
     st.image("https://img.icons8.com/color/96/000000/football2--v1.png", width=80)
@@ -155,10 +161,10 @@ with st.sidebar:
     st.header("📢 **ادعم الموقع**")
     st.info("الإعلانات تساعدنا في استمرار الخدمة مجاناً للجميع.")
     
-    # Affiliate banner (e.g., 1xBet) – replace with your affiliate link and image
+    # Affiliate banner (replace with your affiliate link and image)
     st.markdown("""
     <a href="https://your-affiliate-link.com" target="_blank">
-        <img src="https://example.com/banner.jpg" style="width:100%; border-radius:10px;">
+        <img src="https://your-affiliate-banner-url.com/banner.jpg" style="width:100%; border-radius:10px;">
     </a>
     """, unsafe_allow_html=True)
     
@@ -203,8 +209,12 @@ with st.sidebar:
 # --- Fetch matches from Supabase ---
 @st.cache_data(ttl=60)
 def get_matches():
-    response = supabase.table("matches").select("*").order("match_time", desc=False).execute()
-    return response.data
+    try:
+        response = supabase.table("matches").select("*").order("match_time", desc=False).execute()
+        return response.data
+    except Exception as e:
+        st.error("عذراً، حدث خطأ في تحميل المباريات. يرجى تحديث الصفحة.")
+        return []
 
 matches = get_matches()
 
@@ -239,10 +249,22 @@ if live_matches:
             st.markdown(f"""
             <div class="match-card">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h2>{match['home_team']} vs {match['away_team']}</h2>
+                    <div style="display: flex; align-items: center;">
+                        <img src="{match.get('home_logo', 'https://via.placeholder.com/30')}" class="logo-small">
+                        <h2 style="margin: 0 10px;">{match['home_team']}</h2>
+                    </div>
+                    <span style="font-size: 24px; font-weight: bold;">vs</span>
+                    <div style="display: flex; align-items: center;">
+                        <h2 style="margin: 0 10px;">{match['away_team']}</h2>
+                        <img src="{match.get('away_logo', 'https://via.placeholder.com/30')}" class="logo-small">
+                    </div>
                     <span class="live-badge">🔴 مباشر</span>
                 </div>
-                <p style="font-size: 18px;">🏆 {match['league']} | ⚽ {match['home_score']} - {match['away_score']}</p>
+                <p style="font-size: 18px; margin-top: 10px;">
+                    🏆 {match['league']} 
+                    <img src="{match.get('league_logo', 'https://via.placeholder.com/20')}" style="width:20px; height:20px; display:inline; vertical-align:middle;"> 
+                    | ⚽ {match['home_score']} - {match['away_score']}
+                </p>
                 <div style="margin-top: 15px;">
                     {"".join([f'<a class="stream-btn" href="{s["url"]}" target="_blank">📺 {s["title"][:30]}... {"<span class=\"verified\">موثوق</span>" if s.get("verified") else ""}</a>' for s in streams]) if streams else "<p>سيتم إضافة روابط البث قريباً...</p>"}
                 </div>
@@ -273,8 +295,18 @@ if upcoming:
             with st.container():
                 st.markdown(f"""
                 <div style="background: #2a2a40; padding: 15px; border-radius: 15px; margin-bottom: 15px;">
-                    <h4>{match['home_team']} vs {match['away_team']}</h4>
-                    <p>🏆 {match['league']}</p>
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; align-items: center;">
+                            <img src="{match.get('home_logo', 'https://via.placeholder.com/30')}" style="width:25px; height:25px; margin-left:5px;">
+                            <h4>{match['home_team']}</h4>
+                        </div>
+                        <span>vs</span>
+                        <div style="display: flex; align-items: center;">
+                            <h4>{match['away_team']}</h4>
+                            <img src="{match.get('away_logo', 'https://via.placeholder.com/30')}" style="width:25px; height:25px; margin-right:5px;">
+                        </div>
+                    </div>
+                    <p style="margin-top:5px;">🏆 {match['league']} <img src="{match.get('league_logo', 'https://via.placeholder.com/20')}" style="width:18px; height:18px; display:inline;"></p>
                     <p><span class="countdown">⏳ {time_left}</span></p>
                     {"".join([f'<a class="stream-btn" style="padding:5px 10px; font-size:14px;" href="{s["url"]}" target="_blank">▶️ بث</a>' for s in streams]) if streams else "<p style='color:#aaa'>الروابط قبل المباراة بساعة</p>"}
                     <p><small>أين تشاهد: {", ".join([b["name"] for b in broadcasters]) if broadcasters else "غير معروف"}</small></p>
@@ -317,8 +349,11 @@ with st.form("suggest_stream"):
             "submitted_at": datetime.now().isoformat(),
             "approved": False
         }
-        supabase.table("suggested_streams").insert(data).execute()
-        st.success("شكراً! سيتم مراجعة الرابط وإضافته قريباً.")
+        try:
+            supabase.table("suggested_streams").insert(data).execute()
+            st.success("شكراً! سيتم مراجعة الرابط وإضافته قريباً.")
+        except Exception as e:
+            st.error("حدث خطأ في إرسال الرابط. يرجى المحاولة لاحقاً.")
 
 # --- PopAds pop-under script (place at bottom) ---
 st.components.v1.html("""
