@@ -9,8 +9,8 @@ import time
 # Environment variables
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_ANON_KEY = os.environ["SUPABASE_ANON_KEY"]
-FOOTBALL_DATA_TOKEN = os.environ["FOOTBALL_DATA_TOKEN"]   # your new token
-YOUTUBE_API_KEY = os.environ["YOUTUBE_API_KEY"]           # keep this for stream search
+FOOTBALL_DATA_TOKEN = os.environ["FOOTBALL_DATA_TOKEN"]
+YOUTUBE_API_KEY = os.environ["YOUTUBE_API_KEY"]   # optional, for streams
 
 # Initialize Supabase
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
@@ -21,31 +21,24 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 API_BASE_URL = "https://api.football-data.org/v4"
 HEADERS = { "X-Auth-Token": FOOTBALL_DATA_TOKEN }
 
-# Free tier allows only certain competitions – you can expand this list
+# TheSportsDB API for logos (free, no key required)
+THESPORTSDB_URL = "https://www.thesportsdb.com/api/v1/json/3/searchteams.php"
+
 ALLOWED_COMPETITIONS = [
-    "PL",   # Premier League
-    "PD",   # La Liga
-    "BL1",  # Bundesliga
-    "SA",   # Serie A
-    "FL1",  # Ligue 1
-    "CL",   # Champions League
-    "EC",   # European Championship
-    "WC",   # World Cup
-    # Add more competition codes as needed: https://www.football-data.org/docs/v4/index.html#competitions
+    "PL", "PD", "BL1", "SA", "FL1", "CL", "EC", "WC",
+    # Add Arab league codes here if you know them
 ]
 
 def fetch_all_competitions():
-    """Fetch list of all competitions (leagues) from football-data.org."""
+    """Fetch list of all competitions."""
     url = f"{API_BASE_URL}/competitions"
     try:
         resp = requests.get(url, headers=HEADERS, timeout=10)
-        print(f"Competitions API status: {resp.status_code}")
         if resp.status_code != 200:
             print(f"Error response: {resp.text}")
             return []
         data = resp.json()
         competitions = data.get("competitions", [])
-        # Filter to only allowed competitions (optional)
         filtered = [c for c in competitions if c["code"] in ALLOWED_COMPETITIONS]
         print(f"Found {len(filtered)} allowed competitions")
         return filtered
@@ -54,20 +47,17 @@ def fetch_all_competitions():
         return []
 
 def fetch_matches(competition_code=None, date_from=None, date_to=None, status=None):
-    """
-    Fetch matches – can be filtered by competition, date range, and status.
-    For live scores, use status = "LIVE".
-    """
+    """Fetch matches from football-data.org."""
     url = f"{API_BASE_URL}/matches"
     params = {}
     if competition_code:
-        params["competitions"] = competition_code   # note: plural 'competitions'
+        params["competitions"] = competition_code
     if date_from:
         params["dateFrom"] = date_from
     if date_to:
         params["dateTo"] = date_to
     if status:
-        params["status"] = status   # e.g., "LIVE", "FINISHED", "SCHEDULED"
+        params["status"] = status
 
     try:
         resp = requests.get(url, headers=HEADERS, params=params, timeout=10)
@@ -78,18 +68,50 @@ def fetch_matches(competition_code=None, date_from=None, date_to=None, status=No
         print(f"Error fetching matches: {e}")
         return []
 
+def get_team_logo(team_name):
+    """
+    Fetch team logo from TheSportsDB and store in team_logos table.
+    Returns logo URL or None.
+    """
+    # First check if we already have it in the database
+    existing = supabase.table("team_logos")\
+        .select("logo_url")\
+        .eq("team_name", team_name)\
+        .execute()\
+        .data
+    if existing and existing[0]["logo_url"]:
+        return existing[0]["logo_url"]
+
+    # Not found, query TheSportsDB
+    try:
+        params = {"t": team_name}
+        resp = requests.get(THESPORTSDB_URL, params=params, timeout=5)
+        data = resp.json()
+        teams = data.get("teams", [])
+        if teams:
+            logo = teams[0].get("strTeamBadge") or teams[0].get("strTeamLogo")
+            if logo:
+                # Store in database
+                supabase.table("team_logos").upsert(
+                    {"team_name": team_name, "logo_url": logo},
+                    on_conflict="team_name"
+                ).execute()
+                return logo
+    except Exception as e:
+        print(f"Error fetching logo for {team_name}: {e}")
+    return None
+
 def parse_match(match):
     """
-    Convert a football-data.org match object to our database format.
+    Convert football-data.org match object to our format, fetching logos.
     """
     competition = match.get("competition", {})
     home_team = match.get("homeTeam", {})
     away_team = match.get("awayTeam", {})
     score = match.get("score", {})
-    full_time = score.get("fullTime", {})
     status = match.get("status", "SCHEDULED")
 
-    # Map status to our categories
+    # Map status
     if status in ["FINISHED"]:
         status_cat = "FINISHED"
     elif status in ["IN_PLAY", "PAUSED"]:
@@ -97,16 +119,28 @@ def parse_match(match):
     else:
         status_cat = "UPCOMING"
 
-    # Get scores (may be null)
-    home_score = full_time.get("home") if full_time.get("home") is not None else 0
-    away_score = full_time.get("away") if full_time.get("away") is not None else 0
+    # Get scores
+    if status_cat == "LIVE":
+        regular = score.get("regularTime", {})
+        home_score = regular.get("home", 0)
+        away_score = regular.get("away", 0)
+    else:
+        full = score.get("fullTime", {})
+        home_score = full.get("home", 0)
+        away_score = full.get("away", 0)
 
-    # Build match data – no logo fields
+    # Get logos (they may be None if not found)
+    home_logo = get_team_logo(home_team.get("name"))
+    away_logo = get_team_logo(away_team.get("name"))
+
     match_data = {
         "fixture_id": match["id"],
         "league": competition.get("name", "Unknown"),
+        "league_logo": None,   # football-data.org doesn't have league logos
         "home_team": home_team.get("name", "Unknown"),
         "away_team": away_team.get("name", "Unknown"),
+        "home_logo": home_logo,
+        "away_logo": away_logo,
         "match_time": match.get("utcDate"),
         "status": status_cat,
         "home_score": home_score,
@@ -115,6 +149,7 @@ def parse_match(match):
         "broadcasters": []
     }
     return match_data
+
 def search_youtube_streams(match):
     """Search YouTube for free streams (unchanged)."""
     query = f"{match['home_team']} vs {match['away_team']} live"
@@ -149,34 +184,31 @@ def search_youtube_streams(match):
         return []
 
 def update_all_matches():
-    """Main update – fetch today's matches for all allowed competitions."""
     print(f"[{datetime.now()}] Running global match update...")
 
     competitions = fetch_all_competitions()
     if not competitions:
-        print("No competitions found. Check your token and network.")
+        print("No competitions found.")
         return
 
     today = datetime.now().strftime("%Y-%m-%d")
-    tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+    next_week = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
 
     for comp in competitions:
         code = comp["code"]
         name = comp["name"]
         print(f"Fetching matches for {name} ({code})...")
 
-        # Get matches from today and tomorrow (covers upcoming and live)
-        matches = fetch_matches(competition_code=code, date_from=today, date_to=tomorrow)
+        matches = fetch_matches(competition_code=code, date_from=today, date_to=next_week)
 
         for match in matches:
             match_data = parse_match(match)
 
-            # Search for YouTube streams (only for live/upcoming)
             if match_data["status"] in ["LIVE", "UPCOMING"]:
                 streams = search_youtube_streams(match_data)
                 match_data["streams"] = json.dumps(streams)
 
-            # Check for admin streams (if any)
+            # Admin streams check (unchanged)
             admin_streams = supabase.table("admin_streams")\
                 .select("*")\
                 .eq("fixture_id", match_data["fixture_id"])\
@@ -195,12 +227,11 @@ def update_all_matches():
                     })
                 match_data["streams"] = json.dumps(existing)
 
-            # Upsert into Supabase
             supabase.table("matches").upsert(match_data, on_conflict="fixture_id").execute()
             print(f"Updated: {match_data['home_team']} vs {match_data['away_team']}")
-            time.sleep(0.5)   # be gentle
+            time.sleep(0.5)
 
-        time.sleep(1)   # pause between competitions
+        time.sleep(1)
 
     # Clean up expired admin streams
     now = datetime.now().isoformat()
@@ -212,14 +243,11 @@ def update_all_matches():
     print("Global update complete!")
 
 def update_live():
-    """Update only live matches."""
     print(f"[{datetime.now()}] Running live update...")
-    # football-data.org supports filtering by status=LIVE
     matches = fetch_matches(status="LIVE")
     for match in matches:
         match_data = parse_match(match)
 
-        # Check for admin streams (same as above)
         admin_streams = supabase.table("admin_streams")\
             .select("*")\
             .eq("fixture_id", match_data["fixture_id"])\
