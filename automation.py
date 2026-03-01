@@ -208,7 +208,6 @@ def update_live():
     live_matches = fetch_matches(status="LIVE")
     for match in live_matches:
         match_data = parse_match(match)
-        # Admin streams check (keep it if you want)
         supabase.table("matches").upsert(match_data, on_conflict="fixture_id").execute()
         print(f"Updated live: {match_data['home_team']} vs {match_data['away_team']}")
 
