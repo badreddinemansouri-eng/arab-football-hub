@@ -212,7 +212,7 @@ with st.sidebar:
     # Importance filter
     st.markdown("---")
     st.header("⭐ **أهمية المباراة**")
-    min_importance = st.slider("أقل أهمية", 0, 100, 50)
+    min_importance = st.slider("أقل أهمية", 0, 100, 0)
     
     # Admin section
     st.markdown("---")
