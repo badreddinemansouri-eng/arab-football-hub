@@ -23,7 +23,7 @@ SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
 
 # --- Admin password (change this to something secure) ---
-ADMIN_PASSWORD_HASH = hashlib.sha256("badr11101999.".encode()).hexdigest()  # Change this!
+ADMIN_PASSWORD_HASH = hashlib.sha256("admin123".encode()).hexdigest()  # Change this!
 
 # --- Connect to Supabase ---
 @st.cache_resource
@@ -38,11 +38,11 @@ if "admin_authenticated" not in st.session_state:
 if "show_admin" not in st.session_state:
     st.session_state.show_admin = False
 
-# --- Inject ad scripts ---
+# --- Inject ad scripts (replace with your actual codes) ---
 st.markdown("""
 <script type="text/javascript" data-cfasync="false" src="https://your-propellerads-script.com"></script>
 <script type="text/javascript">
-    var infolinks_pid = 1234567;
+    var infolinks_pid = 1234567;   // Replace with your Infolinks PID
     var infolinks_wsid = 0;
 </script>
 <script type="text/javascript" src="//resources.infolinks.com/js/infolinks_main.js"></script>
@@ -175,7 +175,7 @@ with st.sidebar:
     st.header("📢 **ادعم الموقع**")
     st.info("الإعلانات تساعدنا في استمرار الخدمة مجاناً للجميع.")
     
-    # Affiliate banner
+    # Affiliate banner (replace with your affiliate link and image)
     st.markdown("""
     <a href="https://your-affiliate-link.com" target="_blank">
         <img src="https://your-affiliate-banner-url.com/banner.jpg" style="width:100%; border-radius:10px;">
@@ -199,7 +199,6 @@ with st.sidebar:
     st.markdown("---")
     st.header("🏆 **تصفية البطولات**")
     
-    # Fetch distinct leagues for filter
     @st.cache_data(ttl=300)
     def get_distinct_leagues():
         response = supabase.table("matches").select("league").execute()
@@ -241,7 +240,6 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
         st.markdown("<div class='admin-panel'>", unsafe_allow_html=True)
         st.header("👑 **لوحة تحكم المشرف - إضافة روابط يدوية**")
         
-        # Fetch upcoming matches for admin selection
         @st.cache_data(ttl=60)
         def get_upcoming_matches():
             response = supabase.table("matches")\
@@ -495,6 +493,7 @@ if upcoming:
                     importance = match.get("importance_score", 0)
                     star = "⭐" if importance >= 85 else ""
                     
+                    # The line below was fixed: used single quotes for the else string
                     st.markdown(f"""
                     <div style="background: #2a2a40; padding: 15px; border-radius: 15px; margin-bottom: 15px;">
                         <div style="display: flex; align-items: center; justify-content: space-between;">
@@ -513,7 +512,7 @@ if upcoming:
                             <span class="countdown">⏳ {time_left}</span>
                             <span>{star}</span>
                         </div>
-                        {"".join([f'<a class="stream-btn" style="padding:5px 10px; font-size:14px;" href="{s["url"]}" target="_blank">▶️ بث</a>' for s in streams[:2]]) if streams else "<p style="color:#aaa">الروابط قبل المباراة بساعة</p>"}
+                        { "".join([f'<a class="stream-btn" style="padding:5px 10px; font-size:14px;" href="{s["url"]}" target="_blank">▶️ بث</a>' for s in streams[:2]]) if streams else '<p style="color:#aaa">الروابط قبل المباراة بساعة</p>' }
                     </div>
                     """, unsafe_allow_html=True)
 else:
@@ -526,14 +525,11 @@ st.header("🌍 **البطولات حول العالم**")
 @st.cache_data(ttl=3600)
 def get_league_stats():
     response = supabase.table("matches").select("league, country, count").execute()
-    # Count matches per league
     leagues_count = {}
     for m in response.data:
         league = m.get("league")
         if league:
             leagues_count[league] = leagues_count.get(league, 0) + 1
-    
-    # Sort by count
     sorted_leagues = sorted(leagues_count.items(), key=lambda x: x[1], reverse=True)[:20]
     return sorted_leagues
 
