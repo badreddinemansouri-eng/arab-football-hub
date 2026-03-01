@@ -524,14 +524,22 @@ st.header("🌍 **البطولات حول العالم**")
 
 @st.cache_data(ttl=3600)
 def get_league_stats():
-    # Use proper group by to get counts per league
+    """Get league statistics without using group_by (compatible with all Supabase versions)"""
     try:
-        response = supabase.table("matches").select("league, count(*)").group_by("league").execute()
+        # Simply fetch all matches and count leagues manually
+        response = supabase.table("matches").select("league").execute()
+        
         if response.data:
+            # Count occurrences of each league
+            league_counts = {}
+            for match in response.data:
+                league = match.get("league")
+                if league:
+                    league_counts[league] = league_counts.get(league, 0) + 1
+            
             # Sort by count descending
-            sorted_data = sorted(response.data, key=lambda x: x["count"], reverse=True)
-            # Return list of (league, count) tuples for compatibility
-            return [(item["league"], item["count"]) for item in sorted_data[:20]]
+            sorted_leagues = sorted(league_counts.items(), key=lambda x: x[1], reverse=True)
+            return sorted_leagues[:20]  # Return top 20
         else:
             return []
     except Exception as e:
