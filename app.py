@@ -15,7 +15,8 @@ st.set_page_config(
 )
 
 # --- Auto-refresh page every 5 minutes ---
-st.autorefresh(interval=300000, key="page_refresh")
+# Auto-refresh page every 5 minutes using meta tag
+st.markdown('<meta http-equiv="refresh" content="300">', unsafe_allow_html=True)
 
 # --- Load secrets ---
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
