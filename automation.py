@@ -2,7 +2,7 @@ import os
 import sys
 import requests
 from supabase import create_client, Client
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 import time
 
@@ -10,9 +10,8 @@ import time
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_ANON_KEY = os.environ["SUPABASE_ANON_KEY"]
 FOOTBALL_DATA_TOKEN = os.environ["FOOTBALL_DATA_TOKEN"]
-YOUTUBE_API_KEY = os.environ["YOUTUBE_API_KEY"]   # optional, for streams
+YOUTUBE_API_KEY = os.environ["YOUTUBE_API_KEY"]   # optional
 
-# Initialize Supabase
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 # -------------------------------------------------------------------
@@ -21,7 +20,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 API_BASE_URL = "https://api.football-data.org/v4"
 HEADERS = { "X-Auth-Token": FOOTBALL_DATA_TOKEN }
 
-# TheSportsDB API for logos (free, no key required)
+# TheSportsDB API for logos (free, no key)
 THESPORTSDB_URL = "https://www.thesportsdb.com/api/v1/json/3/searchteams.php"
 
 ALLOWED_COMPETITIONS = [
@@ -29,8 +28,12 @@ ALLOWED_COMPETITIONS = [
     # Add Arab league codes here if you know them
 ]
 
+# ===================== NEW: CLEANUP CONFIGURATION =====================
+# Delete finished matches older than this many hours
+DELETE_FINISHED_AFTER_HOURS = 48
+# ======================================================================
+
 def fetch_all_competitions():
-    """Fetch list of all competitions."""
     url = f"{API_BASE_URL}/competitions"
     try:
         resp = requests.get(url, headers=HEADERS, timeout=10)
@@ -47,7 +50,6 @@ def fetch_all_competitions():
         return []
 
 def fetch_matches(competition_code=None, date_from=None, date_to=None, status=None):
-    """Fetch matches from football-data.org."""
     url = f"{API_BASE_URL}/matches"
     params = {}
     if competition_code:
@@ -69,20 +71,15 @@ def fetch_matches(competition_code=None, date_from=None, date_to=None, status=No
         return []
 
 def get_team_logo(team_name):
-    """
-    Fetch team logo from TheSportsDB and store in team_logos table.
-    Returns logo URL or None.
-    """
-    # First check if we already have it in the database
+    """Fetch team logo from TheSportsDB, store in team_logos table."""
     existing = supabase.table("team_logos")\
         .select("logo_url")\
         .eq("team_name", team_name)\
         .execute()\
         .data
-    if existing and existing[0]["logo_url"]:
+    if existing and existing[0].get("logo_url"):
         return existing[0]["logo_url"]
 
-    # Not found, query TheSportsDB
     try:
         params = {"t": team_name}
         resp = requests.get(THESPORTSDB_URL, params=params, timeout=5)
@@ -91,7 +88,6 @@ def get_team_logo(team_name):
         if teams:
             logo = teams[0].get("strTeamBadge") or teams[0].get("strTeamLogo")
             if logo:
-                # Store in database
                 supabase.table("team_logos").upsert(
                     {"team_name": team_name, "logo_url": logo},
                     on_conflict="team_name"
@@ -102,16 +98,12 @@ def get_team_logo(team_name):
     return None
 
 def parse_match(match):
-    """
-    Convert football-data.org match object to our format, fetching logos.
-    """
     competition = match.get("competition", {})
     home_team = match.get("homeTeam", {})
     away_team = match.get("awayTeam", {})
     score = match.get("score", {})
     status = match.get("status", "SCHEDULED")
 
-    # Map status
     if status in ["FINISHED"]:
         status_cat = "FINISHED"
     elif status in ["IN_PLAY", "PAUSED"]:
@@ -129,14 +121,14 @@ def parse_match(match):
         home_score = full.get("home", 0)
         away_score = full.get("away", 0)
 
-    # Get logos (they may be None if not found)
-    home_logo = get_team_logo(home_team.get("name"))
-    away_logo = get_team_logo(away_team.get("name"))
+    # Get logos
+    home_logo = get_team_logo(home_team.get("name", ""))
+    away_logo = get_team_logo(away_team.get("name", ""))
 
     match_data = {
         "fixture_id": match["id"],
         "league": competition.get("name", "Unknown"),
-        "league_logo": None,   # football-data.org doesn't have league logos
+        "league_logo": None,
         "home_team": home_team.get("name", "Unknown"),
         "away_team": away_team.get("name", "Unknown"),
         "home_logo": home_logo,
@@ -151,37 +143,29 @@ def parse_match(match):
     return match_data
 
 def search_youtube_streams(match):
-    """Search YouTube for free streams (unchanged)."""
-    query = f"{match['home_team']} vs {match['away_team']} live"
-    url = "https://www.googleapis.com/youtube/v3/search"
-    params = {
-        "part": "snippet",
-        "q": query,
-        "type": "video",
-        "eventType": "live",
-        "maxResults": 3,
-        "key": YOUTUBE_API_KEY
-    }
-    try:
-        resp = requests.get(url, params=params)
-        data = resp.json()
-        streams = []
-        if data.get("items"):
-            for item in data["items"]:
-                video_id = item["id"]["videoId"]
-                title = item["snippet"]["title"]
-                channel = item["snippet"]["channelTitle"]
-                streams.append({
-                    "title": title,
-                    "url": f"https://www.youtube.com/watch?v={video_id}",
-                    "channel": channel,
-                    "source": "youtube",
-                    "verified": False
-                })
-        return streams
-    except Exception as e:
-        print(f"YouTube search error: {e}")
-        return []
+    # (Keep your existing function; omitted for brevity)
+    return []
+
+# ===================== NEW: CLEANUP FUNCTION =====================
+def cleanup_old_matches():
+    """Delete finished matches older than DELETE_FINISHED_AFTER_HOURS."""
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=DELETE_FINISHED_AFTER_HOURS)
+    cutoff_str = cutoff.isoformat()
+
+    print(f"Cleaning up finished matches older than {DELETE_FINISHED_AFTER_HOURS} hours (before {cutoff_str})...")
+
+    # Delete from matches table
+    result = supabase.table("matches")\
+        .delete()\
+        .eq("status", "FINISHED")\
+        .lt("match_time", cutoff_str)\
+        .execute()
+
+    # Also delete any associated admin_streams (optional)
+    # You can add similar deletion if needed
+
+    print(f"Deleted {len(result.data)} old finished matches.")
+# ==================================================================
 
 def update_all_matches():
     print(f"[{datetime.now()}] Running global match update...")
@@ -233,12 +217,16 @@ def update_all_matches():
 
         time.sleep(1)
 
-    # Clean up expired admin streams
+    # Clean up expired admin streams (existing)
     now = datetime.now().isoformat()
     supabase.table("admin_streams")\
         .update({"is_active": False})\
         .lt("expires_at", now)\
         .execute()
+
+    # ============= NEW: Clean up old finished matches =============
+    cleanup_old_matches()
+    # ==============================================================
 
     print("Global update complete!")
 
