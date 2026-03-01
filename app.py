@@ -135,12 +135,11 @@ with col2:
 
 st.markdown("---")
 
-# ==================== PROFESSIONAL SIDEBAR WITH THREE SECTIONS ====================
+# --- Sidebar with professional three‑section layout ---
 with st.sidebar:
     st.header("📢 **ادعم الموقع**")
     st.info("الإعلانات تساعدنا في استمرار الخدمة مجاناً للجميع.")
     
-    # Affiliate banner (replace with your actual links)
     st.markdown("""
     <a href="https://your-affiliate-link.com" target="_blank">
         <img src="https://your-affiliate-banner-url.com/banner.jpg" style="width:100%; border-radius:10px;">
@@ -149,13 +148,11 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # --- SECTION 1: الإعدادات (Settings) ---
     with st.expander("⚙️ **الإعدادات**", expanded=True):
         low_bandwidth = st.checkbox("وضع الانترنت الضعيف (نص فقط)")
         show_all_leagues = st.checkbox("عرض جميع البطولات", value=True)
         hide_old_finished = st.checkbox("إخفاء المباريات المنتهية بعد ساعتين", value=True)
     
-    # --- SECTION 2: تصفية البطولات (League Filters) ---
     with st.expander("🏆 **تصفية البطولات**", expanded=True):
         @st.cache_data(ttl=300)
         def get_distinct_leagues():
@@ -170,7 +167,6 @@ with st.sidebar:
         st.subheader("⭐ **أهمية المباراة**")
         min_importance = st.slider("أقل أهمية", 0, 100, 0)
     
-    # --- SECTION 3: لوحة التحكم (Admin) ---
     with st.expander("👑 **لوحة التحكم**", expanded=False):
         if not st.session_state.admin_authenticated:
             admin_password = st.text_input("كلمة المرور", type="password")
@@ -198,9 +194,7 @@ with st.sidebar:
     with cols[1]:
         st.markdown("[![Telegram](https://img.icons8.com/color/48/000000/telegram-app--v1.png)](https://t.me/your_bot)")
 
-# ==================== END OF SIDEBAR ====================
-
-# --- Admin Panel (only shown when authenticated and show_admin is True) ---
+# --- Admin Panel (only when authenticated) ---
 if st.session_state.admin_authenticated and st.session_state.show_admin:
     with st.container():
         st.markdown("<div class='admin-panel'>", unsafe_allow_html=True)
@@ -324,7 +318,16 @@ def time_until(match_time_str):
         return "---"
 
 def get_match_status_display(match):
+    # Safety filter: if match is marked LIVE but started more than 3 hours ago, treat as finished
     if match["status"] == "LIVE":
+        try:
+            match_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
+            now = datetime.now(match_time.tzinfo)
+            # Assume a match lasts at most 2.5 hours; after 3 hours it's definitely over
+            if now > match_time + timedelta(hours=3):
+                return "✅ انتهت (تأخير)"
+        except:
+            pass
         minute = match.get("minute")
         if minute:
             return f"🟢 مباشر ({minute}')"
@@ -383,7 +386,17 @@ else:
 
 # --- Live Matches Section ---
 st.header("🔥 **المباريات المباشرة الآن**")
-live_matches = [m for m in matches if m["status"] == "LIVE"]
+live_matches = []
+for m in matches:
+    if m["status"] == "LIVE":
+        # Apply the same safety filter
+        try:
+            match_time = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00'))
+            now = datetime.now(match_time.tzinfo)
+            if now <= match_time + timedelta(hours=3):
+                live_matches.append(m)
+        except:
+            live_matches.append(m)
 
 if live_matches:
     for match in live_matches:
