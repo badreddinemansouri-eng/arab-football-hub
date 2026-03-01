@@ -33,7 +33,7 @@ BROADCASTER_MAP = {
         {"name": "SSC", "url": "https://affiliate-link.com/ssc", "paid": True},
         {"name": "Shahid", "url": "https://affiliate-link.com/shahid", "paid": True}
     ],
-    # Add more leagues...
+    # Add more leagues as needed
 }
 
 def fetch_live_matches():
@@ -62,10 +62,10 @@ def fetch_todays_matches():
     return data.get("response", [])
 
 def parse_match(item):
-    """Convert API response item to our match dict."""
+    """Convert API response item to our match dict with logos."""
     fixture = item["fixture"]
     teams = item["teams"]
-    league = item["league"]["name"]
+    league = item["league"]
     goals = item["goals"]
     status = fixture["status"]["short"]
     # Map status
@@ -77,15 +77,18 @@ def parse_match(item):
         status_cat = "UPCOMING"
     return {
         "fixture_id": fixture["id"],
-        "league": league,
+        "league": league["name"],
+        "league_logo": league.get("logo"),          # new: league logo
         "home_team": teams["home"]["name"],
         "away_team": teams["away"]["name"],
+        "home_logo": teams["home"].get("logo"),     # new: home team logo
+        "away_logo": teams["away"].get("logo"),     # new: away team logo
         "match_time": fixture["date"],
         "status": status_cat,
         "home_score": goals["home"] if goals["home"] is not None else 0,
         "away_score": goals["away"] if goals["away"] is not None else 0,
         "streams": [],
-        "broadcasters": BROADCASTER_MAP.get(league, [])
+        "broadcasters": BROADCASTER_MAP.get(league["name"], [])
     }
 
 def search_youtube_streams(match):
