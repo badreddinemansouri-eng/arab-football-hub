@@ -3,7 +3,7 @@ name: Live Match Updates
 on:
   schedule:
     # Every 3 minutes for live matches
-    - cron: '*/5 * * * *'
+    - cron: '*/5 14-23 * * *'
   workflow_dispatch:
 
 jobs:
@@ -23,4 +23,5 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          FOOTBALL_DATA_TOKEN: ${{ secrets.FOOTBALL_DATA_TOKEN }}
         run: python automation.py live
