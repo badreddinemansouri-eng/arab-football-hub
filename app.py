@@ -23,7 +23,7 @@ SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
 
 # --- Admin password (change this to something secure) ---
-ADMIN_PASSWORD_HASH = hashlib.sha256("admin123".encode()).hexdigest()  # Change this!
+ADMIN_PASSWORD_HASH = hashlib.sha256("badr11101999.".encode()).hexdigest()  # Change this!
 
 # --- Connect to Supabase ---
 @st.cache_resource
@@ -201,6 +201,7 @@ with st.sidebar:
     
     @st.cache_data(ttl=300)
     def get_distinct_leagues():
+        # Fetch all matches, extract unique league names (simpler than group by)
         response = supabase.table("matches").select("league").execute()
         leagues = list(set([m["league"] for m in response.data if m.get("league")]))
         return sorted(leagues)
@@ -493,7 +494,6 @@ if upcoming:
                     importance = match.get("importance_score", 0)
                     star = "⭐" if importance >= 85 else ""
                     
-                    # The line below was fixed: used single quotes for the else string
                     st.markdown(f"""
                     <div style="background: #2a2a40; padding: 15px; border-radius: 15px; margin-bottom: 15px;">
                         <div style="display: flex; align-items: center; justify-content: space-between;">
@@ -524,14 +524,19 @@ st.header("🌍 **البطولات حول العالم**")
 
 @st.cache_data(ttl=3600)
 def get_league_stats():
-    response = supabase.table("matches").select("league, country, count").execute()
-    leagues_count = {}
-    for m in response.data:
-        league = m.get("league")
-        if league:
-            leagues_count[league] = leagues_count.get(league, 0) + 1
-    sorted_leagues = sorted(leagues_count.items(), key=lambda x: x[1], reverse=True)[:20]
-    return sorted_leagues
+    # Use proper group by to get counts per league
+    try:
+        response = supabase.table("matches").select("league, count(*)").group_by("league").execute()
+        if response.data:
+            # Sort by count descending
+            sorted_data = sorted(response.data, key=lambda x: x["count"], reverse=True)
+            # Return list of (league, count) tuples for compatibility
+            return [(item["league"], item["count"]) for item in sorted_data[:20]]
+        else:
+            return []
+    except Exception as e:
+        st.error(f"خطأ في إحصائيات البطولات: {e}")
+        return []
 
 league_stats = get_league_stats()
 
