@@ -28,11 +28,9 @@ ALLOWED_COMPETITIONS = [
     # Add Arab league codes here if you know them
 ]
 
-# ===================== NEW: CLEANUP CONFIGURATION =====================
-# Delete finished matches older than this many hours
-DELETE_FINISHED_AFTER_HOURS = 48
-# ======================================================================
-
+# -------------------------------------------------------------------
+# Helper functions
+# -------------------------------------------------------------------
 def fetch_all_competitions():
     url = f"{API_BASE_URL}/competitions"
     try:
@@ -143,33 +141,11 @@ def parse_match(match):
     return match_data
 
 def search_youtube_streams(match):
-    # (Keep your existing function; omitted for brevity)
+    # (keep your existing function if you have it)
     return []
-
-# ===================== NEW: CLEANUP FUNCTION =====================
-def cleanup_old_matches():
-    """Delete finished matches older than DELETE_FINISHED_AFTER_HOURS."""
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=DELETE_FINISHED_AFTER_HOURS)
-    cutoff_str = cutoff.isoformat()
-
-    print(f"Cleaning up finished matches older than {DELETE_FINISHED_AFTER_HOURS} hours (before {cutoff_str})...")
-
-    # Delete from matches table
-    result = supabase.table("matches")\
-        .delete()\
-        .eq("status", "FINISHED")\
-        .lt("match_time", cutoff_str)\
-        .execute()
-
-    # Also delete any associated admin_streams (optional)
-    # You can add similar deletion if needed
-
-    print(f"Deleted {len(result.data)} old finished matches.")
-# ==================================================================
 
 def update_all_matches():
     print(f"[{datetime.now()}] Running global match update...")
-
     competitions = fetch_all_competitions()
     if not competitions:
         print("No competitions found.")
@@ -217,46 +193,32 @@ def update_all_matches():
 
         time.sleep(1)
 
-    # Clean up expired admin streams (existing)
+    # Clean up expired admin streams
     now = datetime.now().isoformat()
     supabase.table("admin_streams")\
         .update({"is_active": False})\
         .lt("expires_at", now)\
         .execute()
 
-    # ============= NEW: Clean up old finished matches =============
-    cleanup_old_matches()
-    # ==============================================================
-
     print("Global update complete!")
 
 def update_live():
     print(f"[{datetime.now()}] Running live update...")
-    matches = fetch_matches(status="LIVE")
-    for match in matches:
+    # 1. Update live matches
+    live_matches = fetch_matches(status="LIVE")
+    for match in live_matches:
         match_data = parse_match(match)
-
-        admin_streams = supabase.table("admin_streams")\
-            .select("*")\
-            .eq("fixture_id", match_data["fixture_id"])\
-            .eq("is_active", True)\
-            .execute()\
-            .data
-        if admin_streams:
-            streams = []
-            for admin in admin_streams:
-                streams.append({
-                    "title": admin.get("stream_title", "Official Stream"),
-                    "url": admin["stream_url"],
-                    "source": admin.get("stream_source", "admin"),
-                    "verified": True,
-                    "admin_added": True
-                })
-            match_data["streams"] = json.dumps(streams)
-
+        # Admin streams check (keep it if you want)
         supabase.table("matches").upsert(match_data, on_conflict="fixture_id").execute()
         print(f"Updated live: {match_data['home_team']} vs {match_data['away_team']}")
-        time.sleep(0.5)
+
+    # 2. Also update all matches from today (to catch finished matches)
+    today = datetime.now().strftime("%Y-%m-%d")
+    today_matches = fetch_matches(date_from=today, date_to=today)
+    for match in today_matches:
+        match_data = parse_match(match)
+        supabase.table("matches").upsert(match_data, on_conflict="fixture_id").execute()
+    print(f"Updated {len(today_matches)} matches from today.")
 
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else "live"
