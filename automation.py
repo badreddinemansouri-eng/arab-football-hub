@@ -5,6 +5,7 @@ from supabase import create_client, Client
 from datetime import datetime, timedelta, timezone
 import json
 import time
+import re
 
 # Environment variables
 SUPABASE_URL = os.environ["SUPABASE_URL"]
@@ -21,7 +22,9 @@ API_BASE_URL = "https://api.football-data.org/v4"
 HEADERS = { "X-Auth-Token": FOOTBALL_DATA_TOKEN }
 
 # TheSportsDB API for logos (free, no key)
-THESPORTSDB_URL = "https://www.thesportsdb.com/api/v1/json/3/searchteams.php"
+THESPORTSDB_BASE = "https://www.thesportsdb.com/api/v1/json/3"
+THESPORTSDB_TEAM = f"{THESPORTSDB_BASE}/searchteams.php"
+THESPORTSDB_LEAGUE = f"{THESPORTSDB_BASE}/search_all_leagues.php"  # for league lookup
 
 ALLOWED_COMPETITIONS = [
     "PL", "PD", "BL1", "SA", "FL1", "CL", "EC", "WC",
@@ -29,7 +32,117 @@ ALLOWED_COMPETITIONS = [
 ]
 
 # -------------------------------------------------------------------
-# Helper functions
+# Cache tables (ensure they exist – run SQL separately)
+# -------------------------------------------------------------------
+# CREATE TABLE IF NOT EXISTS team_logos (team_name TEXT PRIMARY KEY, logo_url TEXT, updated_at TIMESTAMP DEFAULT NOW());
+# CREATE TABLE IF NOT EXISTS league_logos (league_name TEXT PRIMARY KEY, logo_url TEXT, updated_at TIMESTAMP DEFAULT NOW());
+
+# -------------------------------------------------------------------
+# Helper functions for name cleaning
+# -------------------------------------------------------------------
+def clean_team_name(name):
+    """Remove common suffixes and normalize for searching."""
+    name = re.sub(r"\s+(FC|AFC|United|City|Real|CF|AC|AS|SS|SC|Club|Deportivo|Futebol|Clube)$", "", name, flags=re.IGNORECASE)
+    return name.strip()
+
+def clean_league_name(name):
+    """Normalize league names for searching (e.g., 'Premier League' -> 'English Premier League')."""
+    # Special mappings for common leagues (expand as needed)
+    mapping = {
+        "Premier League": "English Premier League",
+        "La Liga": "Spanish La Liga",
+        "Bundesliga": "German Bundesliga",
+        "Serie A": "Italian Serie A",
+        "Ligue 1": "French Ligue 1",
+        "Champions League": "UEFA Champions League",
+        "World Cup": "World Cup",
+    }
+    return mapping.get(name, name)
+
+# -------------------------------------------------------------------
+# Logo fetching functions
+# -------------------------------------------------------------------
+def fetch_team_logo(team_name):
+    """Search TheSportsDB for a team logo, store in team_logos table."""
+    # Check cache
+    cached = supabase.table("team_logos").select("logo_url").eq("team_name", team_name).execute()
+    if cached.data and cached.data[0].get("logo_url"):
+        return cached.data[0]["logo_url"]
+
+    # Try variations
+    variations = [
+        team_name,
+        clean_team_name(team_name),
+        team_name.split()[0],  # first word
+    ]
+    # Common synonyms
+    special = {
+        "Manchester United FC": "Manchester United",
+        "Liverpool FC": "Liverpool",
+        "Arsenal FC": "Arsenal",
+        "Chelsea FC": "Chelsea",
+        "Real Madrid CF": "Real Madrid",
+        "FC Barcelona": "Barcelona",
+        "Bayern München": "Bayern Munich",
+        "Juventus FC": "Juventus",
+        "AC Milan": "AC Milan",
+        "Inter Milan": "Inter",
+        "Paris Saint-Germain FC": "PSG",
+    }
+    if team_name in special:
+        variations.append(special[team_name])
+
+    for name in set(variations):  # unique
+        try:
+            resp = requests.get(THESPORTSDB_TEAM, params={"t": name}, timeout=5)
+            data = resp.json()
+            teams = data.get("teams", [])
+            if teams:
+                logo = teams[0].get("strTeamBadge") or teams[0].get("strTeamLogo")
+                if logo:
+                    logo = logo.replace("http://", "https://")
+                    # Cache it
+                    supabase.table("team_logos").upsert(
+                        {"team_name": team_name, "logo_url": logo},
+                        on_conflict="team_name"
+                    ).execute()
+                    return logo
+        except Exception as e:
+            print(f"Error fetching logo for {name}: {e}")
+        time.sleep(0.2)
+    return None
+
+def fetch_league_logo(league_name):
+    """Search TheSportsDB for a league logo, store in league_logos table."""
+    # Check cache
+    cached = supabase.table("league_logos").select("logo_url").eq("league_name", league_name).execute()
+    if cached.data and cached.data[0].get("logo_url"):
+        return cached.data[0]["logo_url"]
+
+    cleaned = clean_league_name(league_name)
+    try:
+        # TheSportsDB has a different endpoint for leagues: search_all_leagues.php
+        # It returns a list of leagues; we need to match by name.
+        resp = requests.get(THESPORTSDB_LEAGUE, params={"l": cleaned}, timeout=5)
+        data = resp.json()
+        # The response may have a 'countries' key with array of leagues
+        leagues = data.get("countrys", []) or data.get("leagues", [])
+        for league in leagues:
+            if league_name.lower() in league.get("strLeague", "").lower():
+                logo = league.get("strBadge") or league.get("strLogo")
+                if logo:
+                    logo = logo.replace("http://", "https://")
+                    supabase.table("league_logos").upsert(
+                        {"league_name": league_name, "logo_url": logo},
+                        on_conflict="league_name"
+                    ).execute()
+                    return logo
+    except Exception as e:
+        print(f"Error fetching league logo for {league_name}: {e}")
+    return None
+
+# -------------------------------------------------------------------
+# Existing functions (fetch_all_competitions, fetch_matches, parse_match)
 # -------------------------------------------------------------------
 def fetch_all_competitions():
     url = f"{API_BASE_URL}/competitions"
@@ -68,40 +181,6 @@ def fetch_matches(competition_code=None, date_from=None, date_to=None, status=No
         print(f"Error fetching matches: {e}")
         return []
 
-def get_team_logo(team_name):
-    """Fetch team logo from TheSportsDB, store in team_logos table."""
-    existing = supabase.table("team_logos")\
-        .select("logo_url")\
-        .eq("team_name", team_name)\
-        .execute()\
-        .data
-    if existing and existing[0].get("logo_url"):
-        print(f"Logo found in cache for {team_name}")
-        return existing[0]["logo_url"]
-
-    try:
-        params = {"t": team_name}
-        resp = requests.get(THESPORTSDB_URL, params=params, timeout=5)
-        data = resp.json()
-        teams = data.get("teams", [])
-        if teams:
-            # TheSportsDB returns HTTP URLs – convert to HTTPS
-            logo = teams[0].get("strTeamBadge") or teams[0].get("strTeamLogo")
-            if logo:
-                logo = logo.replace("http://", "https://")  # force HTTPS
-                print(f"Found logo for {team_name}: {logo}")
-                supabase.table("team_logos").upsert(
-                    {"team_name": team_name, "logo_url": logo},
-                    on_conflict="team_name"
-                ).execute()
-                return logo
-            else:
-                print(f"No logo field in response for {team_name}")
-        else:
-            print(f"No team found in TheSportsDB for '{team_name}'")
-    except Exception as e:
-        print(f"Error fetching logo for {team_name}: {e}")
-    return None
 def parse_match(match):
     competition = match.get("competition", {})
     home_team = match.get("homeTeam", {})
@@ -126,14 +205,15 @@ def parse_match(match):
         home_score = full.get("home", 0)
         away_score = full.get("away", 0)
 
-    # Get logos
-    home_logo = get_team_logo(home_team.get("name", ""))
-    away_logo = get_team_logo(away_team.get("name", ""))
+    # Fetch logos (cached)
+    home_logo = fetch_team_logo(home_team.get("name", ""))
+    away_logo = fetch_team_logo(away_team.get("name", ""))
+    league_logo = fetch_league_logo(competition.get("name", "Unknown"))
 
     match_data = {
         "fixture_id": match["id"],
         "league": competition.get("name", "Unknown"),
-        "league_logo": None,
+        "league_logo": league_logo,
         "home_team": home_team.get("name", "Unknown"),
         "away_team": away_team.get("name", "Unknown"),
         "home_logo": home_logo,
