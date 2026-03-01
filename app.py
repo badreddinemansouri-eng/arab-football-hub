@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from supabase import create_client
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import time
 import requests
 import json
@@ -22,7 +22,7 @@ st.markdown('<meta http-equiv="refresh" content="180">', unsafe_allow_html=True)
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
 
-# --- Admin password (change this to something secure) ---
+# --- Admin password ---
 ADMIN_PASSWORD_HASH = hashlib.sha256("badr11101999.".encode()).hexdigest()
 
 # --- Connect to Supabase ---
@@ -32,7 +32,7 @@ def init_supabase():
 
 supabase = init_supabase()
 
-# --- Session state initialization ---
+# --- Session state ---
 if "admin_authenticated" not in st.session_state:
     st.session_state.admin_authenticated = False
 if "show_admin" not in st.session_state:
@@ -53,16 +53,9 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
     
-    * {
-        font-family: 'Cairo', sans-serif;
-    }
+    * { font-family: 'Cairo', sans-serif; }
+    .main, .block-container, [data-testid="stMarkdownContainer"] { direction: rtl; text-align: right; }
     
-    .main, .block-container, [data-testid="stMarkdownContainer"] {
-        direction: rtl;
-        text-align: right;
-    }
-    
-    /* Responsive match card */
     .match-card {
         background: linear-gradient(135deg, #1e1e2f 0%, #2a2a40 100%);
         color: white;
@@ -73,14 +66,9 @@ st.markdown("""
         border: 1px solid #333;
         transition: transform 0.3s;
     }
-    .match-card:hover {
-        transform: translateY(-5px);
-    }
+    .match-card:hover { transform: translateY(-5px); }
     
-    .featured-card {
-        border: 3px solid gold;
-        box-shadow: 0 0 20px gold;
-    }
+    .featured-card { border: 3px solid gold; box-shadow: 0 0 20px gold; }
     
     .live-badge {
         background: linear-gradient(45deg, #ff4444, #ff6b6b);
@@ -112,129 +100,32 @@ st.markdown("""
         transition: background 0.3s;
         font-size: 14px;
     }
-    .stream-btn:hover {
-        background: #ff5252;
-        color: white;
-    }
+    .stream-btn:hover { background: #ff5252; color: white; }
     
-    .admin-btn {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 10px 20px;
-        border-radius: 30px;
-        text-decoration: none;
-        font-weight: 600;
-        display: inline-block;
-        margin: 5px;
-        border: none;
-        cursor: pointer;
-    }
+    .verified { background: #4CAF50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 5px; }
+    .admin-added { background: #ff9800; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 5px; }
+    .countdown { color: #ffd700; font-weight: bold; }
+    .logo-small { width: 30px; height: 30px; margin: 0 5px; vertical-align: middle; }
+    .country-flag { width: 20px; height: 15px; margin: 0 3px; vertical-align: middle; }
+    .admin-panel { background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); color: white; padding: 20px; border-radius: 10px; margin: 10px 0; }
     
-    .verified {
-        background: #4CAF50;
-        color: white;
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 12px;
-        margin-left: 5px;
-    }
-    
-    .admin-added {
-        background: #ff9800;
-        color: white;
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 12px;
-        margin-left: 5px;
-    }
-    
-    .countdown {
-        color: #ffd700;
-        font-weight: bold;
-    }
-    
-    .importance-high {
-        color: gold;
-        font-weight: bold;
-    }
-    
-    .logo-small {
-        width: 30px;
-        height: 30px;
-        margin: 0 5px;
-        vertical-align: middle;
-    }
-    
-    .country-flag {
-        width: 20px;
-        height: 15px;
-        margin: 0 3px;
-        vertical-align: middle;
-    }
-    
-    .league-filter {
-        background: #2a2a40;
-        padding: 10px;
-        border-radius: 10px;
-        margin-bottom: 15px;
-    }
-    
-    .admin-panel {
-        background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
-        color: white;
-        padding: 20px;
-        border-radius: 10px;
-        margin: 10px 0;
-    }
-    
-    /* Responsive adjustments for mobile */
     @media only screen and (max-width: 768px) {
-        .match-card {
-            padding: 15px;
-        }
-        .match-card h2, .match-card h3 {
-            font-size: 1.2rem;
-        }
-        .match-card .logo-small {
-            width: 24px;
-            height: 24px;
-        }
-        .stream-btn {
-            padding: 6px 12px;
-            font-size: 12px;
-        }
-        .live-badge {
-            font-size: 12px;
-            padding: 4px 8px;
-        }
-        /* Adjust columns in upcoming matches */
-        .st-emotion-cache-1y4p8pa {
-            padding: 1rem 0.5rem;
-        }
+        .match-card { padding: 15px; }
+        .match-card h2, .match-card h3 { font-size: 1.2rem; }
+        .match-card .logo-small { width: 24px; height: 24px; }
+        .stream-btn { padding: 6px 12px; font-size: 12px; }
+        .live-badge { font-size: 12px; padding: 4px 8px; }
     }
-    
-    /* Even smaller screens */
     @media only screen and (max-width: 480px) {
-        .match-card h2, .match-card h3 {
-            font-size: 1rem;
-        }
-        .match-card .logo-small {
-            width: 20px;
-            height: 20px;
-        }
-        .stream-btn {
-            padding: 4px 8px;
-            font-size: 11px;
-        }
-        .live-badge {
-            font-size: 10px;
-            padding: 3px 6px;
-        }
+        .match-card h2, .match-card h3 { font-size: 1rem; }
+        .match-card .logo-small { width: 20px; height: 20px; }
+        .stream-btn { padding: 4px 8px; font-size: 11px; }
+        .live-badge { font-size: 10px; padding: 3px 6px; }
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Header (unchanged) ---
+# --- Header ---
 col1, col2, col3 = st.columns([1, 3, 1])
 with col2:
     st.image("https://img.icons8.com/color/96/000000/football2--v1.png", width=80)
@@ -244,17 +135,60 @@ with col2:
 
 st.markdown("---")
 
-# --- Sidebar (unchanged) ---
+# ==================== PROFESSIONAL SIDEBAR WITH THREE SECTIONS ====================
 with st.sidebar:
     st.header("📢 **ادعم الموقع**")
     st.info("الإعلانات تساعدنا في استمرار الخدمة مجاناً للجميع.")
     
-    # Affiliate banner (replace with your affiliate link and image)
+    # Affiliate banner (replace with your actual links)
     st.markdown("""
     <a href="https://your-affiliate-link.com" target="_blank">
         <img src="https://your-affiliate-banner-url.com/banner.jpg" style="width:100%; border-radius:10px;">
     </a>
     """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # --- SECTION 1: الإعدادات (Settings) ---
+    with st.expander("⚙️ **الإعدادات**", expanded=True):
+        low_bandwidth = st.checkbox("وضع الانترنت الضعيف (نص فقط)")
+        show_all_leagues = st.checkbox("عرض جميع البطولات", value=True)
+        hide_old_finished = st.checkbox("إخفاء المباريات المنتهية بعد ساعتين", value=True)
+    
+    # --- SECTION 2: تصفية البطولات (League Filters) ---
+    with st.expander("🏆 **تصفية البطولات**", expanded=True):
+        @st.cache_data(ttl=300)
+        def get_distinct_leagues():
+            response = supabase.table("matches").select("league").execute()
+            leagues = list(set([m["league"] for m in response.data if m.get("league")]))
+            return sorted(leagues)
+        
+        all_leagues = get_distinct_leagues()
+        selected_leagues = st.multiselect("اختر البطولات", all_leagues, default=[])
+        
+        st.markdown("---")
+        st.subheader("⭐ **أهمية المباراة**")
+        min_importance = st.slider("أقل أهمية", 0, 100, 0)
+    
+    # --- SECTION 3: لوحة التحكم (Admin) ---
+    with st.expander("👑 **لوحة التحكم**", expanded=False):
+        if not st.session_state.admin_authenticated:
+            admin_password = st.text_input("كلمة المرور", type="password")
+            if st.button("دخول"):
+                if hashlib.sha256(admin_password.encode()).hexdigest() == ADMIN_PASSWORD_HASH:
+                    st.session_state.admin_authenticated = True
+                    st.success("تم تسجيل الدخول بنجاح")
+                    st.rerun()
+                else:
+                    st.error("كلمة المرور غير صحيحة")
+        else:
+            st.success("مرحباً أيها المشرف")
+            if st.button("إظهار لوحة التحكم"):
+                st.session_state.show_admin = not st.session_state.show_admin
+            if st.button("تسجيل الخروج"):
+                st.session_state.admin_authenticated = False
+                st.session_state.show_admin = False
+                st.rerun()
     
     st.markdown("---")
     st.header("📲 **تابعنا**")
@@ -263,52 +197,10 @@ with st.sidebar:
         st.markdown("[![WhatsApp](https://img.icons8.com/color/48/000000/whatsapp--v1.png)](https://whatsapp.com)")
     with cols[1]:
         st.markdown("[![Telegram](https://img.icons8.com/color/48/000000/telegram-app--v1.png)](https://t.me/your_bot)")
-    
-    st.markdown("---")
-    st.header("⚙️ **الإعدادات**")
-    low_bandwidth = st.checkbox("وضع الانترنت الضعيف (نص فقط)")
-    show_all_leagues = st.checkbox("عرض جميع البطولات", value=True)
-    
-    # League filter
-    st.markdown("---")
-    st.header("🏆 **تصفية البطولات**")
-    
-    @st.cache_data(ttl=300)
-    def get_distinct_leagues():
-        response = supabase.table("matches").select("league").execute()
-        leagues = list(set([m["league"] for m in response.data if m.get("league")]))
-        return sorted(leagues)
-    
-    all_leagues = get_distinct_leagues()
-    selected_leagues = st.multiselect("اختر البطولات", all_leagues, default=[])
-    
-    # Importance filter
-    st.markdown("---")
-    st.header("⭐ **أهمية المباراة**")
-    min_importance = st.slider("أقل أهمية", 0, 100, 0)  # Default to 0 so all matches show
-    
-    # Admin section
-    st.markdown("---")
-    st.header("👑 **لوحة التحكم**")
-    if not st.session_state.admin_authenticated:
-        admin_password = st.text_input("كلمة المرور", type="password")
-        if st.button("دخول"):
-            if hashlib.sha256(admin_password.encode()).hexdigest() == ADMIN_PASSWORD_HASH:
-                st.session_state.admin_authenticated = True
-                st.success("تم تسجيل الدخول بنجاح")
-                st.rerun()
-            else:
-                st.error("كلمة المرور غير صحيحة")
-    else:
-        st.success("مرحباً أيها المشرف")
-        if st.button("إظهار لوحة التحكم"):
-            st.session_state.show_admin = not st.session_state.show_admin
-        if st.button("تسجيل الخروج"):
-            st.session_state.admin_authenticated = False
-            st.session_state.show_admin = False
-            st.rerun()
 
-# --- Admin Panel (only shown when authenticated) ---
+# ==================== END OF SIDEBAR ====================
+
+# --- Admin Panel (only shown when authenticated and show_admin is True) ---
 if st.session_state.admin_authenticated and st.session_state.show_admin:
     with st.container():
         st.markdown("<div class='admin-panel'>", unsafe_allow_html=True)
@@ -385,7 +277,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
 
 # --- Fetch matches with filters ---
 @st.cache_data(ttl=60)
-def get_filtered_matches(selected_leagues, min_importance, show_all):
+def get_filtered_matches(selected_leagues, min_importance, show_all, hide_old_finished):
     query = supabase.table("matches").select("*")
     
     if selected_leagues:
@@ -395,9 +287,27 @@ def get_filtered_matches(selected_leagues, min_importance, show_all):
         query = query.gte("importance_score", min_importance)
     
     response = query.order("match_time", desc=False).execute()
-    return response.data
+    matches = response.data
 
-matches = get_filtered_matches(selected_leagues, min_importance, show_all_leagues)
+    # If hiding old finished matches, filter them out
+    if hide_old_finished:
+        now_utc = datetime.now(timezone.utc)
+        cutoff = now_utc - timedelta(hours=2)
+        filtered = []
+        for match in matches:
+            if match["status"] == "FINISHED":
+                try:
+                    match_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
+                    if match_time < cutoff:
+                        continue
+                except:
+                    pass
+            filtered.append(match)
+        return filtered
+    else:
+        return matches
+
+matches = get_filtered_matches(selected_leagues, min_importance, show_all_leagues, hide_old_finished)
 
 # --- Helper functions ---
 def time_until(match_time_str):
@@ -484,7 +394,6 @@ if live_matches:
             except:
                 streams = []
         
-        # Check for admin streams
         admin_streams = supabase.table("admin_streams")\
             .select("*")\
             .eq("fixture_id", match["fixture_id"])\
@@ -540,7 +449,6 @@ st.header("📅 **جميع المباريات القادمة**")
 upcoming = [m for m in matches if m["status"] == "UPCOMING"]
 
 if upcoming:
-    # Group by league
     leagues_dict = {}
     for match in upcoming:
         league = match["league"]
@@ -548,10 +456,8 @@ if upcoming:
             leagues_dict[league] = []
         leagues_dict[league].append(match)
     
-    # Display each league section
     for league, league_matches in sorted(leagues_dict.items()):
         with st.expander(f"🏆 {league} ({len(league_matches)} مباراة)"):
-            # Use 2 columns on larger screens, but stack on mobile automatically
             cols = st.columns(2)
             for i, match in enumerate(league_matches):
                 with cols[i % 2]:
@@ -592,7 +498,7 @@ if upcoming:
 else:
     st.write("لا توجد مباريات قادمة حالياً.")
 
-# --- Country/League Statistics ---
+# --- Statistics ---
 st.markdown("---")
 st.header("🌍 **البطولات حول العالم**")
 
@@ -621,7 +527,7 @@ if league_stats:
         with cols[i % 4]:
             st.markdown(f"**{league}**  \n{count} مباراة")
 
-# --- Footer with donation ---
+# --- Footer ---
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; background: linear-gradient(135deg, #1e1e2f, #2a2a40); padding: 30px; border-radius: 20px;'>
@@ -634,7 +540,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# --- PopAds script ---
 st.components.v1.html("""
     <script src="//popads.net/pop.js" async></script>
 """, height=0)
