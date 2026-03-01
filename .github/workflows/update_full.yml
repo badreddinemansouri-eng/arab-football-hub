@@ -1,9 +1,9 @@
-name: Full Daily Update
+name: Full Global Update
 
 on:
   schedule:
-    # 23:00 UTC = 00:00 UTC+1 (midnight in Tunisia)
-    - cron: '0 23 * * *'
+    # Run every 6 hours to cover all leagues
+    - cron: '0 */6 * * *'
   workflow_dispatch:
 
 jobs:
