@@ -2,8 +2,8 @@ name: Live Match Updates
 
 on:
   schedule:
-    # Every 6 minutes from 14:00 to 23:00 UTC (15:00–00:00 UTC+1 Tunisia)
-    - cron: '*/6 14-23 * * *'
+    # Every 3 minutes for live matches
+    - cron: '*/3 * * * *'
   workflow_dispatch:
 
 jobs:
