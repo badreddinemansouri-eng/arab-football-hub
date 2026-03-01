@@ -76,6 +76,7 @@ def get_team_logo(team_name):
         .execute()\
         .data
     if existing and existing[0].get("logo_url"):
+        print(f"Logo found in cache for {team_name}")
         return existing[0]["logo_url"]
 
     try:
@@ -84,17 +85,23 @@ def get_team_logo(team_name):
         data = resp.json()
         teams = data.get("teams", [])
         if teams:
+            # TheSportsDB returns HTTP URLs – convert to HTTPS
             logo = teams[0].get("strTeamBadge") or teams[0].get("strTeamLogo")
             if logo:
+                logo = logo.replace("http://", "https://")  # force HTTPS
+                print(f"Found logo for {team_name}: {logo}")
                 supabase.table("team_logos").upsert(
                     {"team_name": team_name, "logo_url": logo},
                     on_conflict="team_name"
                 ).execute()
                 return logo
+            else:
+                print(f"No logo field in response for {team_name}")
+        else:
+            print(f"No team found in TheSportsDB for '{team_name}'")
     except Exception as e:
         print(f"Error fetching logo for {team_name}: {e}")
     return None
-
 def parse_match(match):
     competition = match.get("competition", {})
     home_team = match.get("homeTeam", {})
