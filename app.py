@@ -6,6 +6,7 @@ import time
 import requests
 import json
 import hashlib
+import traceback
 
 # --- Page config ---
 st.set_page_config(
@@ -25,12 +26,20 @@ SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
 # --- Admin password ---
 ADMIN_PASSWORD_HASH = hashlib.sha256("badr11101999.".encode()).hexdigest()
 
-# --- Connect to Supabase ---
+# --- Connect to Supabase with error handling ---
 @st.cache_resource
 def init_supabase():
-    return create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+    try:
+        return create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+    except Exception as e:
+        st.error("عذراً، حدث خطأ في الاتصال بقاعدة البيانات. يرجى المحاولة لاحقاً.")
+        # Log the error (only visible in Streamlit logs, not to users)
+        print(f"Supabase connection error: {e}")
+        return None
 
 supabase = init_supabase()
+if supabase is None:
+    st.stop()  # Stop execution if DB connection fails
 
 # --- Session state ---
 if "admin_authenticated" not in st.session_state:
@@ -156,9 +165,13 @@ with st.sidebar:
     with st.expander("🏆 **تصفية البطولات**", expanded=True):
         @st.cache_data(ttl=300)
         def get_distinct_leagues():
-            response = supabase.table("matches").select("league").execute()
-            leagues = list(set([m["league"] for m in response.data if m.get("league")]))
-            return sorted(leagues)
+            try:
+                response = supabase.table("matches").select("league").execute()
+                leagues = list(set([m["league"] for m in response.data if m.get("league")]))
+                return sorted(leagues)
+            except Exception as e:
+                print(f"Error fetching leagues: {e}")
+                return []
         
         all_leagues = get_distinct_leagues()
         selected_leagues = st.multiselect("اختر البطولات", all_leagues, default=[])
@@ -194,7 +207,7 @@ with st.sidebar:
     with cols[1]:
         st.markdown("[![Telegram](https://img.icons8.com/color/48/000000/telegram-app--v1.png)](https://t.me/your_bot)")
 
-# --- Admin Panel (only when authenticated) ---
+# --- Admin Panel (only when authenticated and show_admin is True) ---
 if st.session_state.admin_authenticated and st.session_state.show_admin:
     with st.container():
         st.markdown("<div class='admin-panel'>", unsafe_allow_html=True)
@@ -202,12 +215,16 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
         
         @st.cache_data(ttl=60)
         def get_upcoming_matches():
-            response = supabase.table("matches")\
-                .select("*")\
-                .in_("status", ["UPCOMING", "LIVE"])\
-                .order("match_time")\
-                .execute()
-            return response.data
+            try:
+                response = supabase.table("matches")\
+                    .select("*")\
+                    .in_("status", ["UPCOMING", "LIVE"])\
+                    .order("match_time")\
+                    .execute()
+                return response.data
+            except Exception as e:
+                print(f"Error fetching upcoming matches: {e}")
+                return []
         
         upcoming = get_upcoming_matches()
         
@@ -235,71 +252,84 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                         "expires_at": expires_at,
                         "is_active": True
                     }
-                    supabase.table("admin_streams").insert(data).execute()
-                    st.success("تم إضافة الرابط بنجاح! سيتم حذفه تلقائياً بعد انتهاء المباراة.")
-                    st.cache_data.clear()
-                    time.sleep(2)
-                    st.rerun()
+                    try:
+                        supabase.table("admin_streams").insert(data).execute()
+                        st.success("تم إضافة الرابط بنجاح! سيتم حذفه تلقائياً بعد انتهاء المباراة.")
+                        st.cache_data.clear()
+                        time.sleep(2)
+                        st.rerun()
+                    except Exception as e:
+                        st.error("حدث خطأ أثناء إضافة الرابط. يرجى المحاولة لاحقاً.")
+                        print(f"Error inserting admin stream: {e}")
                 else:
                     st.error("الرجاء إدخال رابط البث")
             
             # Show existing admin streams
             st.markdown("---")
             st.subheader("الروابط الحالية")
-            admin_streams = supabase.table("admin_streams")\
-                .select("*, matches!inner(home_team, away_team, league, status)")\
-                .eq("is_active", True)\
-                .execute()\
-                .data
-            
-            if admin_streams:
-                for stream in admin_streams:
-                    match = stream.get("matches", {})
-                    st.markdown(f"""
-                    **{match.get('home_team')} vs {match.get('away_team')}**  
-                    الرابط: {stream['stream_url']}  
-                    ينتهي في: {stream['expires_at'][:16]}
-                    """)
-                    if st.button(f"حذف #{stream['id']}", key=f"del_{stream['id']}"):
-                        supabase.table("admin_streams").update({"is_active": False}).eq("id", stream["id"]).execute()
-                        st.success("تم الحذف")
-                        st.rerun()
+            try:
+                admin_streams = supabase.table("admin_streams")\
+                    .select("*, matches!inner(home_team, away_team, league, status)")\
+                    .eq("is_active", True)\
+                    .execute()\
+                    .data
+                
+                if admin_streams:
+                    for stream in admin_streams:
+                        match = stream.get("matches", {})
+                        st.markdown(f"""
+                        **{match.get('home_team')} vs {match.get('away_team')}**  
+                        الرابط: {stream['stream_url']}  
+                        ينتهي في: {stream['expires_at'][:16]}
+                        """)
+                        if st.button(f"حذف #{stream['id']}", key=f"del_{stream['id']}"):
+                            supabase.table("admin_streams").update({"is_active": False}).eq("id", stream["id"]).execute()
+                            st.success("تم الحذف")
+                            st.rerun()
+            except Exception as e:
+                st.error("حدث خطأ أثناء تحميل الروابط الحالية.")
+                print(f"Error loading admin streams: {e}")
         else:
             st.info("لا توجد مباريات قادمة")
         
         st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Fetch matches with filters ---
+# --- Fetch matches with filters (with error handling) ---
 @st.cache_data(ttl=60)
 def get_filtered_matches(selected_leagues, min_importance, show_all, hide_old_finished):
-    query = supabase.table("matches").select("*")
-    
-    if selected_leagues:
-        query = query.in_("league", selected_leagues)
-    
-    if min_importance > 0:
-        query = query.gte("importance_score", min_importance)
-    
-    response = query.order("match_time", desc=False).execute()
-    matches = response.data
+    try:
+        query = supabase.table("matches").select("*")
+        
+        if selected_leagues:
+            query = query.in_("league", selected_leagues)
+        
+        if min_importance > 0:
+            query = query.gte("importance_score", min_importance)
+        
+        response = query.order("match_time", desc=False).execute()
+        matches = response.data
 
-    # If hiding old finished matches, filter them out
-    if hide_old_finished:
-        now_utc = datetime.now(timezone.utc)
-        cutoff = now_utc - timedelta(hours=2)
-        filtered = []
-        for match in matches:
-            if match["status"] == "FINISHED":
-                try:
-                    match_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
-                    if match_time < cutoff:
-                        continue
-                except:
-                    pass
-            filtered.append(match)
-        return filtered
-    else:
-        return matches
+        # If hiding old finished matches, filter them out
+        if hide_old_finished:
+            now_utc = datetime.now(timezone.utc)
+            cutoff = now_utc - timedelta(hours=2)
+            filtered = []
+            for match in matches:
+                if match["status"] == "FINISHED":
+                    try:
+                        match_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
+                        if match_time < cutoff:
+                            continue
+                    except:
+                        pass
+                filtered.append(match)
+            return filtered
+        else:
+            return matches
+    except Exception as e:
+        st.error("عذراً، حدث خطأ في تحميل المباريات. يرجى تحديث الصفحة.")
+        print(f"Error fetching matches: {e}")
+        return []
 
 matches = get_filtered_matches(selected_leagues, min_importance, show_all_leagues, hide_old_finished)
 
@@ -323,7 +353,6 @@ def get_match_status_display(match):
         try:
             match_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
             now = datetime.now(match_time.tzinfo)
-            # Assume a match lasts at most 2.5 hours; after 3 hours it's definitely over
             if now > match_time + timedelta(hours=3):
                 return "✅ انتهت (تأخير)"
         except:
@@ -407,12 +436,16 @@ if live_matches:
             except:
                 streams = []
         
-        admin_streams = supabase.table("admin_streams")\
-            .select("*")\
-            .eq("fixture_id", match["fixture_id"])\
-            .eq("is_active", True)\
-            .execute()\
-            .data
+        try:
+            admin_streams = supabase.table("admin_streams")\
+                .select("*")\
+                .eq("fixture_id", match["fixture_id"])\
+                .eq("is_active", True)\
+                .execute()\
+                .data
+        except Exception as e:
+            admin_streams = []
+            print(f"Error fetching admin streams: {e}")
         
         if admin_streams:
             for admin in admin_streams:
@@ -448,7 +481,7 @@ if live_matches:
                         <img src="{match.get('away_logo', 'https://via.placeholder.com/50')}" class="logo-small">
                     </div>
                 </div>
-                <p style="margin-top:5px;">🏆 {match['league']} <img src="{match.get('league_logo', '')}" style="width:20px; height:20px; display:inline;"></p>
+                <p style="margin-top:5px;">🏆 {match['league']} <img src="{match.get('league_logo', 'https://via.placeholder.com/50')}" style="width:20px; height:20px; display:inline;"></p>
                 <div style="margin-top: 15px;">
                     {"".join([f'<a class="stream-btn" href="{s["url"]}" target="_blank">📺 {s["title"][:30]}... {"<span class=\"verified\">موثوق</span>" if s.get("verified") else ""}{"<span class=\"admin-added\">رسمي</span>" if s.get("admin_added") else ""}</a>' for s in streams]) if streams else "<p>سيتم إضافة روابط البث قريباً...</p>"}
                 </div>
@@ -529,7 +562,7 @@ def get_league_stats():
             return sorted_leagues[:20]
         return []
     except Exception as e:
-        st.error(f"خطأ في إحصائيات البطولات: {e}")
+        print(f"Error in league stats: {e}")
         return []
 
 league_stats = get_league_stats()
