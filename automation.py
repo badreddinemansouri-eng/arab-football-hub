@@ -24,7 +24,7 @@ HEADERS = { "X-Auth-Token": FOOTBALL_DATA_TOKEN }
 # TheSportsDB API for logos (free, no key)
 THESPORTSDB_BASE = "https://www.thesportsdb.com/api/v1/json/3"
 THESPORTSDB_TEAM = f"{THESPORTSDB_BASE}/searchteams.php"
-THESPORTSDB_LEAGUE = f"{THESPORTSDB_BASE}/search_all_leagues.php"  # for league lookup
+THESPORTSDB_LEAGUE = f"{THESPORTSDB_BASE}/search_all_leagues.php"
 
 ALLOWED_COMPETITIONS = [
     "PL", "PD", "BL1", "SA", "FL1", "CL", "EC", "WC",
@@ -32,67 +32,156 @@ ALLOWED_COMPETITIONS = [
 ]
 
 # -------------------------------------------------------------------
-# Cache tables (ensure they exist – run SQL separately)
+# Manual name mappings (expand as needed)
 # -------------------------------------------------------------------
-# CREATE TABLE IF NOT EXISTS team_logos (team_name TEXT PRIMARY KEY, logo_url TEXT, updated_at TIMESTAMP DEFAULT NOW());
-# CREATE TABLE IF NOT EXISTS league_logos (league_name TEXT PRIMARY KEY, logo_url TEXT, updated_at TIMESTAMP DEFAULT NOW());
+TEAM_NAME_MAP = {
+    "Manchester United FC": "Manchester United",
+    "Liverpool FC": "Liverpool",
+    "Arsenal FC": "Arsenal",
+    "Chelsea FC": "Chelsea",
+    "Tottenham Hotspur FC": "Tottenham",
+    "Manchester City FC": "Manchester City",
+    "Everton FC": "Everton",
+    "Newcastle United FC": "Newcastle",
+    "Leicester City FC": "Leicester",
+    "Aston Villa FC": "Aston Villa",
+    "West Ham United FC": "West Ham",
+    "Wolverhampton Wanderers FC": "Wolves",
+    "Southampton FC": "Southampton",
+    "Crystal Palace FC": "Crystal Palace",
+    "Brighton & Hove Albion FC": "Brighton",
+    "Burnley FC": "Burnley",
+    "Watford FC": "Watford",
+    "Norwich City FC": "Norwich",
+    "Leeds United FC": "Leeds",
+    "Brentford FC": "Brentford",
+    "Fulham FC": "Fulham",
+    "Nottingham Forest FC": "Nottingham Forest",
+    "Bournemouth FC": "Bournemouth",
+    "Real Madrid CF": "Real Madrid",
+    "FC Barcelona": "Barcelona",
+    "Atlético Madrid": "Atletico Madrid",
+    "Sevilla FC": "Sevilla",
+    "Valencia CF": "Valencia",
+    "Villarreal CF": "Villarreal",
+    "Real Betis Balompié": "Real Betis",
+    "Athletic Club": "Athletic Bilbao",
+    "Real Sociedad": "Real Sociedad",
+    "Celta Vigo": "Celta Vigo",
+    "Granada CF": "Granada",
+    "CA Osasuna": "Osasuna",
+    "Cádiz CF": "Cadiz",
+    "RCD Mallorca": "Mallorca",
+    "Deportivo Alavés": "Alaves",
+    "Rayo Vallecano": "Rayo Vallecano",
+    "Elche CF": "Elche",
+    "Getafe CF": "Getafe",
+    "Espanyol": "Espanyol",
+    "Levante UD": "Levante",
+    "Almería": "Almeria",
+    "Real Valladolid": "Valladolid",
+    "Girona FC": "Girona",
+    "Bayern München": "Bayern Munich",
+    "Borussia Dortmund": "Borussia Dortmund",
+    "RB Leipzig": "Leipzig",
+    "Bayer 04 Leverkusen": "Leverkusen",
+    "Borussia Mönchengladbach": "Monchengladbach",
+    "VfL Wolfsburg": "Wolfsburg",
+    "Eintracht Frankfurt": "Eintracht Frankfurt",
+    "VfB Stuttgart": "Stuttgart",
+    "Hertha BSC": "Hertha Berlin",
+    "SC Freiburg": "Freiburg",
+    "TSG 1899 Hoffenheim": "Hoffenheim",
+    "1. FC Köln": "Koln",
+    "FC Augsburg": "Augsburg",
+    "1. FSV Mainz 05": "Mainz",
+    "FC Schalke 04": "Schalke",
+    "Arminia Bielefeld": "Bielefeld",
+    "Union Berlin": "Union Berlin",
+    "VfL Bochum": "Bochum",
+    "SpVgg Greuther Fürth": "Greuther Furth",
+    "Juventus FC": "Juventus",
+    "AC Milan": "AC Milan",
+    "Inter Milan": "Inter",
+    "AS Roma": "Roma",
+    "SSC Napoli": "Napoli",
+    "SS Lazio": "Lazio",
+    "Atalanta BC": "Atalanta",
+    "ACF Fiorentina": "Fiorentina",
+    "Torino FC": "Torino",
+    "Bologna FC": "Bologna",
+    "Udinese Calcio": "Udinese",
+    "Sampdoria": "Sampdoria",
+    "Genoa CFC": "Genoa",
+    "US Sassuolo Calcio": "Sassuolo",
+    "Cagliari Calcio": "Cagliari",
+    "Spezia Calcio": "Spezia",
+    "Empoli FC": "Empoli",
+    "Venezia FC": "Venezia",
+    "Salernitana": "Salernitana",
+    "Paris Saint-Germain FC": "PSG",
+    "Olympique de Marseille": "Marseille",
+    "Olympique Lyonnais": "Lyon",
+    "AS Monaco FC": "Monaco",
+    "Stade Rennais FC": "Rennes",
+    "Lille OSC": "Lille",
+    "OGC Nice": "Nice",
+    "RC Strasbourg Alsace": "Strasbourg",
+    "FC Nantes": "Nantes",
+    "Montpellier HSC": "Montpellier",
+    "Stade Brestois 29": "Brest",
+    "Stade de Reims": "Reims",
+    "FC Metz": "Metz",
+    "Angers SCO": "Angers",
+    "Clermont Foot": "Clermont",
+    "ES Troyes AC": "Troyes",
+    "FC Lorient": "Lorient",
+    "AJ Auxerre": "Auxerre",
+    "AC Ajaccio": "Ajaccio",
+    "Toulouse FC": "Toulouse",
+}
 
-# -------------------------------------------------------------------
-# Helper functions for name cleaning
-# -------------------------------------------------------------------
+LEAGUE_NAME_MAP = {
+    "Premier League": "English Premier League",
+    "La Liga": "Spanish La Liga",
+    "Bundesliga": "German Bundesliga",
+    "Serie A": "Italian Serie A",
+    "Ligue 1": "French Ligue 1",
+    "Champions League": "UEFA Champions League",
+    "Europa League": "UEFA Europa League",
+    "World Cup": "World Cup",
+    "European Championship": "European Championships",
+}
+
 def clean_team_name(name):
-    """Remove common suffixes and normalize for searching."""
+    """Remove common suffixes and normalize."""
     name = re.sub(r"\s+(FC|AFC|United|City|Real|CF|AC|AS|SS|SC|Club|Deportivo|Futebol|Clube)$", "", name, flags=re.IGNORECASE)
     return name.strip()
 
-def clean_league_name(name):
-    """Normalize league names for searching (e.g., 'Premier League' -> 'English Premier League')."""
-    # Special mappings for common leagues (expand as needed)
-    mapping = {
-        "Premier League": "English Premier League",
-        "La Liga": "Spanish La Liga",
-        "Bundesliga": "German Bundesliga",
-        "Serie A": "Italian Serie A",
-        "Ligue 1": "French Ligue 1",
-        "Champions League": "UEFA Champions League",
-        "World Cup": "World Cup",
-    }
-    return mapping.get(name, name)
-
-# -------------------------------------------------------------------
-# Logo fetching functions
-# -------------------------------------------------------------------
 def fetch_team_logo(team_name):
     """Search TheSportsDB for a team logo, store in team_logos table."""
+    print(f"🔍 Searching logo for team: '{team_name}'")
     # Check cache
-    cached = supabase.table("team_logos").select("logo_url").eq("team_name", team_name).execute()
-    if cached.data and cached.data[0].get("logo_url"):
-        return cached.data[0]["logo_url"]
+    try:
+        cached = supabase.table("team_logos").select("logo_url").eq("team_name", team_name).execute()
+        if cached.data and cached.data[0].get("logo_url"):
+            print(f"✅ Found cached logo for '{team_name}': {cached.data[0]['logo_url']}")
+            return cached.data[0]["logo_url"]
+    except Exception as e:
+        print(f"⚠️ Error checking cache for '{team_name}': {e}")
 
     # Try variations
     variations = [
         team_name,
+        TEAM_NAME_MAP.get(team_name, team_name),
         clean_team_name(team_name),
         team_name.split()[0],  # first word
     ]
-    # Common synonyms
-    special = {
-        "Manchester United FC": "Manchester United",
-        "Liverpool FC": "Liverpool",
-        "Arsenal FC": "Arsenal",
-        "Chelsea FC": "Chelsea",
-        "Real Madrid CF": "Real Madrid",
-        "FC Barcelona": "Barcelona",
-        "Bayern München": "Bayern Munich",
-        "Juventus FC": "Juventus",
-        "AC Milan": "AC Milan",
-        "Inter Milan": "Inter",
-        "Paris Saint-Germain FC": "PSG",
-    }
-    if team_name in special:
-        variations.append(special[team_name])
+    # Remove duplicates
+    variations = list(set(variations))
 
-    for name in set(variations):  # unique
+    for name in variations:
+        print(f"  Trying variation: '{name}'")
         try:
             resp = requests.get(THESPORTSDB_TEAM, params={"t": name}, timeout=5)
             data = resp.json()
@@ -101,48 +190,67 @@ def fetch_team_logo(team_name):
                 logo = teams[0].get("strTeamBadge") or teams[0].get("strTeamLogo")
                 if logo:
                     logo = logo.replace("http://", "https://")
-                    # Cache it
-                    supabase.table("team_logos").upsert(
-                        {"team_name": team_name, "logo_url": logo},
-                        on_conflict="team_name"
-                    ).execute()
+                    print(f"✅ Found logo for '{team_name}' using variation '{name}': {logo}")
+                    # Store in cache
+                    try:
+                        supabase.table("team_logos").upsert(
+                            {"team_name": team_name, "logo_url": logo},
+                            on_conflict="team_name"
+                        ).execute()
+                    except Exception as e:
+                        print(f"⚠️ Error caching logo for '{team_name}': {e}")
                     return logo
+                else:
+                    print(f"  ⚠️ Team found but no logo field for variation '{name}'")
+            else:
+                print(f"  ❌ No team found for variation '{name}'")
         except Exception as e:
-            print(f"Error fetching logo for {name}: {e}")
+            print(f"  ❌ Error fetching variation '{name}': {e}")
         time.sleep(0.2)
+    print(f"❌ No logo found for '{team_name}' after all variations.")
     return None
 
 def fetch_league_logo(league_name):
     """Search TheSportsDB for a league logo, store in league_logos table."""
+    print(f"🔍 Searching logo for league: '{league_name}'")
     # Check cache
-    cached = supabase.table("league_logos").select("logo_url").eq("league_name", league_name).execute()
-    if cached.data and cached.data[0].get("logo_url"):
-        return cached.data[0]["logo_url"]
-
-    cleaned = clean_league_name(league_name)
     try:
-        # TheSportsDB has a different endpoint for leagues: search_all_leagues.php
-        # It returns a list of leagues; we need to match by name.
-        resp = requests.get(THESPORTSDB_LEAGUE, params={"l": cleaned}, timeout=5)
+        cached = supabase.table("league_logos").select("logo_url").eq("league_name", league_name).execute()
+        if cached.data and cached.data[0].get("logo_url"):
+            print(f"✅ Found cached logo for '{league_name}': {cached.data[0]['logo_url']}")
+            return cached.data[0]["logo_url"]
+    except Exception as e:
+        print(f"⚠️ Error checking cache for '{league_name}': {e}")
+
+    # Use mapped name if available
+    search_name = LEAGUE_NAME_MAP.get(league_name, league_name)
+    print(f"  Searching with name: '{search_name}'")
+    try:
+        resp = requests.get(THESPORTSDB_LEAGUE, params={"l": search_name}, timeout=5)
         data = resp.json()
-        # The response may have a 'countries' key with array of leagues
+        # TheSportsDB may return under 'countrys' or 'leagues'
         leagues = data.get("countrys", []) or data.get("leagues", [])
         for league in leagues:
             if league_name.lower() in league.get("strLeague", "").lower():
                 logo = league.get("strBadge") or league.get("strLogo")
                 if logo:
                     logo = logo.replace("http://", "https://")
-                    supabase.table("league_logos").upsert(
-                        {"league_name": league_name, "logo_url": logo},
-                        on_conflict="league_name"
-                    ).execute()
+                    print(f"✅ Found logo for '{league_name}': {logo}")
+                    try:
+                        supabase.table("league_logos").upsert(
+                            {"league_name": league_name, "logo_url": logo},
+                            on_conflict="league_name"
+                        ).execute()
+                    except Exception as e:
+                        print(f"⚠️ Error caching logo for '{league_name}': {e}")
                     return logo
+        print(f"❌ No logo found for '{league_name}'.")
     except Exception as e:
-        print(f"Error fetching league logo for {league_name}: {e}")
+        print(f"❌ Error fetching league logo for '{league_name}': {e}")
     return None
 
 # -------------------------------------------------------------------
-# Existing functions (fetch_all_competitions, fetch_matches, parse_match)
+# football-data.org fetching functions
 # -------------------------------------------------------------------
 def fetch_all_competitions():
     url = f"{API_BASE_URL}/competitions"
@@ -205,7 +313,7 @@ def parse_match(match):
         home_score = full.get("home", 0)
         away_score = full.get("away", 0)
 
-    # Fetch logos (cached)
+    # Fetch logos (these functions return None if not found)
     home_logo = fetch_team_logo(home_team.get("name", ""))
     away_logo = fetch_team_logo(away_team.get("name", ""))
     league_logo = fetch_league_logo(competition.get("name", "Unknown"))
@@ -228,7 +336,7 @@ def parse_match(match):
     return match_data
 
 def search_youtube_streams(match):
-    # (keep your existing function if you have it)
+    # If you have a YouTube search function, keep it here.
     return []
 
 def update_all_matches():
@@ -255,7 +363,7 @@ def update_all_matches():
                 streams = search_youtube_streams(match_data)
                 match_data["streams"] = json.dumps(streams)
 
-            # Admin streams check (unchanged)
+            # Admin streams check
             admin_streams = supabase.table("admin_streams")\
                 .select("*")\
                 .eq("fixture_id", match_data["fixture_id"])\
