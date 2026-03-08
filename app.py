@@ -346,7 +346,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                 ]
 
                 # 3. Base URL of your bucket
-                BUCKET_BASE = f"{SUPABASE_URL}/storage/v1/object/public/logos"
+                BUCKET_BASE = f"{SUPABASE_URL}/storage/v1/object/sign/logos"
 
                 # 4. Progress bar
                 progress_bar = st.progress(0)
