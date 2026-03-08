@@ -6,7 +6,7 @@ import time
 import requests
 import json
 import hashlib
-import traceback
+import random
 
 # --- Page config ---
 st.set_page_config(
@@ -26,20 +26,12 @@ SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
 # --- Admin password ---
 ADMIN_PASSWORD_HASH = hashlib.sha256("badr11101999.".encode()).hexdigest()
 
-# --- Connect to Supabase with error handling ---
+# --- Connect to Supabase ---
 @st.cache_resource
 def init_supabase():
-    try:
-        return create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-    except Exception as e:
-        st.error("عذراً، حدث خطأ في الاتصال بقاعدة البيانات. يرجى المحاولة لاحقاً.")
-        # Log the error (only visible in Streamlit logs, not to users)
-        print(f"Supabase connection error: {e}")
-        return None
+    return create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 supabase = init_supabase()
-if supabase is None:
-    st.stop()  # Stop execution if DB connection fails
 
 # --- Session state ---
 if "admin_authenticated" not in st.session_state:
@@ -144,7 +136,7 @@ with col2:
 
 st.markdown("---")
 
-# --- Sidebar with professional three‑section layout ---
+# --- Sidebar with three sections ---
 with st.sidebar:
     st.header("📢 **ادعم الموقع**")
     st.info("الإعلانات تساعدنا في استمرار الخدمة مجاناً للجميع.")
@@ -207,7 +199,7 @@ with st.sidebar:
     with cols[1]:
         st.markdown("[![Telegram](https://img.icons8.com/color/48/000000/telegram-app--v1.png)](https://t.me/your_bot)")
 
-# --- Admin Panel (only when authenticated and show_admin is True) ---
+# --- Admin Panel (only when authenticated) ---
 if st.session_state.admin_authenticated and st.session_state.show_admin:
     with st.container():
         st.markdown("<div class='admin-panel'>", unsafe_allow_html=True)
@@ -259,7 +251,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                         time.sleep(2)
                         st.rerun()
                     except Exception as e:
-                        st.error("حدث خطأ أثناء إضافة الرابط. يرجى المحاولة لاحقاً.")
+                        st.error("حدث خطأ أثناء إضافة الرابط.")
                         print(f"Error inserting admin stream: {e}")
                 else:
                     st.error("الرجاء إدخال رابط البث")
@@ -287,29 +279,57 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                             st.success("تم الحذف")
                             st.rerun()
             except Exception as e:
-                st.error("حدث خطأ أثناء تحميل الروابط الحالية.")
+                st.error("حدث خطأ أثناء تحميل الروابط.")
                 print(f"Error loading admin streams: {e}")
         else:
             st.info("لا توجد مباريات قادمة")
         
+        st.markdown("---")
+        st.subheader("➕ إضافة مباراة يدوية")
+        with st.form("add_custom_match"):
+            custom_home = st.text_input("الفريق المستضيف")
+            custom_away = st.text_input("الفريق الضيف")
+            custom_league = st.text_input("الدوري")
+            custom_date = st.date_input("التاريخ", datetime.now())
+            custom_time = st.time_input("الوقت", datetime.now().time())
+            custom_stream = st.text_input("رابط البث (اختياري)")
+            submitted = st.form_submit_button("إضافة المباراة")
+            if submitted and custom_home and custom_away:
+                # Create a negative fixture_id to avoid conflicts
+                new_id = -random.randint(10000, 99999)
+                match_time = datetime.combine(custom_date, custom_time).isoformat()
+                data = {
+                    "fixture_id": new_id,
+                    "home_team": custom_home,
+                    "away_team": custom_away,
+                    "league": custom_league,
+                    "match_time": match_time,
+                    "status": "UPCOMING",
+                    "home_score": 0,
+                    "away_score": 0,
+                    "streams": json.dumps([{"title": "بث يدوي", "url": custom_stream, "source": "admin", "verified": True, "admin_added": True}]) if custom_stream else "[]",
+                    "home_logo": None,
+                    "away_logo": None,
+                    "league_logo": None
+                }
+                supabase.table("matches").insert(data).execute()
+                st.success("تمت إضافة المباراة بنجاح")
+                st.rerun()
+        
         st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Fetch matches with filters (with error handling) ---
+# --- Fetch matches with filters ---
 @st.cache_data(ttl=60)
 def get_filtered_matches(selected_leagues, min_importance, show_all, hide_old_finished):
     try:
         query = supabase.table("matches").select("*")
-        
         if selected_leagues:
             query = query.in_("league", selected_leagues)
-        
         if min_importance > 0:
             query = query.gte("importance_score", min_importance)
-        
         response = query.order("match_time", desc=False).execute()
         matches = response.data
 
-        # If hiding old finished matches, filter them out
         if hide_old_finished:
             now_utc = datetime.now(timezone.utc)
             cutoff = now_utc - timedelta(hours=2)
@@ -348,8 +368,8 @@ def time_until(match_time_str):
         return "---"
 
 def get_match_status_display(match):
-    # Safety filter: if match is marked LIVE but started more than 3 hours ago, treat as finished
     if match["status"] == "LIVE":
+        # Safety filter: if started more than 3 hours ago, treat as finished
         try:
             match_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
             now = datetime.now(match_time.tzinfo)
@@ -366,7 +386,7 @@ def get_match_status_display(match):
     else:
         return "✅ انتهت"
 
-# --- Featured Matches Section ---
+# --- Featured Matches (placeholder) ---
 st.header("⭐ **المباريات الهامة اليوم**")
 featured = [m for m in matches if m.get("is_featured") or m.get("importance_score", 0) >= 85]
 
@@ -380,9 +400,7 @@ if featured:
                     streams = json.loads(streams)
                 except:
                     streams = []
-            
             status_display = get_match_status_display(match)
-            
             st.markdown(f"""
             <div class="match-card featured-card">
                 <div style="display: flex; align-items: center; justify-content: space-between;">
@@ -435,7 +453,6 @@ if live_matches:
                 streams = json.loads(streams)
             except:
                 streams = []
-        
         try:
             admin_streams = supabase.table("admin_streams")\
                 .select("*")\
@@ -446,7 +463,6 @@ if live_matches:
         except Exception as e:
             admin_streams = []
             print(f"Error fetching admin streams: {e}")
-        
         if admin_streams:
             for admin in admin_streams:
                 streams.append({
@@ -456,7 +472,6 @@ if live_matches:
                     "verified": True,
                     "admin_added": True
                 })
-        
         minute = match.get("minute", "")
         with st.container():
             st.markdown(f"""
@@ -501,7 +516,6 @@ if upcoming:
         if league not in leagues_dict:
             leagues_dict[league] = []
         leagues_dict[league].append(match)
-    
     for league, league_matches in sorted(leagues_dict.items()):
         with st.expander(f"🏆 {league} ({len(league_matches)} مباراة)"):
             cols = st.columns(2)
@@ -513,13 +527,10 @@ if upcoming:
                             streams = json.loads(streams)
                         except:
                             streams = []
-                    
                     time_left = time_until(match['match_time'])
                     match_time = datetime.fromisoformat(match['match_time'].replace('Z', '+00:00')).strftime("%H:%M")
-                    
                     importance = match.get("importance_score", 0)
                     star = "⭐" if importance >= 85 else ""
-                    
                     st.markdown(f"""
                     <div style="background: #2a2a40; padding: 15px; border-radius: 15px; margin-bottom: 15px;">
                         <div style="display: flex; align-items: center; justify-content: space-between;">
