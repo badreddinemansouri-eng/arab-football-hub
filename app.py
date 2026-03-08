@@ -336,13 +336,13 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
 
                 # 2. Define possible league folders (adjust to match your bucket structure)
                 league_folders = [
-                    "premier-league",
-                    "laliga",
-                    "bundesliga",
-                    "serie-a",
-                    "ligue-1",
+                    "England-Premier-League",
+                    "Spain-LaLiga",
+                    "Germany-Bundesliga",
+                    "Italy-Serie A",
+                    "France-Ligue-1",
                     "champions-league",
-                    "world-cup"
+                    "Portugal-Liga Portugal"
                 ]
 
                 # 3. Base URL of your bucket
