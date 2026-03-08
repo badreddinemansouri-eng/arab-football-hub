@@ -84,6 +84,29 @@ def get_league_logo_from_db(league_name):
     except Exception as e:
         print(f"Error looking up league logo for {league_name}: {e}")
     return None
+def get_league_logo(league_name):
+    """Return the URL for a league logo from Supabase storage."""
+    if not league_name:
+        return None
+    # Build filename: keep spaces – they'll be URL‑encoded
+    filename = f"{league_name}.png"
+    url = f"{SUPABASE_URL}/storage/v1/object/public/logos/leagues/{filename}"
+    # Optional: check existence (you can skip to save requests)
+    try:
+        resp = requests.head(url, timeout=2)
+        if resp.status_code == 200:
+            return url
+    except:
+        pass
+    return None  # will fallback to placeholder
+
+def get_country_flag(country_name):
+    """Return a flag URL from flagpedia.net (free)."""
+    if not country_name:
+        return None
+    # Convert to lowercase and replace spaces with hyphens
+    code = country_name.lower().replace(" ", "-")
+    return f"https://flagpedia.net/data/flags/icon/72x54/{code}.png"    
 
 def parse_match(match):
     competition = match.get("competition", {})
@@ -113,6 +136,10 @@ def parse_match(match):
     home_logo = get_team_logo_from_db(home_team.get("name", ""))
     away_logo = get_team_logo_from_db(away_team.get("name", ""))
     league_logo = get_league_logo_from_db(competition.get("name", "Unknown"))
+    # ... inside parse_match, after extracting competition, home_team, etc.
+    country = competition.get("area", {}).get("name")   # football-data.org provides area
+    country_flag = get_country_flag(country)
+    league_logo = get_league_logo(competition.get("name"))
 
     match_data = {
         "fixture_id": match["id"],
@@ -122,12 +149,16 @@ def parse_match(match):
         "away_team": away_team.get("name", "Unknown"),
         "home_logo": home_logo,
         "away_logo": away_logo,
+        "country": country,
+        "country_logo": country_flag,
+        "league_logo": league_logo,
         "match_time": match.get("utcDate"),
         "status": status_cat,
         "home_score": home_score,
         "away_score": away_score,
         "streams": [],
-        "broadcasters": []
+        "broadcasters": [],
+        
     }
     return match_data
 
