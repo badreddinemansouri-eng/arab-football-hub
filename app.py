@@ -332,7 +332,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
         - Spain - LaLiga
         - Germany - Bundesliga
         - France - Ligue 1
-        -Portugal - Liga Portugal
+        - Portugal - Liga Portugal
         - International - Champions League
         - International - World Cup
         """)
@@ -357,7 +357,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                     "Spain - LaLiga",
                     "Germany - Bundesliga",
                     "France - Ligue 1",
-                    "Portugal - Liga Portugal"
+                    "Portugal - Liga Portugal",
                     "International - Champions League",
                     "International - World Cup"
                 ]
