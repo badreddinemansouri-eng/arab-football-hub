@@ -333,7 +333,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
         **المجلدات المتوقعة:**
         - Italy - Serie A
         - England - Premier League
-        - Spain - La Liga
+        - Spain - LaLiga
         - Germany - Bundesliga
         - France - Ligue 1
         - Portugal-Liga Portugal
@@ -359,7 +359,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                 league_folders = [
                     "Italy - Serie A",
                     "England - Premier League",
-                    "Spain - La Liga",
+                    "Spain - LaLiga",
                     "Germany - Bundesliga",
                     "France - Ligue 1",
                     "Portugal-Liga Portugal",
