@@ -318,10 +318,12 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
         
         st.markdown("</div>", unsafe_allow_html=True)
         # --- Logo Auto-Linker (inside admin panel, after the manual stream section) ---
+# --- Logo Auto-Linker with Debug (inside admin panel) ---
 if st.session_state.admin_authenticated and st.session_state.show_admin:
-    with st.expander("🖼️ **ربط الشعارات تلقائياً**"):
-        st.markdown("سيقوم هذا الأمر بالبحث عن شعارات الفرق في مخزن Supabase وإضافتها إلى قاعدة البيانات.")
-        if st.button("🔍 بدء البحث عن الشعارات"):
+    with st.expander("🖼️ **ربط الشعارات تلقائياً (مع التصحيح)**"):
+        st.markdown("سيقوم هذا الأمر بالبحث عن شعارات الفرق في مخزن Supabase. سيظهر كل رابط يتم فحصه.")
+        debug_mode = st.checkbox("عرض تفاصيل التصحيح (كل الروابط)")
+        if st.button("🔍 بدء البحث مع التصحيح"):
             with st.spinner("جاري البحث عن الشعارات..."):
                 # 1. Fetch all unique team names from matches
                 teams_resp = supabase.table("matches").select("home_team, away_team").execute()
@@ -334,7 +336,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                 teams = sorted(list(teams))
                 st.info(f"تم العثور على {len(teams)} فريق في قاعدة البيانات.")
 
-                # 2. Define possible league folders (adjust to match your bucket structure)
+                # 2. Define possible league folders (UPDATE THESE TO MATCH YOUR BUCKET FOLDERS)
                 league_folders = [
                     "England-Premier-League",
                     "Spain-LaLiga",
@@ -343,38 +345,51 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                     "France-Ligue-1",
                     "champions-league",
                     "Portugal-Liga Portugal"
+                    # Add any other folders you have, e.g., "saudi-league"
                 ]
 
                 # 3. Base URL of your bucket
-                BUCKET_BASE = f"{SUPABASE_URL}/storage/v1/object/sign/logos"
+                BUCKET_BASE = f"{SUPABASE_URL}/storage/v1/object/public/logos"
 
                 # 4. Progress bar
                 progress_bar = st.progress(0)
                 status_text = st.empty()
+                log_area = st.empty()
+                log_lines = []
 
                 results = {"found": 0, "not_found": 0, "errors": 0}
                 for i, team in enumerate(teams):
                     status_text.text(f"معالجة {team}... ({i+1}/{len(teams)})")
                     # Generate filename variations
-                    # Remove common suffixes
                     base = team
-                    for suffix in [" FC", " AFC", " United", " City", " Real", " CF", " AC", " AS", " SS", " SC", " Club", " Deportivo", " Futebol", " Clube"]:
+                    # Remove common suffixes
+                    suffixes = [" FC", " AFC", " United", " City", " Real", " CF", " AC", " AS", " SS", " SC", " Club", " Deportivo", " Futebol", " Clube"]
+                    for suffix in suffixes:
                         if base.endswith(suffix):
                             base = base[:-len(suffix)]
-                    # Replace spaces and special chars
+                            break
+                    # Replace spaces and special chars with underscore
                     base_underscore = base.replace(" ", "_").replace("-", "_").replace("&", "and")
                     original_underscore = team.replace(" ", "_").replace("-", "_").replace("&", "and")
+                    
+                    # List of possible filenames (you can add more patterns)
                     variations = [
-                        (f"{base_underscore}.png", base_underscore),
-                        (f"{original_underscore}.png", original_underscore),
-                        (f"{base}.png", base),
+                        f"{base_underscore}.png",
+                        f"{original_underscore}.png",
+                        f"{base}.png",
+                        f"{team}.png",
+                        f"{base_underscore}.jpg",
+                        f"{original_underscore}.jpg",
                     ]
+                    
                     found = False
-                    for filename, _ in variations:
+                    tried_urls = []
+                    for filename in variations:
                         for folder in league_folders:
                             url = f"{BUCKET_BASE}/{folder}/{filename}"
+                            tried_urls.append(url)
                             try:
-                                resp = requests.head(url, timeout=3)
+                                resp = requests.head(url, timeout=2)
                                 if resp.status_code == 200:
                                     # Insert into team_logos
                                     supabase.table("team_logos").upsert(
@@ -383,23 +398,33 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                                     ).execute()
                                     results["found"] += 1
                                     found = True
-                                    st.success(f"✅ {team} -> {url}")
+                                    log_lines.append(f"✅ {team} -> {url}")
                                     break
+                                else:
+                                    if debug_mode:
+                                        log_lines.append(f"❌ {url} - {resp.status_code}")
                             except Exception as e:
-                                # ignore timeouts
-                                pass
+                                if debug_mode:
+                                    log_lines.append(f"⚠️ {url} - {str(e)[:50]}")
                         if found:
                             break
                     if not found:
                         results["not_found"] += 1
-                        st.warning(f"❌ {team} – لم يتم العثور على شعار")
+                        log_lines.append(f"❌ {team} – لم يتم العثور على شعار (تم فحص {len(tried_urls)} رابط)")
+                    
+                    # Update log area every 10 teams to avoid too many updates
+                    if debug_mode and (i+1) % 10 == 0:
+                        log_area.text("\n".join(log_lines[-100:]))  # show last 100 lines
                     
                     # Update progress
                     progress_bar.progress((i+1)/len(teams))
 
                 status_text.text("اكتمل البحث!")
                 st.success(f"النتائج: تم العثور على {results['found']} شعار، لم يتم العثور على {results['not_found']}، أخطاء {results['errors']}")
-
+                
+                if debug_mode:
+                    st.subheader("سجل التصحيح (آخر 200 سطر)")
+                    st.text("\n".join(log_lines[-200:]))
 # --- Fetch matches with filters ---
 @st.cache_data(ttl=60)
 def get_filtered_matches(selected_leagues, min_importance, show_all, hide_old_finished):
