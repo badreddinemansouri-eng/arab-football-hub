@@ -7,6 +7,7 @@ import requests
 import json
 import hashlib
 import random
+from urllib.parse import quote
 
 # --- Page config ---
 st.set_page_config(
@@ -23,7 +24,7 @@ st.markdown('<meta http-equiv="refresh" content="180">', unsafe_allow_html=True)
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
 
-# --- Admin password ---
+# --- Admin password (change to your own) ---
 ADMIN_PASSWORD_HASH = hashlib.sha256("badr11101999.".encode()).hexdigest()
 
 # --- Connect to Supabase ---
@@ -126,10 +127,11 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- Header ---
+# --- Header with your logo and banner ---
 col1, col2, col3 = st.columns([1, 3, 1])
 with col2:
-    st.image("https://img.icons8.com/color/96/000000/football2--v1.png", width=80)
+    # Replace with your actual logo URL
+    st.image("https://your-logo-url.com/logo.png", width=80)
     st.markdown("<h1 style='text-align: center;'>⚽ **مركز الكرة العربية**</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; font-size: 18px;'>جميع مباريات كرة القدم حول العالم • روابط بث مجانية • تحديثات مباشرة</p>", unsafe_allow_html=True)
     st.markdown("<div class='trust-badge'>✓ أكثر من 1000 بطولة • روابط موثوقة • إدارة يدوية للمباريات الهامة</div>", unsafe_allow_html=True)
@@ -141,9 +143,10 @@ with st.sidebar:
     st.header("📢 **ادعم الموقع**")
     st.info("الإعلانات تساعدنا في استمرار الخدمة مجاناً للجميع.")
     
+    # Your banner – replace with your actual banner image URL and affiliate link
     st.markdown("""
-    <a href="https://your-affiliate-link.com" target="_self">
-        <img src="https://your-affiliate-banner-url.com/banner.jpg" style="width:100%; border-radius:10px;">
+    <a href="https://your-affiliate-link.com" target="_blank">
+        <img src="https://your-banner-url.com/banner.jpg" style="width:100%; border-radius:10px;">
     </a>
     """, unsafe_allow_html=True)
     
@@ -295,7 +298,6 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
             custom_stream = st.text_input("رابط البث (اختياري)")
             submitted = st.form_submit_button("إضافة المباراة")
             if submitted and custom_home and custom_away:
-                # Create a negative fixture_id to avoid conflicts
                 new_id = -random.randint(10000, 99999)
                 match_time = datetime.combine(custom_date, custom_time).isoformat()
                 data = {
@@ -317,9 +319,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                 st.rerun()
         
         st.markdown("</div>", unsafe_allow_html=True)
-        # --- Logo Auto-Linker (inside admin panel, after the manual stream section) ---
-# --- Logo Auto-Linker with Debug (inside admin panel) ---
-# --- Logo Auto-Linker with Correct Folder Names ---
+        
 # --- Enhanced Logo Auto-Linker ---
 if st.session_state.admin_authenticated and st.session_state.show_admin:
     with st.expander("🖼️ **ربط الشعارات تلقائياً (نسخة محسنة)**"):
@@ -496,7 +496,6 @@ def time_until(match_time_str):
 
 def get_match_status_display(match):
     if match["status"] == "LIVE":
-        # Safety filter: if started more than 3 hours ago, treat as finished
         try:
             match_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
             now = datetime.now(match_time.tzinfo)
@@ -513,7 +512,7 @@ def get_match_status_display(match):
     else:
         return "✅ انتهت"
 
-# --- Featured Matches (placeholder) ---
+# --- Featured Matches Section ---
 st.header("⭐ **المباريات الهامة اليوم**")
 featured = [m for m in matches if m.get("is_featured") or m.get("importance_score", 0) >= 85]
 
@@ -528,6 +527,10 @@ if featured:
                 except:
                     streams = []
             status_display = get_match_status_display(match)
+            stream_buttons = ""
+            for s in streams:
+                stream_link = f"/1_▶️_مشاهدة_البث?url={quote(s['url'])}"
+                stream_buttons += f'<a class="stream-btn" href="{stream_link}" target="_self">📺 {s["title"][:30]}... {"<span class=\"verified\">موثوق</span>" if s.get("verified") else ""}{"<span class=\"admin-added\">رسمي</span>" if s.get("admin_added") else ""}</a>'
             st.markdown(f"""
             <div class="match-card featured-card">
                 <div style="display: flex; align-items: center; justify-content: space-between;">
@@ -553,6 +556,9 @@ if featured:
                 </div>
                 <p style="text-align: center; color: #ffd700;">{status_display}</p>
                 <p style="text-align: center; font-size:12px;">{match['league']}</p>
+                <div style="margin-top: 15px;">
+                    {stream_buttons}
+                </div>
             </div>
             """, unsafe_allow_html=True)
 else:
@@ -563,7 +569,6 @@ st.header("🔥 **المباريات المباشرة الآن**")
 live_matches = []
 for m in matches:
     if m["status"] == "LIVE":
-        # Apply the same safety filter
         try:
             match_time = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00'))
             now = datetime.now(match_time.tzinfo)
@@ -600,6 +605,10 @@ if live_matches:
                     "admin_added": True
                 })
         minute = match.get("minute", "")
+        stream_buttons = ""
+        for s in streams:
+            stream_link = f"/1_▶️_مشاهدة_البث?url={quote(s['url'])}"
+            stream_buttons += f'<a class="stream-btn" href="{stream_link}" target="_self">📺 {s["title"][:30]}... {"<span class=\"verified\">موثوق</span>" if s.get("verified") else ""}{"<span class=\"admin-added\">رسمي</span>" if s.get("admin_added") else ""}</a>'
         with st.container():
             st.markdown(f"""
             <div class="match-card">
@@ -625,7 +634,7 @@ if live_matches:
                 </div>
                 <p style="margin-top:5px;">🏆 {match['league']} <img src="{match.get('league_logo', 'https://via.placeholder.com/50')}" style="width:20px; height:20px; display:inline;"></p>
                 <div style="margin-top: 15px;">
-                    {"".join([f'<a class="stream-btn" href="{s["url"]}" target="_blank" rel="noopener noreferrer" onclick="if(!window.open(this.href)){{alert(\'يرجى السماح للنوافذ المنبثقة للموقع\'); return false;}}">📺 {s["title"][:30]}... {"<span class=\"verified\">موثوق</span>" if s.get("verified") else ""}{"<span class=\"admin-added\">رسمي</span>" if s.get("admin_added") else ""}</a>' for s in streams]) if streams else "<p>سيتم إضافة روابط البث قريباً...</p>"}
+                    {stream_buttons}
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -658,6 +667,10 @@ if upcoming:
                     match_time = datetime.fromisoformat(match['match_time'].replace('Z', '+00:00')).strftime("%H:%M")
                     importance = match.get("importance_score", 0)
                     star = "⭐" if importance >= 85 else ""
+                    stream_buttons = ""
+                    for s in streams[:2]:
+                        stream_link = f"/1_▶️_مشاهدة_البث?url={quote(s['url'])}"
+                        stream_buttons += f'<a class="stream-btn" style="padding:5px 10px; font-size:14px;" href="{stream_link}" target="_self">▶️ بث</a>'
                     st.markdown(f"""
                     <div style="background: #2a2a40; padding: 15px; border-radius: 15px; margin-bottom: 15px;">
                         <div style="display: flex; align-items: center; justify-content: space-between;">
@@ -676,7 +689,7 @@ if upcoming:
                             <span class="countdown">⏳ {time_left}</span>
                             <span>{star}</span>
                         </div>
-                        { "".join([f'<a class="stream-btn" style="padding:5px 10px; font-size:14px;" href="{s["url"]}" target="_blank" rel="noopener noreferrer" onclick="if(!window.open(this.href)){{alert(\'يرجى السماح للنوافذ المنبثقة للموقع\'); return false;}}">▶️ بث</a>' for s in streams[:2]]) if streams else '<p style="color:#aaa">الروابط قبل المباراة بساعة</p>' }
+                        {stream_buttons}
                     </div>
                     """, unsafe_allow_html=True)
 else:
@@ -711,7 +724,7 @@ if league_stats:
         with cols[i % 4]:
             st.markdown(f"**{league}**  \n{count} مباراة")
 
-# --- Footer ---
+# --- Footer with donation ---
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; background: linear-gradient(135deg, #1e1e2f, #2a2a40); padding: 30px; border-radius: 20px;'>
@@ -724,6 +737,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# --- PopAds script (kept at bottom) ---
 st.components.v1.html("""
     <script src="//popads.net/pop.js" async></script>
 """, height=0)
