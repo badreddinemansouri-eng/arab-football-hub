@@ -625,7 +625,7 @@ if live_matches:
                 </div>
                 <p style="margin-top:5px;">🏆 {match['league']} <img src="{match.get('league_logo', 'https://via.placeholder.com/50')}" style="width:20px; height:20px; display:inline;"></p>
                 <div style="margin-top: 15px;">
-                    {"".join([f'<a class="stream-btn" href="{s["url"]}" target="_self">📺 {s["title"][:30]}... {"<span class=\"verified\">موثوق</span>" if s.get("verified") else ""}{"<span class=\"admin-added\">رسمي</span>" if s.get("admin_added") else ""}</a>' for s in streams]) if streams else "<p>سيتم إضافة روابط البث قريباً...</p>"}
+                    {"".join([f'<a class="stream-btn" href="{s["url"]}" target="_blank" rel="noopener noreferrer" onclick="if(!window.open(this.href)){{alert(\'يرجى السماح للنوافذ المنبثقة للموقع\'); return false;}}">📺 {s["title"][:30]}... {"<span class=\"verified\">موثوق</span>" if s.get("verified") else ""}{"<span class=\"admin-added\">رسمي</span>" if s.get("admin_added") else ""}</a>' for s in streams]) if streams else "<p>سيتم إضافة روابط البث قريباً...</p>"}
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -676,7 +676,7 @@ if upcoming:
                             <span class="countdown">⏳ {time_left}</span>
                             <span>{star}</span>
                         </div>
-                        { "".join([f'<a class="stream-btn" style="padding:5px 10px; font-size:14px;" href="{s["url"]}" target="_self">▶️ بث</a>' for s in streams[:2]]) if streams else '<p style="color:#aaa">الروابط قبل المباراة بساعة</p>' }
+                        { "".join([f'<a class="stream-btn" style="padding:5px 10px; font-size:14px;" href="{s["url"]}" target="_blank" rel="noopener noreferrer" onclick="if(!window.open(this.href)){{alert(\'يرجى السماح للنوافذ المنبثقة للموقع\'); return false;}}">▶️ بث</a>' for s in streams[:2]]) if streams else '<p style="color:#aaa">الروابط قبل المباراة بساعة</p>' }
                     </div>
                     """, unsafe_allow_html=True)
 else:
