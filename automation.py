@@ -129,13 +129,56 @@ def get_team_logo_from_db(team_name):
 
     return None
 
+def slugify_league_name(name):
+    """Convert league name to a safe ASCII string."""
+    if not name:
+        return ""
+    name = unicodedata.normalize('NFKD', name).encode('ascii', 'ignore').decode('ascii')
+    name = re.sub(r'[^\w\s]', '', name)
+    return name.replace(' ', '_')
+
+def find_league_logo_in_storage(league_name):
+    """Search for a league logo in Supabase storage."""
+    base_url = f"{SUPABASE_URL}/storage/v1/object/public/logos/leagues"
+    # Try original (with spaces), underscores, and slugified
+    candidates = [
+        league_name,
+        league_name.replace(' ', '_'),
+        slugify_league_name(league_name)
+    ]
+    for name in candidates:
+        encoded = requests.utils.quote(name)
+        url = f"{base_url}/{encoded}.png"
+        try:
+            if requests.head(url, timeout=3).status_code == 200:
+                return url
+        except:
+            continue
+    return None    
+
 def get_league_logo_from_db(league_name):
+    if not league_name:
+        return None
+    # Check table first
     try:
         result = supabase.table("league_logos").select("logo_url").eq("league_name", league_name).execute()
         if result.data and result.data[0].get("logo_url"):
             return result.data[0]["logo_url"]
     except Exception as e:
         print(f"Error looking up league logo for {league_name}: {e}")
+
+    # Not in table – try storage
+    url = find_league_logo_in_storage(league_name)
+    if url:
+        # Store for future
+        try:
+            supabase.table("league_logos").upsert(
+                {"league_name": league_name, "logo_url": url},
+                on_conflict="league_name"
+            ).execute()
+        except Exception as e:
+            print(f"Error storing league logo for {league_name}: {e}")
+        return url
     return None
 
 def get_country_flag(country_name):
