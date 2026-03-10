@@ -5,6 +5,8 @@ from supabase import create_client, Client
 from datetime import datetime, timedelta, timezone
 import json
 import time
+import unicodedata
+import re
 
 # Environment variables
 SUPABASE_URL = os.environ["SUPABASE_URL"]
@@ -62,14 +64,69 @@ def fetch_matches(competition_code=None, date_from=None, date_to=None, status=No
     except Exception as e:
         print(f"Error fetching matches: {e}")
         return []
+def slugify_team_name(name):
+    """Convert a team name to a safe ASCII string (e.g., 'FC Bayern München' -> 'FC_Bayern_Munchen')."""
+    if not name:
+        return ""
+    # Normalize unicode characters to ASCII equivalents
+    name = unicodedata.normalize('NFKD', name).encode('ascii', 'ignore').decode('ascii')
+    # Remove any punctuation except spaces
+    name = re.sub(r'[^\w\s]', '', name)
+    # Replace spaces with underscores
+    return name.replace(' ', '_')
 
+def find_team_logo_in_storage(team_name):
+    """Search for a team logo in Supabase storage using original and slugified names."""
+    folders = [
+        "Italy - Serie A", "England - Premier League", "Spain - LaLiga",
+        "Germany - Bundesliga", "France - Ligue 1", "Portugal - Liga Portugal",
+        "International - Champions League", "International - World Cup"
+    ]
+    base_url = f"{SUPABASE_URL}/storage/v1/object/public/logos"
+    
+    # Try both original (with spaces) and original with underscores, and slugified
+    candidates = [
+        team_name,
+        team_name.replace(' ', '_'),
+        slugify_team_name(team_name)
+    ]
+    
+    for folder in folders:
+        for name in candidates:
+            encoded_name = requests.utils.quote(name)
+            url = f"{base_url}/{folder}/{encoded_name}.png"
+            try:
+                if requests.head(url, timeout=3).status_code == 200:
+                    # Found – return URL
+                    return url
+            except:
+                continue
+    return None
 def get_team_logo_from_db(team_name):
+    """Get logo URL from team_logos table; if not found, try storage and store result."""
+    if not team_name:
+        return None
+    # First check the team_logos table
     try:
         result = supabase.table("team_logos").select("logo_url").eq("team_name", team_name).execute()
         if result.data and result.data[0].get("logo_url"):
             return result.data[0]["logo_url"]
     except Exception as e:
         print(f"Error looking up logo for {team_name}: {e}")
+
+    # Not in table – try to find in storage
+    url = find_team_logo_in_storage(team_name)
+    if url:
+        # Store it for future use
+        try:
+            supabase.table("team_logos").upsert(
+                {"team_name": team_name, "logo_url": url},
+                on_conflict="team_name"
+            ).execute()
+        except Exception as e:
+            print(f"Error storing logo for {team_name}: {e}")
+        return url
+
     return None
 
 def get_league_logo_from_db(league_name):
