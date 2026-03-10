@@ -7,7 +7,9 @@ import requests
 import json
 import hashlib
 import random
+import html
 from urllib.parse import quote
+
 
 # --- Page config ---
 st.set_page_config(
@@ -564,6 +566,8 @@ if featured:
 else:
     st.info("لا توجد مباريات مميزة اليوم")
 
+  # add this at the very top of app.py
+
 # --- Live Matches Section ---
 st.header("🔥 **المباريات المباشرة الآن**")
 live_matches = []
@@ -608,31 +612,37 @@ if live_matches:
         stream_buttons = ""
         for s in streams:
             stream_link = f"/watch_stream?url={quote(s['url'])}"
-            stream_buttons += f'<a class="stream-btn" href="{stream_link}" target="_self">📺 {s["title"][:30]}... {"<span class=\"verified\">موثوق</span>" if s.get("verified") else ""}{"<span class=\"admin-added\">رسمي</span>" if s.get("admin_added") else ""}</a>'
+            safe_title = html.escape(s["title"][:30])
+            stream_buttons += f'<a class="stream-btn" href="{stream_link}" target="_self">📺 {safe_title}... {"<span class=\"verified\">موثوق</span>" if s.get("verified") else ""}{"<span class=\"admin-added\">رسمي</span>" if s.get("admin_added") else ""}</a>'
+        
+        # If no streams, show a placeholder
+        if not stream_buttons:
+            stream_buttons = '<span style="color:#888;">لا توجد روابط حالياً</span>'
+        
         with st.container():
             st.markdown(f"""
             <div class="match-card">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div style="display: flex; align-items: center;">
                         <img src="{match.get('country_logo', '')}" style="width:25px; height:20px; margin-left:10px;">
-                        <span>{match.get('country', '')}</span>
+                        <span>{html.escape(match.get('country', ''))}</span>
                     </div>
                     <span class="live-badge">🔴 مباشر {f"({minute}')" if minute else ""}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin: 15px 0;">
                     <div style="display: flex; align-items: center; flex:1;">
                         <img src="{match.get('home_logo', 'https://via.placeholder.com/50')}" class="logo-small">
-                        <h3 style="margin-right:10px;">{match['home_team']}</h3>
+                        <h3 style="margin-right:10px;">{html.escape(match['home_team'])}</h3>
                     </div>
                     <div style="font-size: 32px; font-weight: bold; margin: 0 20px;">
                         {match['home_score']} - {match['away_score']}
                     </div>
                     <div style="display: flex; align-items: center; flex:1; justify-content: flex-end;">
-                        <h3 style="margin-left:10px;">{match['away_team']}</h3>
+                        <h3 style="margin-left:10px;">{html.escape(match['away_team'])}</h3>
                         <img src="{match.get('away_logo', 'https://via.placeholder.com/50')}" class="logo-small">
                     </div>
                 </div>
-                <p style="margin-top:5px;">🏆 {match['league']} <img src="{match.get('league_logo', 'https://via.placeholder.com/50')}" style="width:20px; height:20px; display:inline;"></p>
+                <p style="margin-top:5px;">🏆 {html.escape(match['league'])} <img src="{match.get('league_logo', 'https://via.placeholder.com/50')}" style="width:20px; height:20px; display:inline;"></p>
                 <div style="margin-top: 15px;">
                     {stream_buttons}
                 </div>
