@@ -625,7 +625,7 @@ if live_matches:
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div style="display: flex; align-items: center;">
                         <img src="{match.get('country_logo', '')}" style="width:25px; height:20px; margin-left:10px;">
-                        <span>{html.escape(match.get('country', ''))}</span>
+                        <span>{html.escape(match.get('country') or '')}</span>
                     </div>
                     <span class="live-badge">🔴 مباشر {f"({minute}')" if minute else ""}</span>
                 </div>
