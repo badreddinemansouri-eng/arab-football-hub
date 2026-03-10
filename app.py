@@ -447,6 +447,16 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                         mime="text/plain"
                     )
                     st.info("يمكنك استخدام هذه القائمة لإضافة الشعارات يدوياً إلى المجلد المناسب في Supabase.")
+if st.button("🔍 تحديث شعارات البطولات"):
+    leagues = get_distinct_leagues()  # fetch all unique league names from matches table
+    for league in leagues:
+        # use same logic as above to find and store
+        url = find_league_logo_in_storage(league)
+        if url:
+            supabase.table("league_logos").upsert(...)
+            st.success(f"✅ {league}")
+        else:
+            st.warning(f"❌ {league}")
 # --- Fetch matches with filters ---
 @st.cache_data(ttl=60)
 def get_filtered_matches(selected_leagues, min_importance, show_all, hide_old_finished):
