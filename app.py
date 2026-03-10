@@ -529,7 +529,7 @@ if featured:
             status_display = get_match_status_display(match)
             stream_buttons = ""
             for s in streams:
-                stream_link = f"/1_▶️_مشاهدة_البث?url={quote(s['url'])}"
+                stream_link = f"/watch_stream?url={quote(s['url'])}"
                 stream_buttons += f'<a class="stream-btn" href="{stream_link}" target="_self">📺 {s["title"][:30]}... {"<span class=\"verified\">موثوق</span>" if s.get("verified") else ""}{"<span class=\"admin-added\">رسمي</span>" if s.get("admin_added") else ""}</a>'
             st.markdown(f"""
             <div class="match-card featured-card">
@@ -607,7 +607,7 @@ if live_matches:
         minute = match.get("minute", "")
         stream_buttons = ""
         for s in streams:
-            stream_link = f"/1_▶️_مشاهدة_البث?url={quote(s['url'])}"
+            stream_link = f"/watch_stream?url={quote(s['url'])}"
             stream_buttons += f'<a class="stream-btn" href="{stream_link}" target="_self">📺 {s["title"][:30]}... {"<span class=\"verified\">موثوق</span>" if s.get("verified") else ""}{"<span class=\"admin-added\">رسمي</span>" if s.get("admin_added") else ""}</a>'
         with st.container():
             st.markdown(f"""
@@ -669,7 +669,7 @@ if upcoming:
                     star = "⭐" if importance >= 85 else ""
                     stream_buttons = ""
                     for s in streams[:2]:
-                        stream_link = f"/1_▶️_مشاهدة_البث?url={quote(s['url'])}"
+                        stream_link = f"/watch_stream?url={quote(s['url'])}"
                         stream_buttons += f'<a class="stream-btn" style="padding:5px 10px; font-size:14px;" href="{stream_link}" target="_self">▶️ بث</a>'
                     st.markdown(f"""
                     <div style="background: #2a2a40; padding: 15px; border-radius: 15px; margin-bottom: 15px;">
