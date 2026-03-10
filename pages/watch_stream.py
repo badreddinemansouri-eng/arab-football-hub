@@ -18,7 +18,7 @@ st.set_page_config(
 )
 
 # -------------------------------------------------------------------
-# Custom RTL styling (unchanged, but you can keep as is)
+# Custom RTL styling with modern touches
 # -------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -26,18 +26,18 @@ st.markdown("""
     
     * { font-family: 'Cairo', sans-serif; box-sizing: border-box; }
     
-    /* Force RTL and nice background */
+    /* Force RTL and smooth gradient background */
     .main, .block-container { 
         direction: rtl; 
         text-align: right; 
-        background: linear-gradient(135deg, #1e1e2f 0%, #2a2a40 100%);
+        background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
         color: white;
         padding: 1rem !important;
     }
     
-    /* Custom button style */
+    /* Modern button style */
     .stButton > button {
-        background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
+        background: linear-gradient(45deg, #ff4d4d, #ff8080);
         color: white;
         border: none;
         border-radius: 50px;
@@ -45,48 +45,34 @@ st.markdown("""
         font-weight: 700;
         font-size: 1rem;
         transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        box-shadow: 0 8px 20px rgba(255, 75, 75, 0.3);
+        border: 1px solid rgba(255,255,255,0.1);
     }
     .stButton > button:hover {
-        background: linear-gradient(45deg, #ff5252, #ff7676);
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(255, 82, 82, 0.4);
+        background: linear-gradient(45deg, #ff3333, #ff6666);
+        transform: translateY(-3px);
+        box-shadow: 0 12px 28px rgba(255, 75, 75, 0.4);
     }
     
-    /* Countdown timer */
-    .countdown {
-        color: #ffd700;
-        font-weight: bold;
-        font-size: 3rem;
-        text-align: center;
-        animation: pulse 1s infinite;
-    }
-    @keyframes pulse {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.1); }
-        100% { transform: scale(1); }
-    }
-    
-    /* Share buttons */
-    .share-btn {
-        display: inline-flex;
-        align-items: center;
+    /* Loading spinner animation */
+    .loading-spinner {
+        display: flex;
         justify-content: center;
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        background: #333;
-        color: white;
-        margin: 0 5px;
-        transition: 0.3s;
-        text-decoration: none;
-        font-size: 20px;
+        align-items: center;
+        height: 200px;
     }
-    .share-btn:hover { transform: scale(1.2); }
-    .share-btn.facebook { background: #3b5998; }
-    .share-btn.twitter { background: #1da1f2; }
-    .share-btn.whatsapp { background: #25d366; }
-    .share-btn.telegram { background: #0088cc; }
+    .spinner {
+        border: 6px solid rgba(255,255,255,0.1);
+        border-top: 6px solid #ff4d4d;
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
     
     /* Video container */
     .video-container {
@@ -95,10 +81,11 @@ st.markdown("""
         height: 0;
         overflow: hidden;
         max-width: 100%;
-        background: black;
+        background: #000;
         border-radius: 20px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.5);
         margin: 20px 0;
+        border: 1px solid #333;
     }
     .video-container iframe,
     .video-container video,
@@ -112,39 +99,54 @@ st.markdown("""
         border-radius: 20px;
     }
     
-    /* QR code container */
-    .qr-container {
-        background: white;
-        padding: 10px;
-        border-radius: 10px;
-        display: inline-block;
-        margin: 10px 0;
-    }
-    
-    /* Ad containers */
-    .ad-container {
-        background: rgba(255,255,255,0.05);
-        border-radius: 15px;
-        padding: 10px;
-        margin: 20px 0;
-        text-align: center;
+    /* Share buttons */
+    .share-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.1);
+        color: white;
+        margin: 0 5px;
+        transition: 0.3s;
+        text-decoration: none;
+        font-size: 22px;
         backdrop-filter: blur(5px);
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+    .share-btn:hover { 
+        transform: scale(1.15); 
+        background: rgba(255,255,255,0.2);
     }
     
     /* Status badges */
     .badge {
         display: inline-block;
-        padding: 5px 12px;
-        border-radius: 20px;
-        font-size: 0.8rem;
-        font-weight: bold;
+        padding: 6px 14px;
+        border-radius: 30px;
+        font-size: 0.85rem;
+        font-weight: 600;
         margin: 2px;
+        background: rgba(255,255,255,0.1);
+        backdrop-filter: blur(5px);
+        border: 1px solid rgba(255,255,255,0.1);
     }
     .badge.live { background: #ff4444; color: white; animation: pulse 1.5s infinite; }
-    .badge.embed { background: #4CAF50; color: white; }
-    .badge.unknown { background: #888; color: white; }
-    .badge.generic { background: #ffa500; color: white; }
-    .badge.advanced { background: #9c27b0; color: white; } /* new */
+    .badge.embed { background: #2ecc71; color: white; }
+    .badge.generic { background: #f39c12; color: white; }
+    
+    /* Ad containers */
+    .ad-container {
+        background: rgba(0,0,0,0.2);
+        border-radius: 15px;
+        padding: 15px;
+        margin: 20px 0;
+        text-align: center;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.05);
+    }
     
     /* Tooltip */
     .tooltip {
@@ -154,7 +156,7 @@ st.markdown("""
     .tooltip .tooltiptext {
         visibility: hidden;
         width: 120px;
-        background-color: #555;
+        background-color: #333;
         color: #fff;
         text-align: center;
         border-radius: 6px;
@@ -175,16 +177,16 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
-# Session state for user preferences
+# Session state
 # -------------------------------------------------------------------
 if "dark_mode" not in st.session_state:
     st.session_state.dark_mode = True
-if "low_bandwidth" not in st.session_state:
-    st.session_state.low_bandwidth = False
-if "advanced_mode" not in st.session_state:
-    st.session_state.advanced_mode = False  # whether to attempt advanced extraction
-if "embed_url" not in st.session_state:
-    st.session_state.embed_url = None       # store extracted embed URL
+if "extraction_attempted" not in st.session_state:
+    st.session_state.extraction_attempted = False
+if "extracted_url" not in st.session_state:
+    st.session_state.extracted_url = None
+if "extraction_failed" not in st.session_state:
+    st.session_state.extraction_failed = False
 
 # -------------------------------------------------------------------
 # Get and validate stream URL
@@ -202,22 +204,21 @@ if not stream_url:
         st.switch_page("app.py")
     st.stop()
 
-# Decode URL (sometimes double-encoded)
+# Decode URL
 try:
     stream_url = unquote(stream_url)
 except:
     pass
 
 # -------------------------------------------------------------------
-# Title and metadata – hidden URL
+# Title
 # -------------------------------------------------------------------
 st.title("⚽ **مشاهدة البث المباشر**")
-# st.caption("")  # intentionally empty
 
 # -------------------------------------------------------------------
-# Intelligent source detection (supports 25+ platforms)
+# Intelligent source detection (supports 20+ platforms)
 # -------------------------------------------------------------------
-@st.cache_data(ttl=3600)  # Cache for 1 hour
+@st.cache_data(ttl=3600)
 def detect_source(url):
     parsed = urlparse(url)
     domain = parsed.netloc.lower()
@@ -235,7 +236,6 @@ def detect_source(url):
                 "type": "youtube",
                 "embed_url": f"https://www.youtube.com/embed/{video_id}?autoplay=1&rel=0&modestbranding=1",
                 "can_embed": True,
-                "logo": "🔴",
                 "name": "يوتيوب"
             }
 
@@ -245,28 +245,23 @@ def detect_source(url):
             "type": "facebook",
             "embed_url": f"https://www.facebook.com/plugins/video.php?href={quote(url)}&show_text=0&width=560",
             "can_embed": True,
-            "logo": "📘",
             "name": "فيسبوك"
         }
 
     # Instagram
-    elif "instagram.com" in domain and ("/p/" in path or "/reel/" in path or "/tv/" in path):
-        # Instagram embed uses /p/ or /reel/ 
-        # Format: https://www.instagram.com/p/CxYx/embed
+    elif "instagram.com" in domain and ("/p/" in path or "/reel/" in path):
         parts = path.split('/')
         if len(parts) >= 3:
-            post_id = parts[2]  # after /p/ or /reel/
+            post_id = parts[2]
             return {
                 "type": "instagram",
                 "embed_url": f"https://www.instagram.com/p/{post_id}/embed",
                 "can_embed": True,
-                "logo": "📷",
                 "name": "انستغرام"
             }
 
-    # Twitter / X
+    # Twitter/X
     elif "twitter.com" in domain or "x.com" in domain:
-        # Extract status ID from /status/12345
         match = re.search(r'/status/(\d+)', path)
         if match:
             status_id = match.group(1)
@@ -274,14 +269,11 @@ def detect_source(url):
                 "type": "twitter",
                 "embed_url": f"https://twitframe.com/show?url={quote(url)}",
                 "can_embed": True,
-                "logo": "🐦",
                 "name": "تويتر"
             }
 
     # TikTok
     elif "tiktok.com" in domain:
-        # TikTok embed: https://www.tiktok.com/embed/v2/VIDEO_ID
-        # Extract video ID from /@user/video/12345
         match = re.search(r'/video/(\d+)', path)
         if match:
             video_id = match.group(1)
@@ -289,7 +281,6 @@ def detect_source(url):
                 "type": "tiktok",
                 "embed_url": f"https://www.tiktok.com/embed/v2/{video_id}",
                 "can_embed": True,
-                "logo": "🎵",
                 "name": "تيك توك"
             }
 
@@ -305,7 +296,6 @@ def detect_source(url):
                 "type": "dailymotion",
                 "embed_url": f"https://www.dailymotion.com/embed/video/{video_id}?autoplay=1",
                 "can_embed": True,
-                "logo": "🎥",
                 "name": "ديلي موشن"
             }
 
@@ -317,7 +307,6 @@ def detect_source(url):
                 "type": "vimeo",
                 "embed_url": f"https://player.vimeo.com/video/{video_id}?autoplay=1",
                 "can_embed": True,
-                "logo": "🎞️",
                 "name": "فيميو"
             }
 
@@ -329,7 +318,6 @@ def detect_source(url):
                 "type": "twitch",
                 "embed_url": f"https://player.twitch.tv/?video=v{video_id}&parent={st.get_option('server.address')}&autoplay=true",
                 "can_embed": True,
-                "logo": "📺",
                 "name": "تويتش"
             }
         else:
@@ -339,11 +327,10 @@ def detect_source(url):
                     "type": "twitch",
                     "embed_url": f"https://player.twitch.tv/?channel={channel}&parent={st.get_option('server.address')}&autoplay=true",
                     "can_embed": True,
-                    "logo": "📺",
                     "name": "تويتش"
                 }
 
-    # Ok.ru (Odnoklassniki)
+    # Ok.ru
     elif "ok.ru" in domain or "odnoklassniki.ru" in domain:
         match = re.search(r'/video(?:/|embed/)?(\d+)', url)
         if match:
@@ -352,11 +339,10 @@ def detect_source(url):
                 "type": "ok",
                 "embed_url": f"https://ok.ru/videoembed/{video_id}",
                 "can_embed": True,
-                "logo": "📼",
                 "name": "OK.ru"
             }
 
-    # VK (Vkontakte)
+    # VK
     elif "vk.com" in domain or "vkvideo.ru" in domain:
         match = re.search(r'video(-?\d+)_(\d+)', url)
         if match:
@@ -365,7 +351,6 @@ def detect_source(url):
                 "type": "vk",
                 "embed_url": f"https://vk.com/video_ext.php?oid={oid}&id={vid}&hash=&autoplay=1",
                 "can_embed": True,
-                "logo": "📱",
                 "name": "VK"
             }
 
@@ -378,7 +363,6 @@ def detect_source(url):
                 "type": "coub",
                 "embed_url": f"https://coub.com/embed/{video_id}?muted=false&autostart=true",
                 "can_embed": True,
-                "logo": "🎬",
                 "name": "Coub"
             }
 
@@ -391,7 +375,6 @@ def detect_source(url):
                 "type": "rutube",
                 "embed_url": f"https://rutube.ru/play/embed/{video_id}",
                 "can_embed": True,
-                "logo": "🇷🇺",
                 "name": "Rutube"
             }
 
@@ -404,7 +387,6 @@ def detect_source(url):
                 "type": "bilibili",
                 "embed_url": f"https://player.bilibili.com/player.html?bvid={video_id}&page=1&autoplay=1",
                 "can_embed": True,
-                "logo": "🇨🇳",
                 "name": "Bilibili"
             }
 
@@ -416,7 +398,6 @@ def detect_source(url):
                 "type": "streamable",
                 "embed_url": f"https://streamable.com/e/{video_id}",
                 "can_embed": True,
-                "logo": "🎬",
                 "name": "Streamable"
             }
 
@@ -426,66 +407,60 @@ def detect_source(url):
             "type": "direct_video",
             "embed_url": url,
             "can_embed": True,
-            "direct": True,
-            "logo": "🎦",
             "name": "فيديو مباشر"
         }
 
-    # HLS (m3u8) – we'll handle with custom player later
+    # HLS (m3u8)
     if path.endswith('.m3u8'):
         return {
             "type": "hls",
             "embed_url": url,
-            "can_embed": True,   # we'll create a custom player
-            "direct": False,
-            "logo": "📡",
+            "can_embed": True,
             "name": "بث HLS"
         }
 
-    # Generic fallback – attempt iframe if URL seems like a video page
-    if "video" in url or "embed" in url or "watch" in url:
-        return {
-            "type": "generic_iframe",
-            "embed_url": url,
-            "can_embed": True,
-            "logo": "🌐",
-            "name": "رابط عام"
-        }
-
-    # Default: unknown (cannot embed)
-    return {"type": "unknown", "can_embed": False, "logo": "🔗", "name": "رابط خارجي"}
-
-source_info = detect_source(stream_url)
+    # If nothing matched, return unknown (will trigger extraction)
+    return {"type": "unknown", "can_embed": False, "name": "رابط خارجي"}
 
 # -------------------------------------------------------------------
-# Advanced extraction function (uses allorigins proxy to fetch OpenGraph)
+# Advanced extraction function (automatic)
 # -------------------------------------------------------------------
-def advanced_extract(url):
-    try:
-        # Use allorigins to fetch the page (free, no auth)
-        proxy_url = f"https://api.allorigins.win/raw?url={quote(url)}"
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-        resp = requests.get(proxy_url, headers=headers, timeout=10)
-        if resp.status_code == 200:
-            html = resp.text
-            # Look for og:video or twitter:player
-            og_video = re.search(r'<meta property="og:video"[^>]+content="([^"]+)"', html)
-            if og_video:
-                video_url = og_video.group(1)
-                # If it's a YouTube URL, convert to embed
-                if 'youtube.com' in video_url or 'youtu.be' in video_url:
-                    # extract ID
-                    yt_match = re.search(r'(?:v=|/)([a-zA-Z0-9_-]{11})', video_url)
-                    if yt_match:
-                        return f"https://www.youtube.com/embed/{yt_match.group(1)}?autoplay=1"
-                # Otherwise try direct iframe
-                return video_url
-            # Try twitter:player
-            twitter_player = re.search(r'<meta property="twitter:player"[^>]+content="([^"]+)"', html)
-            if twitter_player:
-                return twitter_player.group(1)
-    except Exception as e:
-        print(f"Advanced extraction error: {e}")
+@st.cache_data(ttl=3600, show_spinner=False)
+def extract_embed_url(url):
+    """Try to find an embeddable video URL from a webpage."""
+    # Try multiple proxies in case one fails
+    proxies = [
+        f"https://api.allorigins.win/raw?url={quote(url)}",
+        f"https://cors-anywhere.herokuapp.com/{url}",
+        f"https://thingproxy.freeboard.io/fetch/{url}"
+    ]
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+    
+    for proxy in proxies:
+        try:
+            resp = requests.get(proxy, headers=headers, timeout=5)
+            if resp.status_code == 200:
+                html = resp.text
+                # Strategy 1: og:video
+                og_video = re.search(r'<meta property="og:video"[^>]+content="([^"]+)"', html)
+                if og_video:
+                    video_url = og_video.group(1)
+                    # If YouTube, convert to embed
+                    if 'youtube.com' in video_url or 'youtu.be' in video_url:
+                        yt_match = re.search(r'(?:v=|/)([a-zA-Z0-9_-]{11})', video_url)
+                        if yt_match:
+                            return f"https://www.youtube.com/embed/{yt_match.group(1)}?autoplay=1"
+                    return video_url
+                # Strategy 2: twitter:player
+                twitter_player = re.search(r'<meta property="twitter:player"[^>]+content="([^"]+)"', html)
+                if twitter_player:
+                    return twitter_player.group(1)
+                # Strategy 3: first iframe src
+                iframe_src = re.search(r'<iframe[^>]+src="([^"]+)"', html)
+                if iframe_src:
+                    return iframe_src.group(1)
+        except:
+            continue
     return None
 
 # -------------------------------------------------------------------
@@ -499,56 +474,61 @@ st.components.v1.html("""
 st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
-# Display source badge and advanced button
+# Main logic: detect source and automatically extract if needed
 # -------------------------------------------------------------------
-col1, col2, col3 = st.columns([1,1,1])
+source_info = detect_source(stream_url)
+
+# If not embeddable or unknown, attempt extraction automatically (only once per session)
+if not source_info["can_embed"] and not st.session_state.extraction_attempted:
+    st.session_state.extraction_attempted = True
+    with st.spinner("🔄 جاري تجهيز البث..."):
+        extracted = extract_embed_url(stream_url)
+        if extracted:
+            st.session_state.extracted_url = extracted
+            st.session_state.extraction_failed = False
+        else:
+            st.session_state.extraction_failed = True
+    st.rerun()  # Rerun to show the result
+
+# If extraction succeeded, use that URL as embeddable source
+if st.session_state.extracted_url:
+    embed_url = st.session_state.extracted_url
+    source_name = "بث مستخرج"
+    can_embed = True
+    is_extracted = True
+else:
+    embed_url = source_info.get("embed_url") if source_info["can_embed"] else None
+    source_name = source_info["name"]
+    can_embed = source_info["can_embed"]
+    is_extracted = False
+
+# -------------------------------------------------------------------
+# Display source badge
+# -------------------------------------------------------------------
+col1, col2, col3 = st.columns(3)
 with col1:
-    badge_class = 'embed' if source_info['can_embed'] else 'unknown'
-    if source_info.get('type') == 'generic_iframe':
-        badge_class = 'generic'
-    st.markdown(f"<span class='badge {badge_class}'>{source_info['logo']} {source_info['name']}</span>", unsafe_allow_html=True)
+    badge_class = 'embed' if can_embed else 'unknown'
+    st.markdown(f"<span class='badge {badge_class}'>📺 {source_name}</span>", unsafe_allow_html=True)
 with col2:
-    if source_info["can_embed"]:
-        st.markdown("<span class='badge embed'>✅ يمكن عرضه هنا</span>", unsafe_allow_html=True)
+    if can_embed:
+        st.markdown("<span class='badge embed'>✅ متاح للمشاهدة</span>", unsafe_allow_html=True)
     else:
-        st.markdown("<span class='badge unknown'>⚠️ سيفتح في نافذة جديدة</span>", unsafe_allow_html=True)
+        st.markdown("<span class='badge unknown'>⚠️ سيتم الفتح في نافذة جديدة</span>", unsafe_allow_html=True)
 with col3:
-    # Advanced extraction button (only show if not already advanced and if not a known platform that already works well)
-    if not st.session_state.advanced_mode and source_info["type"] not in ["youtube", "facebook", "instagram", "twitter", "tiktok", "dailymotion", "vimeo", "twitch", "ok", "vk", "coub", "rutube", "bilibili", "streamable", "direct_video", "hls"]:
-        if st.button("🧪 محاولة متقدمة"):
-            with st.spinner("جاري محاولة استخراج الفيديو..."):
-                extracted = advanced_extract(stream_url)
-                if extracted:
-                    st.session_state.embed_url = extracted
-                    st.session_state.advanced_mode = True
-                    st.rerun()
-                else:
-                    st.error("لم نتمكن من العثور على فيديو قابل للتضمين.")
-    elif st.session_state.advanced_mode:
-        st.markdown("<span class='badge advanced'>🧪 وضع متقدم</span>", unsafe_allow_html=True)
+    st.markdown("<span class='badge'>⚽ بث مباشر</span>", unsafe_allow_html=True)
 
 st.markdown("---")
 
 # -------------------------------------------------------------------
-# Determine final embed URL (use advanced if available)
+# Video area
 # -------------------------------------------------------------------
-embed_url = None
-if st.session_state.advanced_mode and st.session_state.embed_url:
-    embed_url = st.session_state.embed_url
-    source_name = "المتقدمة"
-elif source_info["can_embed"]:
-    embed_url = source_info["embed_url"]
-    source_name = source_info["name"]
-else:
-    embed_url = None
+if can_embed and embed_url:
+    # Show extracted note if applicable
+    if is_extracted:
+        st.success("✅ تم تجهيز البث بنجاح!")
 
-# -------------------------------------------------------------------
-# Main video area
-# -------------------------------------------------------------------
-if embed_url:
-    # Special handling for HLS
-    if source_info.get("type") == "hls" and not st.session_state.advanced_mode:
-        # Use hls.js player
+    # HLS special handling
+    if source_info.get("type") == "hls" and not is_extracted:
         st.markdown(f"""
         <div class="video-container">
             <div class="hls-player" id="hls-player"></div>
@@ -569,7 +549,6 @@ if embed_url:
               video.play();
             }});
           }} else if (video.canPlayType('application/vnd.apple.mpegurl')) {{
-            // native HLS support (Safari)
             var video = document.createElement('video');
             video.controls = true;
             video.autoplay = true;
@@ -578,22 +557,19 @@ if embed_url:
             video.src = '{embed_url}';
             document.getElementById('hls-player').appendChild(video);
             video.play();
-          }} else {{
-            document.getElementById('hls-player').innerHTML = 'متصفحك لا يدعبث HLS';
           }}
         </script>
         """, unsafe_allow_html=True)
-    elif source_info.get("type") == "direct_video":
+    elif source_info.get("type") == "direct_video" and not is_extracted:
         st.markdown(f"""
         <div class="video-container">
             <video controls autoplay playsinline>
                 <source src="{embed_url}" type="video/mp4">
-                متصفحك لا يدعم تشغيل الفيديو مباشرة.
             </video>
         </div>
         """, unsafe_allow_html=True)
     else:
-        # Standard iframe embed
+        # Standard iframe
         st.markdown(f"""
         <div class="video-container">
             <iframe src="{embed_url}" 
@@ -602,10 +578,6 @@ if embed_url:
             </iframe>
         </div>
         """, unsafe_allow_html=True)
-
-    # For generic iframe, add a note
-    if source_info.get("type") == "generic_iframe" and not st.session_state.advanced_mode:
-        st.info("💡 إذا كان الفيديو لا يظهر، جرب الزر 'محاولة متقدمة' أعلاه.")
 
     # Mid‑video ad
     st.markdown("<div class='ad-container'>", unsafe_allow_html=True)
@@ -619,26 +591,25 @@ if embed_url:
     st.markdown("</div>", unsafe_allow_html=True)
 
 else:
-    # Non‑embeddable: countdown + manual open (but we still try to keep them)
-    st.warning("📢 هذا البث لا يمكن عرضه مباشرة في الصفحة. سيتم محاولة فتحه في نافذة جديدة خلال ثوانٍ.")
-    st.info("إذا لم يتم الفتح تلقائياً، استخدم الزر أدناه.")
+    # If extraction failed or cannot embed, fallback to opening in new tab
+    if st.session_state.extraction_failed:
+        st.warning("⚠️ لم نتمكن من تجهيز البث داخل الصفحة. سيتم فتحه في نافذة جديدة.")
 
-    # Animated countdown
+    # Countdown and auto-open
+    st.info("جاري تحويلك إلى البث...")
     countdown_ph = st.empty()
     for i in range(5, 0, -1):
         countdown_ph.markdown(f"<div class='countdown'>{i}</div>", unsafe_allow_html=True)
         time.sleep(1)
     countdown_ph.empty()
 
-    # Open in new tab
     st.markdown(f"""
     <script>
         window.open("{stream_url}", "_blank");
     </script>
     """, unsafe_allow_html=True)
 
-    # Manual button (opens in new tab)
-    st.markdown(f'<a href="{stream_url}" target="_blank" style="display:block; text-align:center; padding:15px; background:#ff6b6b; color:white; text-decoration:none; border-radius:50px; font-weight:bold; margin:20px 0;">🔗 اضغط لفتح البث</a>', unsafe_allow_html=True)
+    st.markdown(f'<a href="{stream_url}" target="_blank" style="display:block; text-align:center; padding:15px; background:#ff4d4d; color:white; text-decoration:none; border-radius:50px; font-weight:bold; margin:20px 0;">🔗 اضغط لفتح البث</a>', unsafe_allow_html=True)
 
     # Fallback ad
     st.markdown("<div class='ad-container'>", unsafe_allow_html=True)
@@ -653,12 +624,22 @@ else:
     st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
-# Share buttons – share page URL, not direct stream
+# Share buttons – share page URL (fixed base URL issue)
 # -------------------------------------------------------------------
 st.markdown("---")
 cols = st.columns(4)
-page_url_str = f"{st.get_option('server.baseUrl')}/watch_stream?url={quote(stream_url)}"
+
+# Build absolute URL for sharing
+try:
+    host = st.context.headers.get('host', '')
+    protocol = 'https' if st.context.headers.get('x-forwarded-proto', 'http') == 'https' else 'http'
+    base_url = f"{protocol}://{host}"
+except Exception:
+    base_url = ""
+
+page_url_str = f"{base_url}/watch_stream?url={quote(stream_url)}"
 share_text = "شاهد البث المباشر على مركز الكرة العربية"
+
 with cols[0]:
     whatsapp_url = f"https://wa.me/?text={quote(share_text + ' ' + page_url_str)}"
     st.markdown(f'<a href="{whatsapp_url}" target="_blank" class="share-btn whatsapp">📱</a>', unsafe_allow_html=True)
@@ -682,18 +663,6 @@ with st.expander("🚨 الإبلاغ عن رابط معطل"):
     reason = st.text_area("تفاصيل المشكلة (اختياري)", height=100)
     if st.button("إرسال البلاغ", use_container_width=True):
         st.success("تم استلام البلاغ، شكراً لك! سنقوم بمراجعة الرابط في أقرب وقت.")
-        # Optional: log to Supabase here
-
-# -------------------------------------------------------------------
-# Related streams (if match_id provided)
-# -------------------------------------------------------------------
-if match_id:
-    try:
-        st.markdown("---")
-        st.subheader("🔗 روابط بديلة لنفس المباراة")
-        st.info("هنا يمكن عرض روابط بث أخرى لهذه المباراة (سيتم تفعيلها لاحقاً).")
-    except Exception as e:
-        pass
 
 # -------------------------------------------------------------------
 # Back to home
@@ -719,7 +688,7 @@ st.components.v1.html("""
 st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
-# GDPR / Privacy notice (optional)
+# GDPR / Privacy notice
 # -------------------------------------------------------------------
 st.markdown("""
 <div style="text-align: center; font-size: 12px; color: #888; margin-top: 20px;">
