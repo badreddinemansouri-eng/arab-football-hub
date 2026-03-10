@@ -634,7 +634,18 @@ if live_matches:
             <div class="match-card">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div style="display: flex; align-items: center;">
-                        <img src="{match.get('country_logo', '')}" style="width:25px; height:20px; margin-left:10px;">
+                        # Inside the live matches loop, replace the flag image line:
+
+                        # Old line:
+                        # <img src="{match.get('country_logo', '')}" style="width:25px; height:20px; margin-left:10px;">
+                        
+                        # New line with transparent fallback:
+                        flag_url = match.get('country_logo')
+                        if not flag_url:
+                            flag_url = "https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif"  # 1x1 transparent pixel
+                        
+                        # Then in the f-string:
+                        <img src="{flag_url}" style="width:25px; height:20px; margin-left:10px;">
                         <span>{html.escape(match.get('country') or '')}</span>
                     </div>
                     <span class="live-badge">🔴 مباشر {f"({minute}')" if minute else ""}</span>
