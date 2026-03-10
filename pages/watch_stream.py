@@ -2,12 +2,9 @@ import streamlit as st
 import time
 import re
 import json
-import hashlib
-import hmac
 from urllib.parse import urlparse, parse_qs, quote, unquote
-from datetime import datetime, timedelta
+from datetime import datetime
 import requests
-import base64
 
 # -------------------------------------------------------------------
 # Page configuration – MUST be first
@@ -144,6 +141,7 @@ st.markdown("""
     .badge.live { background: #ff4444; color: white; animation: pulse 1.5s infinite; }
     .badge.embed { background: #4CAF50; color: white; }
     .badge.unknown { background: #888; color: white; }
+    .badge.generic { background: #ffa500; color: white; }
     
     /* Tooltip */
     .tooltip {
@@ -210,8 +208,9 @@ st.title("⚽ **مشاهدة البث المباشر**")
 st.caption(f"الرابط: {stream_url[:100]}{'…' if len(stream_url)>100 else ''}")
 
 # -------------------------------------------------------------------
-# Intelligent source detection (supports 15+ platforms)
+# Intelligent source detection (supports 20+ platforms)
 # -------------------------------------------------------------------
+@st.cache_data(ttl=3600)  # Cache for 1 hour
 def detect_source(url):
     parsed = urlparse(url)
     domain = parsed.netloc.lower()
@@ -306,9 +305,8 @@ def detect_source(url):
                 "name": "OK.ru"
             }
 
-    # VK (Vkontakte) – limited embed support
+    # VK (Vkontakte)
     elif "vk.com" in domain or "vkvideo.ru" in domain:
-        # Try to extract video ID from URL
         match = re.search(r'video(-?\d+)_(\d+)', url)
         if match:
             oid, vid = match.groups()
@@ -359,6 +357,18 @@ def detect_source(url):
                 "name": "Bilibili"
             }
 
+    # Streamable
+    elif "streamable.com" in domain:
+        video_id = path.strip('/')
+        if video_id:
+            return {
+                "type": "streamable",
+                "embed_url": f"https://streamable.com/e/{video_id}",
+                "can_embed": True,
+                "logo": "🎬",
+                "name": "Streamable"
+            }
+
     # Direct video files
     if path.endswith(('.mp4', '.webm', '.ogg', '.m3u8', '.mkv')):
         return {
@@ -370,7 +380,18 @@ def detect_source(url):
             "name": "فيديو مباشر"
         }
 
-    # Default: unknown
+    # Generic fallback – attempt iframe if URL seems like a video page
+    # (contains video or embed in path/query)
+    if "video" in url or "embed" in url or "watch" in url:
+        return {
+            "type": "generic_iframe",
+            "embed_url": url,  # try direct iframe
+            "can_embed": True,
+            "logo": "🌐",
+            "name": "رابط عام"
+        }
+
+    # Default: unknown (cannot embed)
     return {"type": "unknown", "can_embed": False, "logo": "🔗", "name": "رابط خارجي"}
 
 source_info = detect_source(stream_url)
@@ -392,7 +413,10 @@ st.markdown("</div>", unsafe_allow_html=True)
 # -------------------------------------------------------------------
 col1, col2, col3 = st.columns(3)
 with col1:
-    st.markdown(f"<span class='badge {'embed' if source_info['can_embed'] else 'unknown'}'>{source_info['logo']} {source_info['name']}</span>", unsafe_allow_html=True)
+    badge_class = 'embed' if source_info['can_embed'] else 'unknown'
+    if source_info.get('type') == 'generic_iframe':
+        badge_class = 'generic'
+    st.markdown(f"<span class='badge {badge_class}'>{source_info['logo']} {source_info['name']}</span>", unsafe_allow_html=True)
 with col2:
     if source_info["can_embed"]:
         st.markdown("<span class='badge embed'>✅ يمكن عرضه هنا</span>", unsafe_allow_html=True)
@@ -407,6 +431,10 @@ st.markdown("---")
 # Main video area
 # -------------------------------------------------------------------
 if source_info["can_embed"]:
+    # Show a warning for generic iframe (might not work)
+    if source_info["type"] == "generic_iframe":
+        st.warning("⚠️ هذا الرابط قد لا يعمل داخل الصفحة. إذا لم يظهر الفيديو، استخدم الزر أدناه لفتحه في نافذة جديدة.")
+
     # Embed video
     if source_info.get("type") == "direct_video":
         st.markdown(f"""
@@ -480,6 +508,12 @@ else:
         <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     """, height=100)
     st.markdown("</div>", unsafe_allow_html=True)
+
+# -------------------------------------------------------------------
+# Extra button: Open in new tab anyway (for all cases)
+# -------------------------------------------------------------------
+st.markdown("---")
+st.markdown(f'<a href="{stream_url}" target="_blank" style="display:block; text-align:center; padding:10px; background:#444; color:white; text-decoration:none; border-radius:30px;">🔗 فتح الرابط في نافذة جديدة</a>', unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
 # Advanced features row
