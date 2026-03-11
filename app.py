@@ -78,7 +78,7 @@ st.markdown("""
 <script type="text/javascript" src="//resources.infolinks.com/js/infolinks_main.js"></script>
 """, unsafe_allow_html=True)
 
-# --- Custom CSS for top header and list view, hiding default header ---
+# --- Custom CSS to remove top space and style header ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
@@ -86,14 +86,21 @@ st.markdown("""
     * { font-family: 'Cairo', sans-serif; }
     .main, .block-container, [data-testid="stMarkdownContainer"] { direction: rtl; text-align: right; }
     
-    /* Hide default Streamlit header (with three lines) */
+    /* Remove default Streamlit header completely */
     header[data-testid="stHeader"] {
-        display: none;
+        display: none !important;
     }
     
     /* Remove extra top padding from main content */
     .main > div:first-child {
         padding-top: 0 !important;
+        margin-top: 0 !important;
+    }
+    
+    /* Ensure the top of the page starts at 0 */
+    .block-container {
+        padding-top: 0 !important;
+        margin-top: 0 !important;
     }
     
     /* Custom top header bar (blue) */
@@ -101,7 +108,7 @@ st.markdown("""
         background: linear-gradient(135deg, #1976D2 0%, #0D47A1 100%);
         padding: 10px 20px;
         border-radius: 0 0 20px 20px;
-        margin-bottom: 20px;
+        margin: 0 0 20px 0;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -109,6 +116,7 @@ st.markdown("""
         box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         position: relative;
         z-index: 999;
+        width: 100%;
     }
     .top-header .logo {
         display: flex;
@@ -230,14 +238,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const menuIcon = document.querySelector('.top-header .menu-icon');
     if (menuIcon) {
         menuIcon.addEventListener('click', function() {
-            // Find the Streamlit sidebar toggle button (the native one)
-            const stToggle = document.querySelector('button[data-testid="stSidebarNavToggle"]');
-            if (stToggle) {
-                stToggle.click();
-            } else {
-                // Fallback: try to find the main sidebar toggle
-                const sidebarToggle = document.querySelector('button[kind="header"]');
-                if (sidebarToggle) sidebarToggle.click();
+            // Try multiple selectors for the Streamlit sidebar toggle
+            const toggleSelectors = [
+                'button[data-testid="stSidebarNavToggle"]',
+                'button[kind="header"]',
+                '[data-testid="stSidebarCollapseButton"]',
+                'button:has(svg[data-icon="panel-left"])'
+            ];
+            for (const selector of toggleSelectors) {
+                const btn = document.querySelector(selector);
+                if (btn) {
+                    btn.click();
+                    break;
+                }
             }
         });
     }
@@ -300,7 +313,7 @@ with st.sidebar:
     with cols[1]:
         st.markdown("[![Telegram](https://img.icons8.com/color/48/000000/telegram-app--v1.png)](https://t.me/your_bot)")
 
-# --- Admin Panel (unchanged, but only shown if authenticated) ---
+# --- Admin Panel ---
 if st.session_state.admin_authenticated and st.session_state.show_admin:
     with st.container():
         st.markdown("<div class='admin-panel'>", unsafe_allow_html=True)
@@ -417,7 +430,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
         
         st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Logo auto-linker (unchanged) ---
+# --- Logo auto-linker ---
 if st.session_state.admin_authenticated and st.session_state.show_admin:
     with st.expander("🖼️ **ربط الشعارات تلقائياً (نسخة محسنة)**"):
         st.markdown("""
