@@ -78,7 +78,7 @@ st.markdown("""
 <script type="text/javascript" src="//resources.infolinks.com/js/infolinks_main.js"></script>
 """, unsafe_allow_html=True)
 
-# --- Custom CSS for top header and list view ---
+# --- Custom CSS for top header and list view, hiding default header ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
@@ -86,9 +86,19 @@ st.markdown("""
     * { font-family: 'Cairo', sans-serif; }
     .main, .block-container, [data-testid="stMarkdownContainer"] { direction: rtl; text-align: right; }
     
-    /* Top header bar */
+    /* Hide default Streamlit header (with three lines) */
+    header[data-testid="stHeader"] {
+        display: none;
+    }
+    
+    /* Remove extra top padding from main content */
+    .main > div:first-child {
+        padding-top: 0 !important;
+    }
+    
+    /* Custom top header bar (blue) */
     .top-header {
-        background: linear-gradient(135deg, #c62828 0%, #b71c1c 100%);
+        background: linear-gradient(135deg, #1976D2 0%, #0D47A1 100%);
         padding: 10px 20px;
         border-radius: 0 0 20px 20px;
         margin-bottom: 20px;
@@ -97,6 +107,8 @@ st.markdown("""
         justify-content: space-between;
         color: white;
         box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        position: relative;
+        z-index: 999;
     }
     .top-header .logo {
         display: flex;
@@ -117,11 +129,10 @@ st.markdown("""
     .top-header .menu-icon {
         font-size: 2rem;
         cursor: pointer;
+        user-select: none;
     }
     
-    /* Hide default Streamlit header on mobile? Not necessary */
-    
-    /* List view for matches (always used) */
+    /* List view for matches */
     .match-list-item {
         background: rgba(255,255,255,0.05);
         border-radius: 12px;
@@ -211,9 +222,30 @@ st.markdown("""
         .top-header .logo h1 { font-size: 1.4rem; }
     }
 </style>
+
+<!-- JavaScript to toggle sidebar via custom hamburger -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Find the custom menu icon
+    const menuIcon = document.querySelector('.top-header .menu-icon');
+    if (menuIcon) {
+        menuIcon.addEventListener('click', function() {
+            // Find the Streamlit sidebar toggle button (the native one)
+            const stToggle = document.querySelector('button[data-testid="stSidebarNavToggle"]');
+            if (stToggle) {
+                stToggle.click();
+            } else {
+                // Fallback: try to find the main sidebar toggle
+                const sidebarToggle = document.querySelector('button[kind="header"]');
+                if (sidebarToggle) sidebarToggle.click();
+            }
+        });
+    }
+});
+</script>
 """, unsafe_allow_html=True)
 
-# --- Custom Top Header ---
+# --- Custom Top Header (blue) ---
 st.markdown(f"""
 <div class="top-header">
     <div class="logo">
@@ -239,10 +271,7 @@ with st.sidebar:
     
     with st.expander("⚙️ **الإعدادات**", expanded=True):
         low_bandwidth = st.checkbox("وضع الانترنت الضعيف (نص فقط)")
-        # Removed show_all_leagues and hide_old_finished from here – we'll keep hide_old_finished maybe
         hide_old_finished = st.checkbox("إخفاء المباريات المنتهية بعد ساعتين", value=True)
-    
-    # Removed league filter and importance slider completely
     
     with st.expander("👑 **لوحة التحكم**", expanded=False):
         if not st.session_state.admin_authenticated:
@@ -388,7 +417,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
         
         st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Logo auto-linker (unchanged, but can be kept) ---
+# --- Logo auto-linker (unchanged) ---
 if st.session_state.admin_authenticated and st.session_state.show_admin:
     with st.expander("🖼️ **ربط الشعارات تلقائياً (نسخة محسنة)**"):
         st.markdown("""
@@ -494,7 +523,6 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                     )
                     st.info("يمكنك استخدام هذه القائمة لإضافة الشعارات يدوياً إلى المجلد المناسب في Supabase.")
 
-        # League logo auto-linker (fixed)
         if st.button("🔍 تحديث شعارات البطولات"):
             leagues = get_distinct_leagues()
             if not leagues:
@@ -546,7 +574,6 @@ def get_match_status_display(match):
         return "✅ انتهت"
 
 def render_matches_list(matches):
-    """Display matches as a simple list with logos."""
     if not matches:
         return
     for match in matches:
@@ -573,12 +600,20 @@ def render_matches_list(matches):
         </div>
         """, unsafe_allow_html=True)
 
+def get_distinct_leagues():
+    try:
+        response = supabase.table("matches").select("league").execute()
+        leagues = list(set([m["league"] for m in response.data if m.get("league")]))
+        return sorted(leagues)
+    except Exception as e:
+        print(f"Error fetching leagues: {e}")
+        return []
+
 # --- Fetch matches with filters ---
 @st.cache_data(ttl=60)
 def get_filtered_matches(hide_old_finished):
     try:
         query = supabase.table("matches").select("*")
-        # Removed league filter and importance filter
         response = query.order("match_time", desc=False).execute()
         matches = response.data
 
@@ -612,7 +647,6 @@ st.header("🔥 **المباريات المباشرة الآن**")
 live_matches = []
 for m in matches:
     if m["status"] == "LIVE":
-        # Optionally filter out very old live matches (more than 3 hours)
         try:
             match_time = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00'))
             now = datetime.now(match_time.tzinfo)
@@ -637,7 +671,7 @@ if upcoming:
 else:
     st.write("لا توجد مباريات قادمة حالياً.")
 
-# --- Statistics (optional, keep) ---
+# --- Statistics ---
 st.markdown("---")
 st.header("🌍 **البطولات حول العالم**")
 
