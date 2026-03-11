@@ -413,10 +413,19 @@ def render_matches_list(matches):
         return
     for match in matches:
         status_display = get_match_status_display(match)
-        try:
-            match_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00')).strftime("%H:%M")
-        except:
-            match_time = "--:--"
+        
+        # Format display based on match status
+        if match["status"] == "LIVE":
+            # For LIVE matches: show score in the middle, no time on left
+            match_time_display = ""  # Empty for live matches
+            score_display = f"<span style='color:#ff4444; font-weight:bold; font-size:1.2rem;'>{match['home_score']} - {match['away_score']}</span>"
+        else:
+            # For upcoming matches: show time on left
+            try:
+                match_time_display = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00')).strftime("%H:%M")
+            except:
+                match_time_display = "--:--"
+            score_display = ""  # Empty for non-live matches
         
         home_logo = match.get('home_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'
         away_logo = match.get('away_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'
@@ -461,28 +470,54 @@ def render_matches_list(matches):
         if not stream_buttons:
             stream_buttons = '<span style="color:#888; font-size:0.85rem;">لا توجد روابط حالياً</span>'
         
-        st.markdown(f"""
-        <div class="match-list-item">
-            <div class="match-list-row">
-                <span class="match-list-time">{match_time}</span>
-                <span class="match-list-teams">
-                    <img src="{home_logo}">
-                    <span>{html.escape(match['home_team'])}</span>
-                    <span>-</span>
-                    <span>{html.escape(match['away_team'])}</span>
-                    <img src="{away_logo}">
-                </span>
-                <span class="match-list-status">{status_display}</span>
+        # For LIVE matches, use a special layout with score in the middle
+        if match["status"] == "LIVE":
+            st.markdown(f"""
+            <div class="match-list-item">
+                <div class="match-list-row" style="justify-content: space-between;">
+                    <span class="match-list-time" style="visibility: hidden;">00:00</span>
+                    <span class="match-list-teams" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <img src="{home_logo}" style="width:24px; height:24px;">
+                        <span style="font-weight:600;">{html.escape(match['home_team'])}</span>
+                        <span style="color:#ff4444; font-weight:bold; font-size:1.2rem; margin:0 10px;">{match['home_score']} - {match['away_score']}</span>
+                        <span style="font-weight:600;">{html.escape(match['away_team'])}</span>
+                        <img src="{away_logo}" style="width:24px; height:24px;">
+                    </span>
+                    <span class="match-list-status">{status_display}</span>
+                </div>
+                <div class="match-list-league">
+                    <img src="{league_logo}">
+                    <span>{league_name}</span>
+                </div>
+                <div class="match-list-buttons">
+                    {stream_buttons}
+                </div>
             </div>
-            <div class="match-list-league">
-                <img src="{league_logo}">
-                <span>{league_name}</span>
+            """, unsafe_allow_html=True)
+        else:
+            # Regular layout for upcoming matches
+            st.markdown(f"""
+            <div class="match-list-item">
+                <div class="match-list-row">
+                    <span class="match-list-time">{match_time_display}</span>
+                    <span class="match-list-teams">
+                        <img src="{home_logo}">
+                        <span>{html.escape(match['home_team'])}</span>
+                        <span>-</span>
+                        <span>{html.escape(match['away_team'])}</span>
+                        <img src="{away_logo}">
+                    </span>
+                    <span class="match-list-status">{status_display}</span>
+                </div>
+                <div class="match-list-league">
+                    <img src="{league_logo}">
+                    <span>{league_name}</span>
+                </div>
+                <div class="match-list-buttons">
+                    {stream_buttons}
+                </div>
             </div>
-            <div class="match-list-buttons">
-                {stream_buttons}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
 
 def get_distinct_leagues():
     try:
