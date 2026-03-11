@@ -78,7 +78,7 @@ st.markdown("""
 <script type="text/javascript" src="//resources.infolinks.com/js/infolinks_main.js"></script>
 """, unsafe_allow_html=True)
 
-# --- Professional RTL styling with mobile responsiveness and list view ---
+# --- Custom CSS for top header and list view ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
@@ -86,60 +86,42 @@ st.markdown("""
     * { font-family: 'Cairo', sans-serif; }
     .main, .block-container, [data-testid="stMarkdownContainer"] { direction: rtl; text-align: right; }
     
-    .match-card {
-        background: linear-gradient(135deg, #1e1e2f 0%, #2a2a40 100%);
+    /* Top header bar */
+    .top-header {
+        background: linear-gradient(135deg, #c62828 0%, #b71c1c 100%);
+        padding: 10px 20px;
+        border-radius: 0 0 20px 20px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
         color: white;
-        padding: 20px;
-        border-radius: 20px;
-        margin: 15px 0;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-        border: 1px solid #333;
-        transition: transform 0.3s;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
-    .match-card:hover { transform: translateY(-5px); }
-    
-    .featured-card { border: 3px solid gold; box-shadow: 0 0 20px gold; }
-    
-    .live-badge {
-        background: linear-gradient(45deg, #ff4444, #ff6b6b);
-        color: white;
-        padding: 5px 12px;
-        border-radius: 25px;
-        font-size: 14px;
-        font-weight: bold;
-        display: inline-block;
-        animation: pulse 1.5s infinite;
+    .top-header .logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
     }
-    @keyframes pulse {
-        0% { opacity: 1; }
-        50% { opacity: 0.7; }
-        100% { opacity: 1; }
+    .top-header .logo img {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
     }
-    
-    .stream-btn {
-        background: #ff6b6b;
-        color: white;
-        padding: 8px 16px;
-        border-radius: 30px;
-        text-decoration: none;
-        font-weight: 600;
-        display: inline-block;
-        margin: 5px 10px 5px 0;
-        border: none;
+    .top-header .logo h1 {
+        font-size: 1.8rem;
+        margin: 0;
+        font-weight: 700;
+    }
+    .top-header .menu-icon {
+        font-size: 2rem;
         cursor: pointer;
-        transition: background 0.3s;
-        font-size: 14px;
     }
-    .stream-btn:hover { background: #ff5252; color: white; }
     
-    .verified { background: #4CAF50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 5px; }
-    .admin-added { background: #ff9800; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 5px; }
-    .countdown { color: #ffd700; font-weight: bold; }
-    .logo-small { width: 30px; height: 30px; margin: 0 5px; vertical-align: middle; }
-    .country-flag { width: 20px; height: 15px; margin: 0 3px; vertical-align: middle; }
-    .admin-panel { background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); color: white; padding: 20px; border-radius: 10px; margin: 10px 0; }
+    /* Hide default Streamlit header on mobile? Not necessary */
     
-    /* Simple list view for mobile (with logos) */
+    /* List view for matches (always used) */
     .match-list-item {
         background: rgba(255,255,255,0.05);
         border-radius: 12px;
@@ -184,34 +166,65 @@ st.markdown("""
         font-weight: bold;
     }
     
-    @media only screen and (max-width: 768px) {
-        .match-card { padding: 15px; }
-        .match-card h2, .match-card h3 { font-size: 1.2rem; }
-        .match-card .logo-small { width: 24px; height: 24px; }
-        .stream-btn { padding: 6px 12px; font-size: 12px; }
-        .live-badge { font-size: 12px; padding: 4px 8px; }
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
     }
-    @media only screen and (max-width: 480px) {
-        .match-card h2, .match-card h3 { font-size: 1rem; }
-        .match-card .logo-small { width: 20px; height: 20px; }
-        .stream-btn { padding: 4px 8px; font-size: 11px; }
-        .live-badge { font-size: 10px; padding: 3px 6px; }
+    
+    .live-badge {
+        background: linear-gradient(45deg, #ff4444, #ff6b6b);
+        color: white;
+        padding: 5px 12px;
+        border-radius: 25px;
+        font-size: 14px;
+        font-weight: bold;
+        display: inline-block;
+        animation: pulse 1.5s infinite;
+    }
+    
+    .stream-btn {
+        background: #ff6b6b;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 30px;
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-block;
+        margin: 5px 10px 5px 0;
+        border: none;
+        cursor: pointer;
+        transition: background 0.3s;
+        font-size: 14px;
+    }
+    .stream-btn:hover { background: #ff5252; color: white; }
+    
+    .verified { background: #4CAF50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 5px; }
+    .admin-added { background: #ff9800; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 5px; }
+    
+    .admin-panel { background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); color: white; padding: 20px; border-radius: 10px; margin: 10px 0; }
+    
+    @media only screen and (max-width: 768px) {
+        .match-list-item { padding: 8px 10px; }
+        .match-list-teams { font-size: 0.85rem; gap: 4px; }
+        .match-list-teams img { width: 20px; height: 20px; }
+        .top-header .logo h1 { font-size: 1.4rem; }
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Header with Badr TV branding ---
-col1, col2, col3 = st.columns([1, 3, 1])
-with col2:
-    # Replace with your actual logo URL
-    st.image("https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg", width=80)
-    st.markdown("<h1 style='text-align: center;'>⚽ **Badr TV**</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; font-size: 18px;'>جميع مباريات كرة القدم حول العالم • روابط بث مجانية • تحديثات مباشرة</p>", unsafe_allow_html=True)
-    st.markdown("<div class='trust-badge'>✓ أكثر من 1000 بطولة • روابط موثوقة • إدارة يدوية للمباريات الهامة</div>", unsafe_allow_html=True)
+# --- Custom Top Header ---
+st.markdown(f"""
+<div class="top-header">
+    <div class="logo">
+        <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
+        <h1>Badr TV</h1>
+    </div>
+    <div class="menu-icon">☰</div>
+</div>
+""", unsafe_allow_html=True)
 
-st.markdown("---")
-
-# --- Sidebar (unchanged) ---
+# --- Sidebar (simplified) ---
 with st.sidebar:
     st.header("📢 **ادعم الموقع**")
     st.info("الإعلانات تساعدنا في استمرار الخدمة مجاناً للجميع.")
@@ -226,26 +239,10 @@ with st.sidebar:
     
     with st.expander("⚙️ **الإعدادات**", expanded=True):
         low_bandwidth = st.checkbox("وضع الانترنت الضعيف (نص فقط)")
-        show_all_leagues = st.checkbox("عرض جميع البطولات", value=True)
+        # Removed show_all_leagues and hide_old_finished from here – we'll keep hide_old_finished maybe
         hide_old_finished = st.checkbox("إخفاء المباريات المنتهية بعد ساعتين", value=True)
     
-    with st.expander("🏆 **تصفية البطولات**", expanded=True):
-        @st.cache_data(ttl=300)
-        def get_distinct_leagues():
-            try:
-                response = supabase.table("matches").select("league").execute()
-                leagues = list(set([m["league"] for m in response.data if m.get("league")]))
-                return sorted(leagues)
-            except Exception as e:
-                print(f"Error fetching leagues: {e}")
-                return []
-        
-        all_leagues = get_distinct_leagues()
-        selected_leagues = st.multiselect("اختر البطولات", all_leagues, default=[])
-        
-        st.markdown("---")
-        st.subheader("⭐ **أهمية المباراة**")
-        min_importance = st.slider("أقل أهمية", 0, 100, 0)
+    # Removed league filter and importance slider completely
     
     with st.expander("👑 **لوحة التحكم**", expanded=False):
         if not st.session_state.admin_authenticated:
@@ -274,7 +271,7 @@ with st.sidebar:
     with cols[1]:
         st.markdown("[![Telegram](https://img.icons8.com/color/48/000000/telegram-app--v1.png)](https://t.me/your_bot)")
 
-# --- Admin Panel (unchanged) ---
+# --- Admin Panel (unchanged, but only shown if authenticated) ---
 if st.session_state.admin_authenticated and st.session_state.show_admin:
     with st.container():
         st.markdown("<div class='admin-panel'>", unsafe_allow_html=True)
@@ -391,7 +388,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
         
         st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Logo auto-linker (with fixes) ---
+# --- Logo auto-linker (unchanged, but can be kept) ---
 if st.session_state.admin_authenticated and st.session_state.show_admin:
     with st.expander("🖼️ **ربط الشعارات تلقائياً (نسخة محسنة)**"):
         st.markdown("""
@@ -507,7 +504,6 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                     found = 0
                     not_found = 0
                     for league in leagues:
-                        # Use the same logic as team logos but in 'leagues' folder
                         name = league.replace(' ', '_')
                         url = f"{SUPABASE_URL}/storage/v1/object/public/logos/leagues/{name}.png"
                         try:
@@ -543,34 +539,18 @@ def time_until(match_time_str):
 
 def get_match_status_display(match):
     if match["status"] == "LIVE":
-        try:
-            match_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
-            now = datetime.now(match_time.tzinfo)
-            if now > match_time + timedelta(hours=3):
-                return "✅ انتهت (تأخير)"
-        except:
-            pass
-        minute = match.get("minute")
-        if minute:
-            return f"🟢 مباشر ({minute}')"
-        return "🟢 مباشر"
+        return "<span class='match-list-live'>🔴 مباشر</span>"
     elif match["status"] == "UPCOMING":
         return f"⏳ {time_until(match['match_time'])}"
     else:
         return "✅ انتهت"
 
-def render_matches_list(matches, title):
-    """Display matches as a simple list with logos – for mobile view."""
+def render_matches_list(matches):
+    """Display matches as a simple list with logos."""
     if not matches:
-        st.info(f"لا توجد {title}")
         return
     for match in matches:
-        if match["status"] == "LIVE":
-            status_display = "<span class='match-list-live'>🔴 مباشر</span>"
-        elif match["status"] == "UPCOMING":
-            status_display = time_until(match["match_time"])
-        else:
-            status_display = "✅ انتهت"
+        status_display = get_match_status_display(match)
         try:
             match_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00')).strftime("%H:%M")
         except:
@@ -595,13 +575,10 @@ def render_matches_list(matches, title):
 
 # --- Fetch matches with filters ---
 @st.cache_data(ttl=60)
-def get_filtered_matches(selected_leagues, min_importance, show_all, hide_old_finished):
+def get_filtered_matches(hide_old_finished):
     try:
         query = supabase.table("matches").select("*")
-        if selected_leagues:
-            query = query.in_("league", selected_leagues)
-        if min_importance > 0:
-            query = query.gte("importance_score", min_importance)
+        # Removed league filter and importance filter
         response = query.order("match_time", desc=False).execute()
         matches = response.data
 
@@ -626,77 +603,16 @@ def get_filtered_matches(selected_leagues, min_importance, show_all, hide_old_fi
         print(f"Error fetching matches: {e}")
         return []
 
-matches = get_filtered_matches(selected_leagues, min_importance, show_all_leagues, hide_old_finished)
+matches = get_filtered_matches(hide_old_finished)
 
 # -------------------------------------------------------------------
-# Featured Matches – hidden on mobile
-# -------------------------------------------------------------------
-if not st.session_state.mobile_view:
-    st.header("⭐ **المباريات الهامة اليوم**")
-    featured = [m for m in matches if m.get("is_featured") or m.get("importance_score", 0) >= 85]
-
-    if featured:
-        cols = st.columns(3)
-        for i, match in enumerate(featured[:6]):
-            with cols[i % 3]:
-                streams = match.get("streams", [])
-                if isinstance(streams, str):
-                    try:
-                        streams = json.loads(streams)
-                    except:
-                        streams = []
-                status_display = get_match_status_display(match)
-                stream_buttons = ""
-                for s in streams:
-                    stream_link = f"/watch_stream?url={quote(s['url'])}"
-                    safe_title = html.escape(s["title"][:30])
-                    stream_buttons += f'<a class="stream-btn" href="{stream_link}" target="_self">📺 {safe_title}... {"<span class=\"verified\">موثوق</span>" if s.get("verified") else ""}{"<span class=\"admin-added\">رسمي</span>" if s.get("admin_added") else ""}</a>'
-                if not stream_buttons:
-                    stream_buttons = '<span style="color:#888;">لا توجد روابط حالياً</span>'
-                
-                flag_url = match.get('country_logo')
-                flag_html = f'<img src="{flag_url}" style="width:20px; height:15px; margin-left:5px;">' if flag_url else ''
-                
-                st.markdown(f"""
-                <div class="match-card featured-card">
-                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <div style="display: flex; align-items: center;">
-                            {flag_html}
-                            <span style="font-size:12px;">{html.escape(match.get('country', ''))}</span>
-                        </div>
-                        <span style="color: gold; font-weight: bold;">⭐ مهمة</span>
-                    </div>
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin: 10px 0;">
-                        <div style="text-align: center;">
-                            <img src="{match.get('home_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'}" style="width:40px; height:40px;">
-                            <p>{html.escape(match['home_team'][:15])}</p>
-                        </div>
-                        <div style="text-align: center;">
-                            <span style="font-size:20px;">vs</span>
-                            <p style="font-size:18px; font-weight:bold;">{match['home_score']} - {match['away_score']}</p>
-                        </div>
-                        <div style="text-align: center;">
-                            <img src="{match.get('away_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'}" style="width:40px; height:40px;">
-                            <p>{html.escape(match['away_team'][:15])}</p>
-                        </div>
-                    </div>
-                    <p style="text-align: center; color: #ffd700;">{status_display}</p>
-                    <p style="text-align: center; font-size:12px;">{html.escape(match['league'])}</p>
-                    <div style="margin-top: 15px;">
-                        {stream_buttons}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-    else:
-        st.info("لا توجد مباريات مميزة اليوم")
-
-# -------------------------------------------------------------------
-# Live Matches
+# Live Matches (always on top)
 # -------------------------------------------------------------------
 st.header("🔥 **المباريات المباشرة الآن**")
 live_matches = []
 for m in matches:
     if m["status"] == "LIVE":
+        # Optionally filter out very old live matches (more than 3 hours)
         try:
             match_time = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00'))
             now = datetime.now(match_time.tzinfo)
@@ -706,148 +622,22 @@ for m in matches:
             live_matches.append(m)
 
 if live_matches:
-    if st.session_state.mobile_view:
-        render_matches_list(live_matches, "مباريات مباشرة")
-    else:
-        for match in live_matches:
-            streams = match.get("streams", [])
-            if isinstance(streams, str):
-                try:
-                    streams = json.loads(streams)
-                except:
-                    streams = []
-            try:
-                admin_streams = supabase.table("admin_streams")\
-                    .select("*")\
-                    .eq("fixture_id", match["fixture_id"])\
-                    .eq("is_active", True)\
-                    .execute()\
-                    .data
-            except Exception as e:
-                admin_streams = []
-                print(f"Error fetching admin streams: {e}")
-            if admin_streams:
-                for admin in admin_streams:
-                    streams.append({
-                        "title": admin.get("stream_title", "البث الرسمي"),
-                        "url": admin["stream_url"],
-                        "source": admin.get("stream_source", "admin"),
-                        "verified": True,
-                        "admin_added": True
-                    })
-            minute = match.get("minute", "")
-            stream_buttons = ""
-            for s in streams:
-                stream_link = f"/watch_stream?url={quote(s['url'])}"
-                safe_title = html.escape(s["title"][:30])
-                stream_buttons += f'<a class="stream-btn" href="{stream_link}" target="_self">📺 {safe_title}... {"<span class=\"verified\">موثوق</span>" if s.get("verified") else ""}{"<span class=\"admin-added\">رسمي</span>" if s.get("admin_added") else ""}</a>'
-            if not stream_buttons:
-                stream_buttons = '<span style="color:#888;">لا توجد روابط حالياً</span>'
-            
-            flag_url = match.get('country_logo')
-            flag_html = f'<img src="{flag_url}" style="width:25px; height:20px; margin-left:10px;">' if flag_url else ''
-            
-            with st.container():
-                st.markdown(f"""
-                <div class="match-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div style="display: flex; align-items: center;">
-                            {flag_html}
-                            <span>{html.escape(match.get('country', ''))}</span>
-                        </div>
-                        <span class="live-badge">🔴 مباشر {f"({minute}')" if minute else ""}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin: 15px 0;">
-                        <div style="display: flex; align-items: center; flex:1;">
-                            <img src="{match.get('home_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'}" class="logo-small">
-                            <h3 style="margin-right:10px;">{html.escape(match['home_team'])}</h3>
-                        </div>
-                        <div style="font-size: 32px; font-weight: bold; margin: 0 20px;">
-                            {match['home_score']} - {match['away_score']}
-                        </div>
-                        <div style="display: flex; align-items: center; flex:1; justify-content: flex-end;">
-                            <h3 style="margin-left:10px;">{html.escape(match['away_team'])}</h3>
-                            <img src="{match.get('away_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'}" class="logo-small">
-                        </div>
-                    </div>
-                    <p style="margin-top:5px;">🏆 {html.escape(match['league'])} <img src="{match.get('league_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'}" style="width:20px; height:20px; display:inline;"></p>
-                    <div style="margin-top: 15px;">
-                        {stream_buttons}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+    render_matches_list(live_matches)
 else:
-    st.info("لا توجد مباريات مباشرة حالياً. تحقق من المباريات القادمة 👇")
+    st.info("لا توجد مباريات مباشرة حالياً.")
 
 # -------------------------------------------------------------------
 # Upcoming Matches
 # -------------------------------------------------------------------
-st.header("📅 **جميع المباريات القادمة**")
+st.header("📅 **المباريات القادمة**")
 upcoming = [m for m in matches if m["status"] == "UPCOMING"]
 
 if upcoming:
-    if st.session_state.mobile_view:
-        render_matches_list(upcoming, "مباريات قادمة")
-    else:
-        leagues_dict = {}
-        for match in upcoming:
-            league = match["league"]
-            if league not in leagues_dict:
-                leagues_dict[league] = []
-            leagues_dict[league].append(match)
-        for league, league_matches in sorted(leagues_dict.items()):
-            with st.expander(f"🏆 {html.escape(league)} ({len(league_matches)} مباراة)"):
-                cols = st.columns(2)
-                for i, match in enumerate(league_matches):
-                    with cols[i % 2]:
-                        streams = match.get("streams", [])
-                        if isinstance(streams, str):
-                            try:
-                                streams = json.loads(streams)
-                            except:
-                                streams = []
-                        time_left = time_until(match['match_time'])
-                        try:
-                            match_time = datetime.fromisoformat(match['match_time'].replace('Z', '+00:00')).strftime("%H:%M")
-                        except:
-                            match_time = "--:--"
-                        importance = match.get("importance_score", 0)
-                        star = "⭐" if importance >= 85 else ""
-                        stream_buttons = ""
-                        for s in streams[:2]:
-                            stream_link = f"/watch_stream?url={quote(s['url'])}"
-                            stream_buttons += f'<a class="stream-btn" style="padding:5px 10px; font-size:14px;" href="{stream_link}" target="_self">▶️ بث</a>'
-                        if not stream_buttons:
-                            stream_buttons = '<span style="color:#888;">لا توجد روابط حالياً</span>'
-                        
-                        flag_url = match.get('country_logo')
-                        flag_html = f'<img src="{flag_url}" style="width:20px; height:15px; margin-left:5px;">' if flag_url else ''
-                        
-                        st.markdown(f"""
-                        <div style="background: #2a2a40; padding: 15px; border-radius: 15px; margin-bottom: 15px;">
-                            <div style="display: flex; align-items: center; justify-content: space-between;">
-                                <div style="display: flex; align-items: center;">
-                                    <img src="{match.get('home_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'}" style="width:25px; height:25px; margin-left:5px;">
-                                    <span>{html.escape(match['home_team'])}</span>
-                                </div>
-                                <span>vs</span>
-                                <div style="display: flex; align-items: center;">
-                                    <span>{html.escape(match['away_team'])}</span>
-                                    <img src="{match.get('away_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'}" style="width:25px; height:25px; margin-right:5px;">
-                                </div>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; margin-top: 10px;">
-                                <span>⏰ {match_time}</span>
-                                <span class="countdown">⏳ {time_left}</span>
-                                <span>{star}</span>
-                            </div>
-                            {stream_buttons}
-                        </div>
-                        """, unsafe_allow_html=True)
+    render_matches_list(upcoming)
 else:
     st.write("لا توجد مباريات قادمة حالياً.")
 
-# --- Statistics ---
+# --- Statistics (optional, keep) ---
 st.markdown("---")
 st.header("🌍 **البطولات حول العالم**")
 
