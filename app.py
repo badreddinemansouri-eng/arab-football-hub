@@ -78,7 +78,7 @@ st.markdown("""
 <script type="text/javascript" src="//resources.infolinks.com/js/infolinks_main.js"></script>
 """, unsafe_allow_html=True)
 
-# --- Custom CSS: completely remove default header, add centered blue header ---
+# --- Custom CSS: style native header blue, integrate logo and title, remove white space ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
@@ -86,17 +86,7 @@ st.markdown("""
     * { font-family: 'Cairo', sans-serif; }
     .main, .block-container, [data-testid="stMarkdownContainer"] { direction: rtl; text-align: right; }
     
-    /* Completely hide the default Streamlit header and any residual space */
-    header[data-testid="stHeader"] {
-        display: none !important;
-        height: 0 !important;
-        min-height: 0 !important;
-        visibility: hidden !important;
-        position: absolute !important;
-        top: -9999px !important;
-    }
-    
-    /* Remove any top padding/margin that might remain */
+    /* Remove default top padding/margin */
     .stApp {
         margin-top: 0 !important;
         padding-top: 0 !important;
@@ -111,51 +101,51 @@ st.markdown("""
         max-width: 100%;
     }
     
-    /* Custom top header bar (blue) - centered content */
-    .top-header {
-        background: linear-gradient(135deg, #1976D2 0%, #0D47A1 100%);
-        padding: 15px 20px;
-        border-radius: 0 0 20px 20px;
-        margin: 0 0 20px 0;
-        display: flex;
-        align-items: center;
-        justify-content: center; /* Center horizontally */
-        color: white;
+    /* Style the native header */
+    header[data-testid="stHeader"] {
+        background: linear-gradient(135deg, #1976D2 0%, #0D47A1 100%) !important;
+        color: white !important;
         box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        position: relative;
-        z-index: 999;
-        width: 100%;
-        min-height: 80px; /* Slightly taller to accommodate larger logo */
+        padding: 5px 20px !important;
+        height: 80px !important;  /* Taller to accommodate larger logo */
+        border-radius: 0 0 20px 20px;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important; /* Keep hamburger on left */
+        gap: 15px !important;
+        direction: ltr; /* Hamburger stays left, content will be RTL via inner div */
     }
     
-    /* Centered content */
-    .top-header .center-content {
+    /* Hide the default title (the page title) */
+    header[data-testid="stHeader"] > div:has(> p) {
+        display: none !important;
+    }
+    
+    /* Custom elements injected via JS */
+    .custom-header-content {
         display: flex;
         align-items: center;
         gap: 15px;
+        width: 100%;
+        justify-content: center; /* Center the content */
+        position: relative;
     }
-    .top-header .center-content img {
-        width: 60px;  /* Larger logo */
+    .custom-header-content img {
+        width: 60px;
         height: 60px;
         border-radius: 50%;
         object-fit: cover;
     }
-    .top-header .center-content h1 {
+    .custom-header-content span {
         font-size: 2.2rem;
-        margin: 0;
         font-weight: 700;
     }
     
-    /* Hamburger icon - absolute positioned on the left (since RTL) */
-    .top-header .menu-icon {
-        font-size: 2.5rem;
-        cursor: pointer;
-        user-select: none;
-        position: absolute;
-        left: 20px;   /* Left side for RTL (hamburger stays on left) */
-        top: 50%;
-        transform: translateY(-50%);
-        color: white;
+    /* Position logo on the right (since RTL, right is the natural side) */
+    .custom-header-content {
+        direction: rtl;
+        margin-right: auto;
+        margin-left: auto;
     }
     
     /* List view for matches */
@@ -245,58 +235,34 @@ st.markdown("""
         .match-list-item { padding: 8px 10px; }
         .match-list-teams { font-size: 0.85rem; gap: 4px; }
         .match-list-teams img { width: 20px; height: 20px; }
-        .top-header .center-content h1 { font-size: 1.6rem; }
-        .top-header .center-content img { width: 45px; height: 45px; }
+        .custom-header-content span { font-size: 1.6rem; }
+        .custom-header-content img { width: 45px; height: 45px; }
+        header[data-testid="stHeader"] { height: 70px !important; }
     }
 </style>
 
-<!-- JavaScript to toggle sidebar via custom hamburger (robust) -->
+<!-- JavaScript to inject custom logo and title into the native header -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const menuIcon = document.querySelector('.top-header .menu-icon');
-    if (!menuIcon) return;
+    const header = document.querySelector('header[data-testid="stHeader"]');
+    if (!header) return;
     
-    // Function to click the native sidebar toggle
-    function openSidebar() {
-        // Try multiple selectors to find the native toggle button
-        const selectors = [
-            'button[data-testid="stSidebarNavToggle"]',
-            'button[kind="header"]',
-            'button[data-testid="baseButton-header"]',
-            'button[title="View sidebar"]',
-            'button[aria-label="View sidebar"]'
-        ];
-        for (const selector of selectors) {
-            const btn = document.querySelector(selector);
-            if (btn) {
-                btn.click();
-                return true;
-            }
-        }
-        return false;
-    }
+    // Check if already added
+    if (header.querySelector('.custom-header-content')) return;
     
-    // If the toggle isn't found immediately, retry after a short delay
-    function attemptOpen() {
-        if (!openSidebar()) {
-            setTimeout(openSidebar, 500);
-        }
-    }
+    const customDiv = document.createElement('div');
+    customDiv.className = 'custom-header-content';
+    customDiv.innerHTML = `
+        <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
+        <span>Badr TV</span>
+    `;
     
-    menuIcon.addEventListener('click', attemptOpen);
+    // Insert after the hamburger button (first child in header)
+    // The header has the hamburger as first child (left side)
+    const hamburger = header.firstChild;
+    header.insertBefore(customDiv, hamburger.nextSibling);
 });
 </script>
-""", unsafe_allow_html=True)
-
-# --- Custom Top Header (blue, centered, with larger logo) ---
-st.markdown("""
-<div class="top-header">
-    <div class="menu-icon">☰</div>
-    <div class="center-content">
-        <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
-        <h1>Badr TV</h1>
-    </div>
-</div>
 """, unsafe_allow_html=True)
 
 # --- Sidebar (simplified) ---
