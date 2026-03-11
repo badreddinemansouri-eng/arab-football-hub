@@ -126,9 +126,9 @@ st.markdown("""
         display: flex;
         align-items: center;
         gap: 15px;
-        width: 100%;
-        justify-content: center; /* Center the content */
-        position: relative;
+        flex: 1; /* Take remaining space */
+        justify-content: center; /* Center children within this flex item */
+        direction: rtl; /* Logo on right, text on left */
     }
     .custom-header-content img {
         width: 60px;
@@ -139,13 +139,6 @@ st.markdown("""
     .custom-header-content span {
         font-size: 2.2rem;
         font-weight: 700;
-    }
-    
-    /* Position logo on the right (since RTL, right is the natural side) */
-    .custom-header-content {
-        direction: rtl;
-        margin-right: auto;
-        margin-left: auto;
     }
     
     /* List view for matches */
