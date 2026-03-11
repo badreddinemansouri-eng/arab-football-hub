@@ -421,8 +421,8 @@ def render_matches_list(matches):
 
         # Determine status and center display
         if match["status"] == "LIVE":
-            center_display = f"<span style='color: #ff4444; font-weight: bold; font-size: 1.5rem;'>{match['home_score']} - {match['away_score']}</span>"
-            status_display = "<span style='color: #ff4444; font-size: 0.85rem;'>🔴 مباشر</span>"
+            center_display = f"<span style='color: #d32f2f; font-weight: bold; font-size: 1.5rem;'>{match['home_score']} - {match['away_score']}</span>"
+            status_display = "<span style='color: #d32f2f; font-size: 0.85rem;'>🔴 مباشر</span>"
         else:
             # Check if match is within 30 minutes for "بعد قليل"
             try:
@@ -430,19 +430,19 @@ def render_matches_list(matches):
                 now = datetime.now(match_time.tzinfo)
                 diff_minutes = (match_time - now).total_seconds() / 60
                 if 0 < diff_minutes <= 30:
-                    status_display = "<span style='color: #ffd700; font-size: 0.85rem;'>⏳ بعد قليل</span>"
+                    status_display = "<span style='color: #ff8c00; font-size: 0.85rem;'>⏳ بعد قليل</span>"
                 else:
-                    status_display = "<span style='color: #888; font-size: 0.85rem;'>لم تبدأ بعد</span>"
+                    status_display = "<span style='color: #666; font-size: 0.85rem;'>لم تبدأ بعد</span>"
             except:
-                status_display = "<span style='color: #888; font-size: 0.85rem;'>لم تبدأ بعد</span>"
+                status_display = "<span style='color: #666; font-size: 0.85rem;'>لم تبدأ بعد</span>"
 
             try:
                 match_time_str = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00')).strftime("%H:%M")
             except:
                 match_time_str = "--:--"
-            center_display = f"<span style='color: #ffd700; font-weight: bold; font-size: 1.3rem;'>{match_time_str}</span>"
+            center_display = f"<span style='color: #1976d2; font-weight: bold; font-size: 1.3rem;'>{match_time_str}</span>"
 
-        # Collect streams (same as before)
+        # Collect streams
         streams = match.get("streams", [])
         if isinstance(streams, str):
             try:
@@ -471,33 +471,38 @@ def render_matches_list(matches):
         for s in streams:
             stream_link = f"/watch_stream?url={quote(s['url'])}"
             safe_title = html.escape(s["title"][:20])
-            verified_badge = '<span class="verified">موثوق</span>' if s.get("verified") else ''
-            admin_badge = '<span class="admin-added">رسمي</span>' if s.get("admin_added") else ''
-            stream_buttons += f'<a class="stream-btn" href="{stream_link}" target="_self">📺 {safe_title} {verified_badge}{admin_badge}</a>'
+            verified_badge = '<span class="verified" style="background:#4caf50; color:white; padding:2px 6px; border-radius:10px; font-size:0.7rem;">موثوق</span>' if s.get("verified") else ''
+            admin_badge = '<span class="admin-added" style="background:#ff9800; color:white; padding:2px 6px; border-radius:10px; font-size:0.7rem;">رسمي</span>' if s.get("admin_added") else ''
+            stream_buttons += f'<a class="stream-btn" href="{stream_link}" target="_self" style="background:#e3f2fd; color:#1976d2; padding:5px 12px; border-radius:20px; text-decoration:none; font-weight:600; font-size:0.85rem; display:inline-flex; align-items:center; gap:4px;">📺 {safe_title} {verified_badge}{admin_badge}</a>'
         if not stream_buttons:
-            stream_buttons = '<span style="color:#888; font-size:0.85rem;">لا توجد روابط حالياً</span>'
+            stream_buttons = '<span style="color:#999; font-size:0.85rem;">لا توجد روابط حالياً</span>'
 
-        # Clean HTML – no comments
+        # Light card background, stable centering
         html_content = f"""
-        <div style="background: linear-gradient(135deg, #1e1e2f, #2a2a40); border-radius: 20px; padding: 16px; margin-bottom: 16px; box-shadow: 0 8px 20px rgba(0,0,0,0.5); direction: rtl;">
+        <div style="background: #ffffff; border-radius: 20px; padding: 16px; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e0e0e0; direction: rtl;">
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                <div style="flex: 1; text-align: center;">
+                <!-- Home team column -->
+                <div style="flex: 1; min-width: 0; text-align: center;">
                     <img src="{home_logo}" style="width: 48px; height: 48px; object-fit: contain; margin-bottom: 6px;">
-                    <div style="color: white; font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{home_team}</div>
+                    <div style="color: #333; font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{home_team}</div>
                 </div>
-                <div style="flex: 1; text-align: center;">
+                <!-- Center column -->
+                <div style="flex: 1; min-width: 0; text-align: center;">
                     {center_display}
                     <div style="margin-top: 4px;">{status_display}</div>
                 </div>
-                <div style="flex: 1; text-align: center;">
+                <!-- Away team column -->
+                <div style="flex: 1; min-width: 0; text-align: center;">
                     <img src="{away_logo}" style="width: 48px; height: 48px; object-fit: contain; margin-bottom: 6px;">
-                    <div style="color: white; font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{away_team}</div>
+                    <div style="color: #333; font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{away_team}</div>
                 </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid #444;">
+            <!-- League info -->
+            <div style="display: flex; align-items: center; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid #eee;">
                 <img src="{league_logo}" style="width: 20px; height: 20px; object-fit: contain;">
-                <span style="color: #aaa; font-size: 0.9rem;">{league_name}</span>
+                <span style="color: #666; font-size: 0.9rem;">{league_name}</span>
             </div>
+            <!-- Stream buttons -->
             <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;">
                 {stream_buttons}
             </div>
