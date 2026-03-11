@@ -14,14 +14,14 @@ from urllib.parse import quote
 
 # --- Page config ---
 st.set_page_config(
-    page_title="Badr TV",
+    page_title="Badr TV | جميع المباريات العالمية",
     page_icon="⚽",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
 # -------------------------------------------------------------------
-# Mobile detection (optional)
+# Mobile detection via JavaScript (adds ?mobile=true for small screens)
 # -------------------------------------------------------------------
 st.markdown("""
 <script>
@@ -39,23 +39,27 @@ st.markdown("""
 </script>
 """, unsafe_allow_html=True)
 
+# --- Read mobile param ---
 mobile_param = st.query_params.get("mobile", [None])
 if isinstance(mobile_param, list):
     mobile_param = mobile_param[0]
 st.session_state.mobile_view = (mobile_param == "true")
 
-# --- Auto-refresh ---
+# --- Auto-refresh every 3 minutes ---
 st.markdown('<meta http-equiv="refresh" content="180">', unsafe_allow_html=True)
 
 # --- Load secrets ---
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
+
+# --- Admin password (change to your own) ---
 ADMIN_PASSWORD_HASH = hashlib.sha256("badr11101999.".encode()).hexdigest()
 
 # --- Connect to Supabase ---
 @st.cache_resource
 def init_supabase():
     return create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+
 supabase = init_supabase()
 
 # --- Session state ---
@@ -64,17 +68,17 @@ if "admin_authenticated" not in st.session_state:
 if "show_admin" not in st.session_state:
     st.session_state.show_admin = False
 
-# --- Ad scripts (replace with actual codes) ---
+# --- Inject ad scripts (replace with your actual codes) ---
 st.markdown("""
 <script type="text/javascript" data-cfasync="false" src="https://your-propellerads-script.com"></script>
 <script type="text/javascript">
-    var infolinks_pid = 1234567;
+    var infolinks_pid = 1234567;   // Replace with your Infolinks PID
     var infolinks_wsid = 0;
 </script>
 <script type="text/javascript" src="//resources.infolinks.com/js/infolinks_main.js"></script>
 """, unsafe_allow_html=True)
 
-# --- Custom CSS: style native header blue, remove top space, add custom logo/title ---
+# --- Custom CSS to style native header blue and remove top space ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
@@ -82,7 +86,7 @@ st.markdown("""
     * { font-family: 'Cairo', sans-serif; }
     .main, .block-container, [data-testid="stMarkdownContainer"] { direction: rtl; text-align: right; }
     
-    /* Remove default top padding */
+    /* Remove all default top padding */
     .stApp {
         margin-top: 0 !important;
         padding-top: 0 !important;
@@ -107,32 +111,30 @@ st.markdown("""
         border-radius: 0 0 20px 20px;
         display: flex !important;
         align-items: center !important;
-        justify-content: space-between !important;
+        justify-content: flex-start !important;
+        gap: 15px !important;
+        direction: ltr; /* Keep hamburger on left */
     }
     
-    /* Hide the default title text (the page_title) */
-    header[data-testid="stHeader"] div:has(> p) {
+    /* Hide the default title (the page title) */
+    header[data-testid="stHeader"] > div:has(> p) {
         display: none !important;
     }
     
-    /* Style the hamburger icon (native) */
-    header[data-testid="stHeader"] button {
-        color: white !important;
-    }
-    
-    /* Our custom elements will be added via JavaScript */
-    .custom-header-left {
+    /* Custom elements injected via JS */
+    .custom-header-content {
         display: flex;
         align-items: center;
         gap: 10px;
+        color: white;
     }
-    .custom-header-left img {
+    .custom-header-content img {
         width: 40px;
         height: 40px;
         border-radius: 50%;
         object-fit: cover;
     }
-    .custom-header-left span {
+    .custom-header-content span {
         font-size: 1.8rem;
         font-weight: 700;
     }
@@ -224,6 +226,8 @@ st.markdown("""
         .match-list-item { padding: 8px 10px; }
         .match-list-teams { font-size: 0.85rem; gap: 4px; }
         .match-list-teams img { width: 20px; height: 20px; }
+        .custom-header-content span { font-size: 1.4rem; }
+        .custom-header-content img { width: 32px; height: 32px; }
     }
 </style>
 
@@ -233,22 +237,25 @@ document.addEventListener('DOMContentLoaded', function() {
     const header = document.querySelector('header[data-testid="stHeader"]');
     if (!header) return;
     
-    // Create custom left section
-    const customLeft = document.createElement('div');
-    customLeft.className = 'custom-header-left';
-    customLeft.innerHTML = `
+    // Check if we already added custom content
+    if (header.querySelector('.custom-header-content')) return;
+    
+    const customDiv = document.createElement('div');
+    customDiv.className = 'custom-header-content';
+    customDiv.innerHTML = `
         <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
         <span>Badr TV</span>
     `;
     
-    // Insert after the hamburger button (first child)
+    // Insert after the hamburger button (which is the first child in the header)
+    // In RTL, the first child is the hamburger button on the left.
     const firstChild = header.firstChild;
-    header.insertBefore(customLeft, firstChild.nextSibling);
+    header.insertBefore(customDiv, firstChild.nextSibling);
 });
 </script>
 """, unsafe_allow_html=True)
 
-# --- Sidebar ---
+# --- Sidebar (simplified) ---
 with st.sidebar:
     st.header("📢 **ادعم الموقع**")
     st.info("الإعلانات تساعدنا في استمرار الخدمة مجاناً للجميع.")
@@ -292,7 +299,7 @@ with st.sidebar:
     with cols[1]:
         st.markdown("[![Telegram](https://img.icons8.com/color/48/000000/telegram-app--v1.png)](https://t.me/your_bot)")
 
-# --- Admin Panel ---
+# --- Admin Panel (only when authenticated) ---
 if st.session_state.admin_authenticated and st.session_state.show_admin:
     with st.container():
         st.markdown("<div class='admin-panel'>", unsafe_allow_html=True)
@@ -409,7 +416,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
         
         st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Logo auto-linker (كامل) ---
+# --- Logo auto-linker (only when authenticated) ---
 if st.session_state.admin_authenticated and st.session_state.show_admin:
     with st.expander("🖼️ **ربط الشعارات تلقائياً (نسخة محسنة)**"):
         st.markdown("""
@@ -601,13 +608,14 @@ def get_distinct_leagues():
         print(f"Error fetching leagues: {e}")
         return []
 
-# --- Fetch matches ---
+# --- Fetch matches with filters ---
 @st.cache_data(ttl=60)
 def get_filtered_matches(hide_old_finished):
     try:
         query = supabase.table("matches").select("*")
         response = query.order("match_time", desc=False).execute()
         matches = response.data
+
         if hide_old_finished:
             now_utc = datetime.now(timezone.utc)
             cutoff = now_utc - timedelta(hours=2)
@@ -632,10 +640,20 @@ def get_filtered_matches(hide_old_finished):
 matches = get_filtered_matches(hide_old_finished)
 
 # -------------------------------------------------------------------
-# Live Matches
+# Live Matches (always on top)
 # -------------------------------------------------------------------
 st.header("🔥 **المباريات المباشرة الآن**")
-live_matches = [m for m in matches if m["status"] == "LIVE"]
+live_matches = []
+for m in matches:
+    if m["status"] == "LIVE":
+        try:
+            match_time = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00'))
+            now = datetime.now(match_time.tzinfo)
+            if now <= match_time + timedelta(hours=3):
+                live_matches.append(m)
+        except:
+            live_matches.append(m)
+
 if live_matches:
     render_matches_list(live_matches)
 else:
@@ -646,6 +664,7 @@ else:
 # -------------------------------------------------------------------
 st.header("📅 **المباريات القادمة**")
 upcoming = [m for m in matches if m["status"] == "UPCOMING"]
+
 if upcoming:
     render_matches_list(upcoming)
 else:
@@ -673,13 +692,14 @@ def get_league_stats():
         return []
 
 league_stats = get_league_stats()
+
 if league_stats:
     cols = st.columns(4)
     for i, (league, count) in enumerate(league_stats[:12]):
         with cols[i % 4]:
             st.markdown(f"**{league}**  \n{count} مباراة")
 
-# --- Footer ---
+# --- Footer with donation ---
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; background: linear-gradient(135deg, #1e1e2f, #2a2a40); padding: 30px; border-radius: 20px;'>
@@ -692,7 +712,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# --- PopAds script ---
+# --- PopAds script (kept at bottom) ---
 st.components.v1.html("""
     <script src="//popads.net/pop.js" async></script>
 """, height=0)
