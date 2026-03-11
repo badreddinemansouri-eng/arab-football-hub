@@ -17,7 +17,7 @@ st.set_page_config(
     page_title="Badr TV | جميع المباريات العالمية",
     page_icon="⚽",
     layout="wide",
-    initial_sidebar_state="collapsed"  # Start with sidebar collapsed
+    initial_sidebar_state="collapsed"
 )
 
 # -------------------------------------------------------------------
@@ -86,15 +86,25 @@ st.markdown("""
     * { font-family: 'Cairo', sans-serif; }
     .main, .block-container, [data-testid="stMarkdownContainer"] { direction: rtl; text-align: right; }
     
-    /* Remove all default Streamlit padding/margin */
-    .stApp {
-        margin-top: 0 !important;
-        padding-top: 0 !important;
+    /* Remove all default padding/margin from root */
+    html, body, .stApp {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #1e1e2f;
     }
-    .stApp > header {
+    .stApp {
+        background: #1e1e2f;
+    }
+    
+    /* Hide default Streamlit header completely */
+    header[data-testid="stHeader"] {
         display: none !important;
         height: 0 !important;
+        min-height: 0 !important;
+        visibility: hidden !important;
     }
+    
+    /* Remove extra top padding from main content */
     .main > div:first-child {
         padding-top: 0 !important;
         margin-top: 0 !important;
@@ -105,7 +115,7 @@ st.markdown("""
         max-width: 100%;
     }
     
-    /* Custom top header bar (blue) - positioned at very top */
+    /* Custom top header bar (blue) */
     .top-header {
         background: linear-gradient(135deg, #1976D2 0%, #0D47A1 100%);
         padding: 10px 20px;
@@ -140,6 +150,7 @@ st.markdown("""
         font-size: 2rem;
         cursor: pointer;
         user-select: none;
+        color: white;
     }
     
     /* List view for matches */
@@ -239,33 +250,33 @@ document.addEventListener('DOMContentLoaded', function() {
     const menuIcon = document.querySelector('.top-header .menu-icon');
     if (!menuIcon) return;
     
-    function findAndClickSidebarToggle() {
+    // Try to find the native sidebar toggle button
+    function getToggleButton() {
         const selectors = [
             'button[data-testid="stSidebarNavToggle"]',
             'button[kind="header"]',
             'button[data-testid="baseButton-header"]',
             'button[title="View sidebar"]',
-            'button[aria-label="View sidebar"]'
+            'button[aria-label="View sidebar"]',
+            'button[data-testid="stSidebarCollapseButton"]'
         ];
         for (const selector of selectors) {
             const btn = document.querySelector(selector);
-            if (btn) {
-                btn.click();
-                return true;
-            }
+            if (btn) return btn;
         }
-        return false;
+        return null;
     }
     
     menuIcon.addEventListener('click', function() {
-        if (!findAndClickSidebarToggle()) {
-            // If button not found yet, wait for it using MutationObserver
-            const observer = new MutationObserver(function(mutations, obs) {
-                if (findAndClickSidebarToggle()) {
-                    obs.disconnect();
-                }
-            });
-            observer.observe(document.body, { childList: true, subtree: true });
+        const toggle = getToggleButton();
+        if (toggle) {
+            toggle.click();
+        } else {
+            // If not found, wait a bit and try again
+            setTimeout(() => {
+                const toggleLater = getToggleButton();
+                if (toggleLater) toggleLater.click();
+            }, 500);
         }
     });
 });
