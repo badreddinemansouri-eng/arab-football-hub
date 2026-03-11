@@ -14,35 +14,52 @@ from urllib.parse import quote
 
 # --- Page config ---
 st.set_page_config(
-    page_title="Badr TV",
+    page_title="Badr TV | جميع المباريات العالمية",
     page_icon="⚽",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# --- Logo (Streamlit 1.35+)
-try:
-    st.logo(
-        "https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg",
-        size="large",
-        link=None,
-        icon_image=None
-    )
-except:
-    pass  # older Streamlit – we'll handle via CSS
+# -------------------------------------------------------------------
+# Mobile detection via JavaScript (adds ?mobile=true for small screens)
+# -------------------------------------------------------------------
+st.markdown("""
+<script>
+(function() {
+    const isMobile = window.innerWidth < 768;
+    const url = new URL(window.location);
+    if (isMobile && !url.searchParams.has('mobile')) {
+        url.searchParams.set('mobile', 'true');
+        window.location.replace(url);
+    } else if (!isMobile && url.searchParams.has('mobile')) {
+        url.searchParams.delete('mobile');
+        window.location.replace(url);
+    }
+})();
+</script>
+""", unsafe_allow_html=True)
 
-# --- Auto-refresh ---
+# --- Read mobile param ---
+mobile_param = st.query_params.get("mobile", [None])
+if isinstance(mobile_param, list):
+    mobile_param = mobile_param[0]
+st.session_state.mobile_view = (mobile_param == "true")
+
+# --- Auto-refresh every 3 minutes ---
 st.markdown('<meta http-equiv="refresh" content="180">', unsafe_allow_html=True)
 
 # --- Load secrets ---
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
+
+# --- Admin password (change to your own) ---
 ADMIN_PASSWORD_HASH = hashlib.sha256("badr11101999.".encode()).hexdigest()
 
 # --- Connect to Supabase ---
 @st.cache_resource
 def init_supabase():
     return create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+
 supabase = init_supabase()
 
 # --- Session state ---
@@ -51,20 +68,25 @@ if "admin_authenticated" not in st.session_state:
 if "show_admin" not in st.session_state:
     st.session_state.show_admin = False
 
-# --- Ad scripts (replace with your codes) ---
+# --- Inject ad scripts (replace with your actual codes) ---
 st.markdown("""
 <script type="text/javascript" data-cfasync="false" src="https://your-propellerads-script.com"></script>
 <script type="text/javascript">
-    var infolinks_pid = 1234567;
+    var infolinks_pid = 1234567;   // Replace with your Infolinks PID
     var infolinks_wsid = 0;
 </script>
 <script type="text/javascript" src="//resources.infolinks.com/js/infolinks_main.js"></script>
 """, unsafe_allow_html=True)
 
-# --- Custom CSS to style native header, remove whitespace, and add title ---
+# --- Custom CSS: style native header blue, integrate logo and title, remove white space ---
 st.markdown("""
 <style>
-    /* Reset any top padding/margin */
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+    
+    * { font-family: 'Cairo', sans-serif; }
+    .main, .block-container, [data-testid="stMarkdownContainer"] { direction: rtl; text-align: right; }
+    
+    /* Remove default top padding/margin */
     .stApp {
         margin-top: 0 !important;
         padding-top: 0 !important;
@@ -78,57 +100,48 @@ st.markdown("""
         margin-top: 0 !important;
         max-width: 100%;
     }
-
+    
     /* Style the native header */
     header[data-testid="stHeader"] {
         background: linear-gradient(135deg, #1976D2 0%, #0D47A1 100%) !important;
         color: white !important;
         box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        padding: 10px 20px !important;
-        height: 80px !important;
+        padding: 5px 20px !important;
+        height: 80px !important;  /* Taller to accommodate larger logo */
         border-radius: 0 0 20px 20px;
         display: flex !important;
         align-items: center !important;
-        justify-content: center !important; /* Center content horizontally */
-        direction: ltr; /* Keep hamburger on left, rest centered */
+        justify-content: flex-start !important; /* Keep hamburger on left */
+        gap: 15px !important;
+        direction: ltr; /* Hamburger stays left, content will be RTL via inner div */
     }
-
-    /* Hide the default page title (the one from st.set_page_config) */
+    
+    /* Hide the default title (the page title) */
     header[data-testid="stHeader"] > div:has(> p) {
         display: none !important;
     }
-
-    /* Hide the default logo if present */
-    header[data-testid="stHeader"] [data-testid="stLogo"] {
-        display: none !important;
-    }
-
-    /* Custom centered content: logo + title */
-    header[data-testid="stHeader"]::after {
-        content: "";
-        display: none;
-    }
-    /* We'll inject via JavaScript a centered div */
-    .custom-header-center {
+    
+    /* Custom elements injected via JS */
+    .custom-header-content {
         display: flex;
         align-items: center;
         gap: 15px;
-        margin: 0 auto;
-        direction: rtl;
+        flex: 1; /* Take remaining space */
+        justify-content: center; /* Center children within this flex item */
+        direction: rtl; /* Logo on right, text on left */
     }
-    .custom-header-center img {
+    .custom-header-content img {
         width: 60px;
         height: 60px;
         border-radius: 50%;
         object-fit: cover;
     }
-    .custom-header-center span {
+    .custom-header-content span {
         font-size: 2.2rem;
         font-weight: 700;
-        color: white;
     }
-
-    /* Match list styling (unchanged) */
+    
+    /* List view for matches */
     .match-list-item {
         background: rgba(255,255,255,0.05);
         border-radius: 12px;
@@ -172,56 +185,96 @@ st.markdown("""
         animation: pulse 1.5s infinite;
         font-weight: bold;
     }
+    
     @keyframes pulse {
         0% { opacity: 1; }
         50% { opacity: 0.7; }
         100% { opacity: 1; }
     }
-
+    
+    .live-badge {
+        background: linear-gradient(45deg, #ff4444, #ff6b6b);
+        color: white;
+        padding: 5px 12px;
+        border-radius: 25px;
+        font-size: 14px;
+        font-weight: bold;
+        display: inline-block;
+        animation: pulse 1.5s infinite;
+    }
+    
+    .stream-btn {
+        background: #ff6b6b;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 30px;
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-block;
+        margin: 5px 10px 5px 0;
+        border: none;
+        cursor: pointer;
+        transition: background 0.3s;
+        font-size: 14px;
+    }
+    .stream-btn:hover { background: #ff5252; color: white; }
+    
+    .verified { background: #4CAF50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 5px; }
+    .admin-added { background: #ff9800; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 5px; }
+    
+    .admin-panel { background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); color: white; padding: 20px; border-radius: 10px; margin: 10px 0; }
+    
     @media only screen and (max-width: 768px) {
-        .custom-header-center span { font-size: 1.6rem; }
-        .custom-header-center img { width: 45px; height: 45px; }
+        .match-list-item { padding: 8px 10px; }
+        .match-list-teams { font-size: 0.85rem; gap: 4px; }
+        .match-list-teams img { width: 20px; height: 20px; }
+        .custom-header-content span { font-size: 1.6rem; }
+        .custom-header-content img { width: 45px; height: 45px; }
         header[data-testid="stHeader"] { height: 70px !important; }
     }
 </style>
 
-<!-- JavaScript to inject centered logo + title -->
+<!-- JavaScript to inject custom logo and title into the native header -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const header = document.querySelector('header[data-testid="stHeader"]');
     if (!header) return;
-
-    // Check if already injected
-    if (header.querySelector('.custom-header-center')) return;
-
-    const centerDiv = document.createElement('div');
-    centerDiv.className = 'custom-header-center';
-    centerDiv.innerHTML = `
+    
+    // Check if already added
+    if (header.querySelector('.custom-header-content')) return;
+    
+    const customDiv = document.createElement('div');
+    customDiv.className = 'custom-header-content';
+    customDiv.innerHTML = `
         <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
         <span>Badr TV</span>
     `;
-
-    // Append to header – it will be centered because header has justify-content: center
-    header.appendChild(centerDiv);
+    
+    // Insert after the hamburger button (first child in header)
+    // The header has the hamburger as first child (left side)
+    const hamburger = header.firstChild;
+    header.insertBefore(customDiv, hamburger.nextSibling);
 });
 </script>
 """, unsafe_allow_html=True)
 
-# --- Sidebar (simplified, unchanged) ---
+# --- Sidebar (simplified) ---
 with st.sidebar:
     st.header("📢 **ادعم الموقع**")
     st.info("الإعلانات تساعدنا في استمرار الخدمة مجاناً للجميع.")
+    
     st.markdown("""
     <a href="https://your-affiliate-link.com" target="_blank">
         <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/baner.png" style="width:100%; border-radius:10px;">
     </a>
     """, unsafe_allow_html=True)
+    
     st.markdown("---")
-
+    
     with st.expander("⚙️ **الإعدادات**", expanded=True):
         low_bandwidth = st.checkbox("وضع الانترنت الضعيف (نص فقط)")
         hide_old_finished = st.checkbox("إخفاء المباريات المنتهية بعد ساعتين", value=True)
-
+    
     with st.expander("👑 **لوحة التحكم**", expanded=False):
         if not st.session_state.admin_authenticated:
             admin_password = st.text_input("كلمة المرور", type="password")
@@ -240,7 +293,7 @@ with st.sidebar:
                 st.session_state.admin_authenticated = False
                 st.session_state.show_admin = False
                 st.rerun()
-
+    
     st.markdown("---")
     st.header("📲 **تابعنا**")
     cols = st.columns(2)
@@ -249,12 +302,12 @@ with st.sidebar:
     with cols[1]:
         st.markdown("[![Telegram](https://img.icons8.com/color/48/000000/telegram-app--v1.png)](https://t.me/your_bot)")
 
-# --- Admin Panel (unchanged) ---
+# --- Admin Panel (only when authenticated) ---
 if st.session_state.admin_authenticated and st.session_state.show_admin:
     with st.container():
         st.markdown("<div class='admin-panel'>", unsafe_allow_html=True)
         st.header("👑 **لوحة تحكم المشرف - إضافة روابط يدوية**")
-
+        
         @st.cache_data(ttl=60)
         def get_upcoming_matches():
             try:
@@ -267,13 +320,14 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
             except Exception as e:
                 print(f"Error fetching upcoming matches: {e}")
                 return []
-
+        
         upcoming = get_upcoming_matches()
+        
         if upcoming:
             match_options = {f"{m['home_team']} vs {m['away_team']} ({m['league']})": m['fixture_id'] for m in upcoming}
             selected_match = st.selectbox("اختر المباراة", list(match_options.keys()))
             fixture_id = match_options[selected_match]
-
+            
             col1, col2 = st.columns(2)
             with col1:
                 stream_url = st.text_input("رابط البث")
@@ -281,7 +335,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
             with col2:
                 stream_source = st.selectbox("المصدر", ["youtube", "facebook", "custom", "official"])
                 expiry_hours = st.number_input("عدد ساعات الصلاحية", min_value=1, max_value=24, value=3)
-
+            
             if st.button("إضافة الرابط"):
                 if stream_url:
                     expires_at = (datetime.now() + timedelta(hours=expiry_hours)).isoformat()
@@ -304,7 +358,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                         print(f"Error inserting admin stream: {e}")
                 else:
                     st.error("الرجاء إدخال رابط البث")
-
+            
             st.markdown("---")
             st.subheader("الروابط الحالية")
             try:
@@ -313,6 +367,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                     .eq("is_active", True)\
                     .execute()\
                     .data
+                
                 if admin_streams:
                     for stream in admin_streams:
                         match = stream.get("matches", {})
@@ -330,7 +385,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                 print(f"Error loading admin streams: {e}")
         else:
             st.info("لا توجد مباريات قادمة")
-
+        
         st.markdown("---")
         st.subheader("➕ إضافة مباراة يدوية")
         with st.form("add_custom_match"):
@@ -361,7 +416,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                 supabase.table("matches").insert(data).execute()
                 st.success("تمت إضافة المباراة بنجاح")
                 st.rerun()
-
+        
         st.markdown("</div>", unsafe_allow_html=True)
 
 # --- Logo auto-linker (only when authenticated) ---
@@ -371,7 +426,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
         **سيقوم هذا الأمر بالبحث عن شعارات الفرق في مخزن Supabase باستخدام عدة صيغ للأسماء.**  
         يمكنك بعد ذلك تنزيل قائمة الفرق التي لم يتم العثور على شعار لها لمعالجتها يدوياً.
         """)
-
+        
         st.info("""
         **المجلدات المتوقعة:**
         - Italy - Serie A
@@ -383,7 +438,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
         - International - Champions League
         - International - World Cup
         """)
-
+        
         if st.button("🔍 بدء البحث المتقدم"):
             with st.spinner("جاري البحث عن الشعارات..."):
                 teams_resp = supabase.table("matches").select("home_team, away_team").execute()
@@ -529,10 +584,10 @@ def render_matches_list(matches):
             match_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00')).strftime("%H:%M")
         except:
             match_time = "--:--"
-
+        
         home_logo = match.get('home_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'
         away_logo = match.get('away_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'
-
+        
         st.markdown(f"""
         <div class="match-list-item">
             <span class="match-list-time">{match_time}</span>
@@ -556,13 +611,14 @@ def get_distinct_leagues():
         print(f"Error fetching leagues: {e}")
         return []
 
-# --- Fetch matches ---
+# --- Fetch matches with filters ---
 @st.cache_data(ttl=60)
 def get_filtered_matches(hide_old_finished):
     try:
         query = supabase.table("matches").select("*")
         response = query.order("match_time", desc=False).execute()
         matches = response.data
+
         if hide_old_finished:
             now_utc = datetime.now(timezone.utc)
             cutoff = now_utc - timedelta(hours=2)
@@ -580,23 +636,38 @@ def get_filtered_matches(hide_old_finished):
         else:
             return matches
     except Exception as e:
-        st.error("عذراً، حدث خطأ في تحميل المباريات.")
+        st.error("عذراً، حدث خطأ في تحميل المباريات. يرجى تحديث الصفحة.")
         print(f"Error fetching matches: {e}")
         return []
 
 matches = get_filtered_matches(hide_old_finished)
 
-# --- Live Matches ---
+# -------------------------------------------------------------------
+# Live Matches (always on top)
+# -------------------------------------------------------------------
 st.header("🔥 **المباريات المباشرة الآن**")
-live_matches = [m for m in matches if m["status"] == "LIVE"]
+live_matches = []
+for m in matches:
+    if m["status"] == "LIVE":
+        try:
+            match_time = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00'))
+            now = datetime.now(match_time.tzinfo)
+            if now <= match_time + timedelta(hours=3):
+                live_matches.append(m)
+        except:
+            live_matches.append(m)
+
 if live_matches:
     render_matches_list(live_matches)
 else:
     st.info("لا توجد مباريات مباشرة حالياً.")
 
-# --- Upcoming Matches ---
+# -------------------------------------------------------------------
+# Upcoming Matches
+# -------------------------------------------------------------------
 st.header("📅 **المباريات القادمة**")
 upcoming = [m for m in matches if m["status"] == "UPCOMING"]
+
 if upcoming:
     render_matches_list(upcoming)
 else:
@@ -605,6 +676,7 @@ else:
 # --- Statistics ---
 st.markdown("---")
 st.header("🌍 **البطولات حول العالم**")
+
 @st.cache_data(ttl=3600)
 def get_league_stats():
     try:
@@ -621,26 +693,29 @@ def get_league_stats():
     except Exception as e:
         print(f"Error in league stats: {e}")
         return []
+
 league_stats = get_league_stats()
+
 if league_stats:
     cols = st.columns(4)
     for i, (league, count) in enumerate(league_stats[:12]):
         with cols[i % 4]:
             st.markdown(f"**{league}**  \n{count} مباراة")
 
-# --- Footer ---
+# --- Footer with donation ---
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; background: linear-gradient(135deg, #1e1e2f, #2a2a40); padding: 30px; border-radius: 20px;'>
     <h3 style='color: white;'>ادعم استمرارية الموقع</h3>
-    <p style='color: #ccc;'>تبرعك يساعد في توفير خدمة أفضل للجميع.</p>
+    <p style='color: #ccc;'>تبرعك يساعد في توفير خدمة أفضل للجميع، خاصة لمن لا يستطيعون الاشتراك.</p>
     <a href='https://www.paypal.com/donate/?hosted_button_id=YOUR_ID' target='_blank'>
         <img src='https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif' alt='Donate'/>
     </a>
+    <p style='color: #888; font-size: 12px; margin-top: 20px;'>جميع الروابط مجانية وموثوقة • أكثر من 1000 بطولة حول العالم</p>
 </div>
 """, unsafe_allow_html=True)
 
-# --- PopAds ---
+# --- PopAds script (kept at bottom) ---
 st.components.v1.html("""
     <script src="//popads.net/pop.js" async></script>
 """, height=0)
