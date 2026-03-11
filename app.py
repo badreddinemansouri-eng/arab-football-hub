@@ -78,7 +78,7 @@ st.markdown("""
 <script type="text/javascript" src="//resources.infolinks.com/js/infolinks_main.js"></script>
 """, unsafe_allow_html=True)
 
-# --- Custom CSS to remove top space and style header ---
+# --- Custom CSS to remove ALL top space and style header ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
@@ -86,24 +86,34 @@ st.markdown("""
     * { font-family: 'Cairo', sans-serif; }
     .main, .block-container, [data-testid="stMarkdownContainer"] { direction: rtl; text-align: right; }
     
-    /* Remove default Streamlit header completely */
+    /* Hide default Streamlit header completely */
     header[data-testid="stHeader"] {
         display: none !important;
+        height: 0 !important;
+        min-height: 0 !important;
     }
     
-    /* Remove extra top padding from main content */
+    /* Remove all padding/margin from the root containers */
+    .stApp > header {
+        display: none !important;
+    }
     .main > div:first-child {
         padding-top: 0 !important;
         margin-top: 0 !important;
     }
-    
-    /* Ensure the top of the page starts at 0 */
     .block-container {
         padding-top: 0 !important;
         margin-top: 0 !important;
+        max-width: 100%;
     }
     
-    /* Custom top header bar (blue) */
+    /* Ensure body starts at top */
+    body {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    /* Custom top header bar (blue) - positioned at very top */
     .top-header {
         background: linear-gradient(135deg, #1976D2 0%, #0D47A1 100%);
         padding: 10px 20px;
@@ -243,7 +253,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 'button[data-testid="stSidebarNavToggle"]',
                 'button[kind="header"]',
                 '[data-testid="stSidebarCollapseButton"]',
-                'button:has(svg[data-icon="panel-left"])'
+                'button:has(svg[data-icon="panel-left"])',
+                'button[title="View sidebar"]',
+                'button[aria-label="View sidebar"]'
             ];
             for (const selector of toggleSelectors) {
                 const btn = document.querySelector(selector);
@@ -251,6 +263,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     btn.click();
                     break;
                 }
+            }
+            // Fallback: simulate click on the first button with a menu icon
+            if (!document.querySelector(selector)) {
+                const possible = document.querySelector('button[data-testid="baseButton-header"]');
+                if (possible) possible.click();
             }
         });
     }
