@@ -386,6 +386,113 @@ with st.sidebar:
     with cols[1]:
         st.markdown("[![Telegram](https://img.icons8.com/color/48/000000/telegram-app--v1.png)](https://t.me/your_bot)")
 
+# --- Helper functions ---
+def time_until(match_time_str):
+    try:
+        match_time = datetime.fromisoformat(match_time_str.replace('Z', '+00:00'))
+        now = datetime.now(match_time.tzinfo)
+        diff = match_time - now
+        if diff.total_seconds() < 0:
+            return "انتهت"
+        hours = int(diff.total_seconds() // 3600)
+        minutes = int((diff.total_seconds() % 3600) // 60)
+        return f"{hours} س {minutes} д"
+    except:
+        return "---"
+
+def get_match_status_display(match):
+    if match["status"] == "LIVE":
+        return "<span class='match-list-live'>🔴 مباشر</span>"
+    elif match["status"] == "UPCOMING":
+        return f"⏳ {time_until(match['match_time'])}"
+    else:
+        return "✅ انتهت"
+
+def render_matches_list(matches):
+    if not matches:
+        return
+    for match in matches:
+        status_display = get_match_status_display(match)
+        try:
+            match_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00')).strftime("%H:%M")
+        except:
+            match_time = "--:--"
+        
+        home_logo = match.get('home_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'
+        away_logo = match.get('away_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'
+        league_logo = match.get('league_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'
+        league_name = html.escape(match.get('league', ''))
+
+        # Collect streams (both from match and admin)
+        streams = match.get("streams", [])
+        if isinstance(streams, str):
+            try:
+                streams = json.loads(streams)
+            except:
+                streams = []
+        # Add admin streams if any
+        try:
+            admin_streams = supabase.table("admin_streams")\
+                .select("*")\
+                .eq("fixture_id", match["fixture_id"])\
+                .eq("is_active", True)\
+                .execute()\
+                .data
+            if admin_streams:
+                for admin in admin_streams:
+                    streams.append({
+                        "title": admin.get("stream_title", "البث الرسمي"),
+                        "url": admin["stream_url"],
+                        "source": admin.get("stream_source", "admin"),
+                        "verified": True,
+                        "admin_added": True
+                    })
+        except Exception as e:
+            print(f"Error fetching admin streams: {e}")
+
+        # Build stream buttons HTML
+        stream_buttons = ""
+        for s in streams:
+            stream_link = f"/watch_stream?url={quote(s['url'])}"
+            safe_title = html.escape(s["title"][:20])
+            verified_badge = '<span class="verified">موثوق</span>' if s.get("verified") else ''
+            admin_badge = '<span class="admin-added">رسمي</span>' if s.get("admin_added") else ''
+            stream_buttons += f'<a class="stream-btn" href="{stream_link}" target="_self">📺 {safe_title} {verified_badge}{admin_badge}</a>'
+        if not stream_buttons:
+            stream_buttons = '<span style="color:#888; font-size:0.85rem;">لا توجد روابط حالياً</span>'
+        
+        st.markdown(f"""
+        <div class="match-list-item">
+            <div class="match-list-row">
+                <span class="match-list-time">{match_time}</span>
+                <span class="match-list-teams">
+                    <img src="{home_logo}">
+                    <span>{html.escape(match['home_team'])}</span>
+                    <span>-</span>
+                    <span>{html.escape(match['away_team'])}</span>
+                    <img src="{away_logo}">
+                </span>
+                <span class="match-list-status">{status_display}</span>
+            </div>
+            <div class="match-list-league">
+                <img src="{league_logo}">
+                <span>{league_name}</span>
+            </div>
+            <div class="match-list-buttons">
+                {stream_buttons}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+def get_distinct_leagues():
+    try:
+        response = supabase.table("matches").select("league").execute()
+        leagues = list(set([m["league"] for m in response.data if m.get("league")]))
+        return sorted(leagues)
+    except Exception as e:
+        print(f"Error fetching leagues: {e}")
+        return []
+
 # --- Admin Panel (only when authenticated) ---
 if st.session_state.admin_authenticated and st.session_state.show_admin:
     with st.container():
@@ -610,7 +717,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                     st.info("يمكنك استخدام هذه القائمة لإضافة الشعارات يدوياً إلى المجلد المناسب في Supabase.")
 
         if st.button("🔍 تحديث شعارات البطولات"):
-            leagues = get_distinct_leagues()
+            leagues = get_distinct_leagues()   # <-- now defined above
             if not leagues:
                 st.warning("لا توجد بطولات لعرضها.")
             else:
@@ -636,113 +743,6 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                             st.warning(f"❌ {league} (فشل الاتصال)")
                             not_found += 1
                     st.info(f"النتائج: {found} تم العثور عليها، {not_found} لم يتم العثور عليها.")
-
-# --- Helper functions ---
-def time_until(match_time_str):
-    try:
-        match_time = datetime.fromisoformat(match_time_str.replace('Z', '+00:00'))
-        now = datetime.now(match_time.tzinfo)
-        diff = match_time - now
-        if diff.total_seconds() < 0:
-            return "انتهت"
-        hours = int(diff.total_seconds() // 3600)
-        minutes = int((diff.total_seconds() % 3600) // 60)
-        return f"{hours} س {minutes} د"
-    except:
-        return "---"
-
-def get_match_status_display(match):
-    if match["status"] == "LIVE":
-        return "<span class='match-list-live'>🔴 مباشر</span>"
-    elif match["status"] == "UPCOMING":
-        return f"⏳ {time_until(match['match_time'])}"
-    else:
-        return "✅ انتهت"
-
-def render_matches_list(matches):
-    if not matches:
-        return
-    for match in matches:
-        status_display = get_match_status_display(match)
-        try:
-            match_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00')).strftime("%H:%M")
-        except:
-            match_time = "--:--"
-        
-        home_logo = match.get('home_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'
-        away_logo = match.get('away_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'
-        league_logo = match.get('league_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'
-        league_name = html.escape(match.get('league', ''))
-
-        # Collect streams (both from match and admin)
-        streams = match.get("streams", [])
-        if isinstance(streams, str):
-            try:
-                streams = json.loads(streams)
-            except:
-                streams = []
-        # Add admin streams if any
-        try:
-            admin_streams = supabase.table("admin_streams")\
-                .select("*")\
-                .eq("fixture_id", match["fixture_id"])\
-                .eq("is_active", True)\
-                .execute()\
-                .data
-            if admin_streams:
-                for admin in admin_streams:
-                    streams.append({
-                        "title": admin.get("stream_title", "البث الرسمي"),
-                        "url": admin["stream_url"],
-                        "source": admin.get("stream_source", "admin"),
-                        "verified": True,
-                        "admin_added": True
-                    })
-        except Exception as e:
-            print(f"Error fetching admin streams: {e}")
-
-        # Build stream buttons HTML
-        stream_buttons = ""
-        for s in streams:
-            stream_link = f"/watch_stream?url={quote(s['url'])}"
-            safe_title = html.escape(s["title"][:20])
-            verified_badge = '<span class="verified">موثوق</span>' if s.get("verified") else ''
-            admin_badge = '<span class="admin-added">رسمي</span>' if s.get("admin_added") else ''
-            stream_buttons += f'<a class="stream-btn" href="{stream_link}" target="_self">📺 {safe_title} {verified_badge}{admin_badge}</a>'
-        if not stream_buttons:
-            stream_buttons = '<span style="color:#888; font-size:0.85rem;">لا توجد روابط حالياً</span>'
-        
-        st.markdown(f"""
-        <div class="match-list-item">
-            <div class="match-list-row">
-                <span class="match-list-time">{match_time}</span>
-                <span class="match-list-teams">
-                    <img src="{home_logo}">
-                    <span>{html.escape(match['home_team'])}</span>
-                    <span>-</span>
-                    <span>{html.escape(match['away_team'])}</span>
-                    <img src="{away_logo}">
-                </span>
-                <span class="match-list-status">{status_display}</span>
-            </div>
-            <div class="match-list-league">
-                <img src="{league_logo}">
-                <span>{league_name}</span>
-            </div>
-            <div class="match-list-buttons">
-                {stream_buttons}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-def get_distinct_leagues():
-    try:
-        response = supabase.table("matches").select("league").execute()
-        leagues = list(set([m["league"] for m in response.data if m.get("league")]))
-        return sorted(leagues)
-    except Exception as e:
-        print(f"Error fetching leagues: {e}")
-        return []
 
 # --- Fetch matches with filters ---
 @st.cache_data(ttl=60)
