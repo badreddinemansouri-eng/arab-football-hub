@@ -21,7 +21,7 @@ st.set_page_config(
 )
 
 # -------------------------------------------------------------------
-# Mobile detection via JavaScript (adds ?mobile=true for small screens)
+# Mobile detection (optional)
 # -------------------------------------------------------------------
 st.markdown("""
 <script>
@@ -39,27 +39,23 @@ st.markdown("""
 </script>
 """, unsafe_allow_html=True)
 
-# --- Read mobile param ---
 mobile_param = st.query_params.get("mobile", [None])
 if isinstance(mobile_param, list):
     mobile_param = mobile_param[0]
 st.session_state.mobile_view = (mobile_param == "true")
 
-# --- Auto-refresh every 3 minutes ---
+# --- Auto-refresh ---
 st.markdown('<meta http-equiv="refresh" content="180">', unsafe_allow_html=True)
 
 # --- Load secrets ---
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
-
-# --- Admin password (change to your own) ---
 ADMIN_PASSWORD_HASH = hashlib.sha256("badr11101999.".encode()).hexdigest()
 
 # --- Connect to Supabase ---
 @st.cache_resource
 def init_supabase():
     return create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-
 supabase = init_supabase()
 
 # --- Session state ---
@@ -68,17 +64,17 @@ if "admin_authenticated" not in st.session_state:
 if "show_admin" not in st.session_state:
     st.session_state.show_admin = False
 
-# --- Inject ad scripts (replace with your actual codes) ---
+# --- Inject ad scripts (replace with actual codes) ---
 st.markdown("""
 <script type="text/javascript" data-cfasync="false" src="https://your-propellerads-script.com"></script>
 <script type="text/javascript">
-    var infolinks_pid = 1234567;   // Replace with your Infolinks PID
+    var infolinks_pid = 1234567;
     var infolinks_wsid = 0;
 </script>
 <script type="text/javascript" src="//resources.infolinks.com/js/infolinks_main.js"></script>
 """, unsafe_allow_html=True)
 
-# --- Custom CSS: style native header blue, integrate logo and title, remove white space ---
+# --- Custom CSS: hide native header, add custom header with hamburger ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
@@ -86,7 +82,12 @@ st.markdown("""
     * { font-family: 'Cairo', sans-serif; }
     .main, .block-container, [data-testid="stMarkdownContainer"] { direction: rtl; text-align: right; }
     
-    /* Remove default top padding/margin */
+    /* Completely hide the default Streamlit header */
+    header[data-testid="stHeader"] {
+        display: none !important;
+    }
+    
+    /* Remove any top padding/margin from the app container */
     .stApp {
         margin-top: 0 !important;
         padding-top: 0 !important;
@@ -101,43 +102,45 @@ st.markdown("""
         max-width: 100%;
     }
     
-    /* Style the native header */
-    header[data-testid="stHeader"] {
-        background: linear-gradient(135deg, #1976D2 0%, #0D47A1 100%) !important;
-        color: white !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        padding: 5px 20px !important;
-        height: 80px !important;  /* Taller to accommodate larger logo */
+    /* Custom header */
+    .custom-header {
+        background: linear-gradient(135deg, #1976D2 0%, #0D47A1 100%);
+        padding: 10px 20px;
         border-radius: 0 0 20px 20px;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: flex-start !important; /* Keep hamburger on left */
-        gap: 15px !important;
-        direction: ltr; /* Hamburger stays left, content will be RTL via inner div */
+        margin: 0 0 20px 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: white;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        direction: ltr; /* Hamburger on left, content on right */
+        position: relative;
+        z-index: 1000;
+        width: 100%;
+        height: 80px;
     }
-    
-    /* Hide the default title (the page title) */
-    header[data-testid="stHeader"] > div:has(> p) {
-        display: none !important;
+    .custom-header .hamburger {
+        font-size: 2.5rem;
+        cursor: pointer;
+        user-select: none;
+        color: white;
     }
-    
-    /* Custom elements injected via JS */
-    .custom-header-content {
+    .custom-header .brand {
         display: flex;
         align-items: center;
         gap: 15px;
-        flex: 1; /* Take remaining space */
-        justify-content: center; /* Center children within this flex item */
         direction: rtl; /* Logo on right, text on left */
+        margin-left: auto; /* Push brand to the right */
     }
-    .custom-header-content img {
+    .custom-header .brand img {
         width: 60px;
         height: 60px;
         border-radius: 50%;
         object-fit: cover;
     }
-    .custom-header-content span {
+    .custom-header .brand h1 {
         font-size: 2.2rem;
+        margin: 0;
         font-weight: 700;
     }
     
@@ -228,37 +231,56 @@ st.markdown("""
         .match-list-item { padding: 8px 10px; }
         .match-list-teams { font-size: 0.85rem; gap: 4px; }
         .match-list-teams img { width: 20px; height: 20px; }
-        .custom-header-content span { font-size: 1.6rem; }
-        .custom-header-content img { width: 45px; height: 45px; }
-        header[data-testid="stHeader"] { height: 70px !important; }
+        .custom-header .brand h1 { font-size: 1.6rem; }
+        .custom-header .brand img { width: 45px; height: 45px; }
+        .custom-header { height: 70px; }
     }
 </style>
 
-<!-- JavaScript to inject custom logo and title into the native header -->
+<!-- Custom Header -->
+<div class="custom-header">
+    <div class="hamburger" id="hamburgerBtn">☰</div>
+    <div class="brand">
+        <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
+        <h1>Badr TV</h1>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const header = document.querySelector('header[data-testid="stHeader"]');
-    if (!header) return;
+    const hamburger = document.getElementById('hamburgerBtn');
+    if (!hamburger) return;
     
-    // Check if already added
-    if (header.querySelector('.custom-header-content')) return;
+    function clickNativeToggle() {
+        // Try multiple selectors to find the native sidebar toggle button
+        const selectors = [
+            'button[data-testid="stSidebarNavToggle"]',
+            'button[kind="header"]',
+            'button[data-testid="baseButton-header"]',
+            'button[title="View sidebar"]',
+            'button[aria-label="View sidebar"]'
+        ];
+        for (const selector of selectors) {
+            const btn = document.querySelector(selector);
+            if (btn) {
+                btn.click();
+                return true;
+            }
+        }
+        return false;
+    }
     
-    const customDiv = document.createElement('div');
-    customDiv.className = 'custom-header-content';
-    customDiv.innerHTML = `
-        <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
-        <span>Badr TV</span>
-    `;
-    
-    // Insert after the hamburger button (first child in header)
-    // The header has the hamburger as first child (left side)
-    const hamburger = header.firstChild;
-    header.insertBefore(customDiv, hamburger.nextSibling);
+    hamburger.addEventListener('click', function() {
+        if (!clickNativeToggle()) {
+            // If not found, wait a bit and retry (DOM might not be fully ready)
+            setTimeout(clickNativeToggle, 500);
+        }
+    });
 });
 </script>
 """, unsafe_allow_html=True)
 
-# --- Sidebar (simplified) ---
+# --- Sidebar ---
 with st.sidebar:
     st.header("📢 **ادعم الموقع**")
     st.info("الإعلانات تساعدنا في استمرار الخدمة مجاناً للجميع.")
