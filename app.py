@@ -419,32 +419,30 @@ def render_matches_list(matches):
         league_logo = match.get('league_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'
         league_name = html.escape(match.get('league', ''))
 
-        # Determine status text and center display
+        # Determine status and center display
         if match["status"] == "LIVE":
             center_display = f"<span style='color: #ff4444; font-weight: bold; font-size: 1.5rem;'>{match['home_score']} - {match['away_score']}</span>"
             status_display = "<span style='color: #ff4444; font-size: 0.85rem;'>🔴 مباشر</span>"
-        else:  # UPCOMING
+        else:
+            # Check if match is within 30 minutes for "بعد قليل"
             try:
                 match_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
                 now = datetime.now(match_time.tzinfo)
                 diff_minutes = (match_time - now).total_seconds() / 60
-                # Show "بعد قليل" if within 30 minutes, else show "لم تبدأ بعد"
                 if 0 < diff_minutes <= 30:
                     status_display = "<span style='color: #ffd700; font-size: 0.85rem;'>⏳ بعد قليل</span>"
                 else:
                     status_display = "<span style='color: #888; font-size: 0.85rem;'>لم تبدأ بعد</span>"
             except:
                 status_display = "<span style='color: #888; font-size: 0.85rem;'>لم تبدأ بعد</span>"
-                diff_minutes = None
 
-            # Format time for center display (only if not live)
             try:
                 match_time_str = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00')).strftime("%H:%M")
             except:
                 match_time_str = "--:--"
             center_display = f"<span style='color: #ffd700; font-weight: bold; font-size: 1.3rem;'>{match_time_str}</span>"
 
-        # Collect streams (both from match and admin)
+        # Collect streams (same as before)
         streams = match.get("streams", [])
         if isinstance(streams, str):
             try:
@@ -469,7 +467,6 @@ def render_matches_list(matches):
         except Exception as e:
             print(f"Error fetching admin streams: {e}")
 
-        # Build stream buttons HTML
         stream_buttons = ""
         for s in streams:
             stream_link = f"/watch_stream?url={quote(s['url'])}"
@@ -480,45 +477,32 @@ def render_matches_list(matches):
         if not stream_buttons:
             stream_buttons = '<span style="color:#888; font-size:0.85rem;">لا توجد روابط حالياً</span>'
 
-        # Mobile‑optimized card with logos above team names, centered time/score, status below
+        # Clean HTML – no comments
         html_content = f"""
         <div style="background: linear-gradient(135deg, #1e1e2f, #2a2a40); border-radius: 20px; padding: 16px; margin-bottom: 16px; box-shadow: 0 8px 20px rgba(0,0,0,0.5); direction: rtl;">
-            
-            <!-- Main row: three columns (home / center / away) -->
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                
-                <!-- Home team column -->
                 <div style="flex: 1; text-align: center;">
                     <img src="{home_logo}" style="width: 48px; height: 48px; object-fit: contain; margin-bottom: 6px;">
                     <div style="color: white; font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{home_team}</div>
                 </div>
-                
-                <!-- Center column: time/score and status -->
                 <div style="flex: 1; text-align: center;">
                     {center_display}
                     <div style="margin-top: 4px;">{status_display}</div>
                 </div>
-                
-                <!-- Away team column -->
                 <div style="flex: 1; text-align: center;">
                     <img src="{away_logo}" style="width: 48px; height: 48px; object-fit: contain; margin-bottom: 6px;">
                     <div style="color: white; font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{away_team}</div>
                 </div>
             </div>
-            
-            <!-- League info row -->
             <div style="display: flex; align-items: center; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid #444;">
                 <img src="{league_logo}" style="width: 20px; height: 20px; object-fit: contain;">
                 <span style="color: #aaa; font-size: 0.9rem;">{league_name}</span>
             </div>
-            
-            <!-- Stream buttons -->
             <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;">
                 {stream_buttons}
             </div>
         </div>
         """
-        
         st.markdown(html_content, unsafe_allow_html=True)
 def get_distinct_leagues():
     try:
