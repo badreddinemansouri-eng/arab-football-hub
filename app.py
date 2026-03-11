@@ -133,7 +133,7 @@ st.markdown("""
 col1, col2, col3 = st.columns([1, 3, 1])
 with col2:
     # Replace with your actual logo URL
-    st.image("https://your-logo-url.com/logo.png", width=80)
+    st.image("https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg", width=80)
     st.markdown("<h1 style='text-align: center;'>⚽ **مركز الكرة العربية**</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; font-size: 18px;'>جميع مباريات كرة القدم حول العالم • روابط بث مجانية • تحديثات مباشرة</p>", unsafe_allow_html=True)
     st.markdown("<div class='trust-badge'>✓ أكثر من 1000 بطولة • روابط موثوقة • إدارة يدوية للمباريات الهامة</div>", unsafe_allow_html=True)
@@ -148,7 +148,7 @@ with st.sidebar:
     # Your banner – replace with your actual banner image URL and affiliate link
     st.markdown("""
     <a href="https://your-affiliate-link.com" target="_blank">
-        <img src="https://your-banner-url.com/banner.jpg" style="width:100%; border-radius:10px;">
+        <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/baner.png" style="width:100%; border-radius:10px;">
     </a>
     """, unsafe_allow_html=True)
     
@@ -447,16 +447,16 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                         mime="text/plain"
                     )
                     st.info("يمكنك استخدام هذه القائمة لإضافة الشعارات يدوياً إلى المجلد المناسب في Supabase.")
-if st.button("🔍 تحديث شعارات البطولات"):
-    leagues = get_distinct_leagues()  # fetch all unique league names from matches table
-    for league in leagues:
-        # use same logic as above to find and store
-        url = find_league_logo_in_storage(league)
-        if url:
-            supabase.table("league_logos").upsert(...)
-            st.success(f"✅ {league}")
-        else:
-            st.warning(f"❌ {league}")
+        if st.button("🔍 تحديث شعارات البطولات"):
+            leagues = get_distinct_leagues()  # fetch all unique league names from matches table
+            for league in leagues:
+                # use same logic as above to find and store
+                url = find_league_logo_in_storage(league)
+                if url:
+                    supabase.table("league_logos").upsert(...)
+                    st.success(f"✅ {league}")
+                else:
+                    st.warning(f"❌ {league}")
 # --- Fetch matches with filters ---
 @st.cache_data(ttl=60)
 def get_filtered_matches(selected_leagues, min_importance, show_all, hide_old_finished):
