@@ -146,17 +146,22 @@ st.markdown("""
         font-weight: 700;
     }
     
-    /* List view for matches */
+    /* List view for matches (updated to include league and buttons) */
     .match-list-item {
         background: rgba(255,255,255,0.05);
         border-radius: 12px;
         padding: 10px 12px;
-        margin-bottom: 8px;
+        margin-bottom: 12px;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid #333;
+        direction: rtl;
+    }
+    .match-list-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        border: 1px solid #333;
-        direction: rtl;
+        width: 100%;
     }
     .match-list-time {
         color: #ffd700;
@@ -228,6 +233,67 @@ st.markdown("""
     .admin-added { background: #ff9800; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 5px; }
     
     .admin-panel { background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); color: white; padding: 20px; border-radius: 10px; margin: 10px 0; }
+    
+    /* New styles for league and buttons inside list view */
+    .match-list-league {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+        padding-top: 5px;
+        border-top: 1px solid rgba(255,255,255,0.1);
+        font-size: 0.8rem;
+        color: #aaa;
+    }
+    .match-list-league img {
+        width: 18px;
+        height: 18px;
+        object-fit: contain;
+    }
+    .match-list-league span {
+        font-size: 0.85rem;
+    }
+    .match-list-buttons {
+        margin-top: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+    }
+    .match-list-buttons .stream-btn {
+        background: #ff6b6b;
+        color: white;
+        padding: 5px 12px;
+        border-radius: 20px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.85rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        border: none;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+    .match-list-buttons .stream-btn:hover {
+        background: #ff5252;
+    }
+    .match-list-buttons .verified {
+        background: #4CAF50;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-size: 0.7rem;
+        margin-left: 4px;
+    }
+    .match-list-buttons .admin-added {
+        background: #ff9800;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-size: 0.7rem;
+        margin-left: 4px;
+    }
     
     @media only screen and (max-width: 768px) {
         .match-list-item { padding: 8px 10px; }
@@ -605,18 +671,67 @@ def render_matches_list(matches):
         
         home_logo = match.get('home_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'
         away_logo = match.get('away_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'
+        league_logo = match.get('league_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'
+        league_name = html.escape(match.get('league', ''))
+
+        # Collect streams (both from match and admin)
+        streams = match.get("streams", [])
+        if isinstance(streams, str):
+            try:
+                streams = json.loads(streams)
+            except:
+                streams = []
+        # Add admin streams if any
+        try:
+            admin_streams = supabase.table("admin_streams")\
+                .select("*")\
+                .eq("fixture_id", match["fixture_id"])\
+                .eq("is_active", True)\
+                .execute()\
+                .data
+            if admin_streams:
+                for admin in admin_streams:
+                    streams.append({
+                        "title": admin.get("stream_title", "البث الرسمي"),
+                        "url": admin["stream_url"],
+                        "source": admin.get("stream_source", "admin"),
+                        "verified": True,
+                        "admin_added": True
+                    })
+        except Exception as e:
+            print(f"Error fetching admin streams: {e}")
+
+        # Build stream buttons HTML
+        stream_buttons = ""
+        for s in streams:
+            stream_link = f"/watch_stream?url={quote(s['url'])}"
+            safe_title = html.escape(s["title"][:20])
+            verified_badge = '<span class="verified">موثوق</span>' if s.get("verified") else ''
+            admin_badge = '<span class="admin-added">رسمي</span>' if s.get("admin_added") else ''
+            stream_buttons += f'<a class="stream-btn" href="{stream_link}" target="_self">📺 {safe_title} {verified_badge}{admin_badge}</a>'
+        if not stream_buttons:
+            stream_buttons = '<span style="color:#888; font-size:0.85rem;">لا توجد روابط حالياً</span>'
         
         st.markdown(f"""
         <div class="match-list-item">
-            <span class="match-list-time">{match_time}</span>
-            <span class="match-list-teams">
-                <img src="{home_logo}">
-                <span>{html.escape(match['home_team'])}</span>
-                <span>-</span>
-                <span>{html.escape(match['away_team'])}</span>
-                <img src="{away_logo}">
-            </span>
-            <span class="match-list-status">{status_display}</span>
+            <div class="match-list-row">
+                <span class="match-list-time">{match_time}</span>
+                <span class="match-list-teams">
+                    <img src="{home_logo}">
+                    <span>{html.escape(match['home_team'])}</span>
+                    <span>-</span>
+                    <span>{html.escape(match['away_team'])}</span>
+                    <img src="{away_logo}">
+                </span>
+                <span class="match-list-status">{status_display}</span>
+            </div>
+            <div class="match-list-league">
+                <img src="{league_logo}">
+                <span>{league_name}</span>
+            </div>
+            <div class="match-list-buttons">
+                {stream_buttons}
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
