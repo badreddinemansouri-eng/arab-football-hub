@@ -17,7 +17,7 @@ st.set_page_config(
     page_title="Badr TV | جميع المباريات العالمية",
     page_icon="⚽",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"  # Start with sidebar collapsed
 )
 
 # -------------------------------------------------------------------
@@ -86,16 +86,14 @@ st.markdown("""
     * { font-family: 'Cairo', sans-serif; }
     .main, .block-container, [data-testid="stMarkdownContainer"] { direction: rtl; text-align: right; }
     
-    /* Hide default Streamlit header completely */
-    header[data-testid="stHeader"] {
-        display: none !important;
-        height: 0 !important;
-        min-height: 0 !important;
+    /* Remove all default Streamlit padding/margin */
+    .stApp {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
     }
-    
-    /* Remove all padding/margin from the root containers */
     .stApp > header {
         display: none !important;
+        height: 0 !important;
     }
     .main > div:first-child {
         padding-top: 0 !important;
@@ -105,12 +103,6 @@ st.markdown("""
         padding-top: 0 !important;
         margin-top: 0 !important;
         max-width: 100%;
-    }
-    
-    /* Ensure body starts at top */
-    body {
-        margin: 0 !important;
-        padding: 0 !important;
     }
     
     /* Custom top header bar (blue) - positioned at very top */
@@ -244,33 +236,38 @@ st.markdown("""
 <!-- JavaScript to toggle sidebar via custom hamburger -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Find the custom menu icon
     const menuIcon = document.querySelector('.top-header .menu-icon');
-    if (menuIcon) {
-        menuIcon.addEventListener('click', function() {
-            // Try multiple selectors for the Streamlit sidebar toggle
-            const toggleSelectors = [
-                'button[data-testid="stSidebarNavToggle"]',
-                'button[kind="header"]',
-                '[data-testid="stSidebarCollapseButton"]',
-                'button:has(svg[data-icon="panel-left"])',
-                'button[title="View sidebar"]',
-                'button[aria-label="View sidebar"]'
-            ];
-            for (const selector of toggleSelectors) {
-                const btn = document.querySelector(selector);
-                if (btn) {
-                    btn.click();
-                    break;
-                }
+    if (!menuIcon) return;
+    
+    function findAndClickSidebarToggle() {
+        const selectors = [
+            'button[data-testid="stSidebarNavToggle"]',
+            'button[kind="header"]',
+            'button[data-testid="baseButton-header"]',
+            'button[title="View sidebar"]',
+            'button[aria-label="View sidebar"]'
+        ];
+        for (const selector of selectors) {
+            const btn = document.querySelector(selector);
+            if (btn) {
+                btn.click();
+                return true;
             }
-            // Fallback: simulate click on the first button with a menu icon
-            if (!document.querySelector(selector)) {
-                const possible = document.querySelector('button[data-testid="baseButton-header"]');
-                if (possible) possible.click();
-            }
-        });
+        }
+        return false;
     }
+    
+    menuIcon.addEventListener('click', function() {
+        if (!findAndClickSidebarToggle()) {
+            // If button not found yet, wait for it using MutationObserver
+            const observer = new MutationObserver(function(mutations, obs) {
+                if (findAndClickSidebarToggle()) {
+                    obs.disconnect();
+                }
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+        }
+    });
 });
 </script>
 """, unsafe_allow_html=True)
