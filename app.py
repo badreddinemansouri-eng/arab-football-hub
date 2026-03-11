@@ -121,6 +121,11 @@ st.markdown("""
         display: none !important;
     }
     
+    /* Hide all native header children except the first button (hamburger) and our custom div */
+    header[data-testid="stHeader"] > *:not(:first-child):not(.custom-header-content) {
+        display: none !important;
+    }
+    
     /* Custom elements injected via JS */
     .custom-header-content {
         display: flex;
@@ -234,27 +239,40 @@ st.markdown("""
     }
 </style>
 
-<!-- JavaScript to inject custom logo and title into the native header -->
+<!-- JavaScript to inject custom logo and title into the native header (with retry) -->
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const header = document.querySelector('header[data-testid="stHeader"]');
-    if (!header) return;
+(function() {
+    function injectCustomHeader() {
+        const header = document.querySelector('header[data-testid="stHeader"]');
+        if (!header) return false;
+        
+        // Check if already added
+        if (header.querySelector('.custom-header-content')) return true;
+        
+        const customDiv = document.createElement('div');
+        customDiv.className = 'custom-header-content';
+        customDiv.innerHTML = `
+            <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
+            <span>Badr TV</span>
+        `;
+        
+        // Insert after the hamburger button (first child in header)
+        const hamburger = header.firstChild;
+        header.insertBefore(customDiv, hamburger.nextSibling);
+        return true;
+    }
     
-    // Check if already added
-    if (header.querySelector('.custom-header-content')) return;
-    
-    const customDiv = document.createElement('div');
-    customDiv.className = 'custom-header-content';
-    customDiv.innerHTML = `
-        <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
-        <span>Badr TV</span>
-    `;
-    
-    // Insert after the hamburger button (first child in header)
-    // The header has the hamburger as first child (left side)
-    const hamburger = header.firstChild;
-    header.insertBefore(customDiv, hamburger.nextSibling);
-});
+    // Try immediately, then retry every 200ms up to 10 times
+    if (!injectCustomHeader()) {
+        let attempts = 0;
+        const interval = setInterval(function() {
+            attempts++;
+            if (injectCustomHeader() || attempts >= 10) {
+                clearInterval(interval);
+            }
+        }, 200);
+    }
+})();
 </script>
 """, unsafe_allow_html=True)
 
