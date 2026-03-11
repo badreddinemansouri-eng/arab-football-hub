@@ -78,7 +78,7 @@ st.markdown("""
 <script type="text/javascript" src="//resources.infolinks.com/js/infolinks_main.js"></script>
 """, unsafe_allow_html=True)
 
-# --- Custom CSS to style native header blue and remove top space ---
+# --- Custom CSS: hide default header, add custom blue header with hamburger ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
@@ -86,7 +86,12 @@ st.markdown("""
     * { font-family: 'Cairo', sans-serif; }
     .main, .block-container, [data-testid="stMarkdownContainer"] { direction: rtl; text-align: right; }
     
-    /* Remove all default top padding */
+    /* Hide default Streamlit header completely */
+    header[data-testid="stHeader"] {
+        display: none !important;
+    }
+    
+    /* Remove default top padding */
     .stApp {
         margin-top: 0 !important;
         padding-top: 0 !important;
@@ -101,42 +106,41 @@ st.markdown("""
         max-width: 100%;
     }
     
-    /* Style the native header */
-    header[data-testid="stHeader"] {
-        background: linear-gradient(135deg, #1976D2 0%, #0D47A1 100%) !important;
-        color: white !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        padding: 5px 20px !important;
-        height: 60px !important;
+    /* Custom top header bar (blue) */
+    .top-header {
+        background: linear-gradient(135deg, #1976D2 0%, #0D47A1 100%);
+        padding: 10px 20px;
         border-radius: 0 0 20px 20px;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: flex-start !important;
-        gap: 15px !important;
-        direction: ltr; /* Keep hamburger on left */
+        margin: 0 0 20px 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: white;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        position: relative;
+        z-index: 999;
+        width: 100%;
     }
-    
-    /* Hide the default title (the page title) */
-    header[data-testid="stHeader"] > div:has(> p) {
-        display: none !important;
-    }
-    
-    /* Custom elements injected via JS */
-    .custom-header-content {
+    .top-header .logo {
         display: flex;
         align-items: center;
         gap: 10px;
-        color: white;
     }
-    .custom-header-content img {
+    .top-header .logo img {
         width: 40px;
         height: 40px;
         border-radius: 50%;
         object-fit: cover;
     }
-    .custom-header-content span {
+    .top-header .logo h1 {
         font-size: 1.8rem;
+        margin: 0;
         font-weight: 700;
+    }
+    .top-header .menu-icon {
+        font-size: 2rem;
+        cursor: pointer;
+        user-select: none;
     }
     
     /* List view for matches */
@@ -226,33 +230,55 @@ st.markdown("""
         .match-list-item { padding: 8px 10px; }
         .match-list-teams { font-size: 0.85rem; gap: 4px; }
         .match-list-teams img { width: 20px; height: 20px; }
-        .custom-header-content span { font-size: 1.4rem; }
-        .custom-header-content img { width: 32px; height: 32px; }
+        .top-header .logo h1 { font-size: 1.4rem; }
     }
 </style>
 
-<!-- JavaScript to inject custom logo and title into the native header -->
+<!-- JavaScript to toggle sidebar via custom hamburger -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const header = document.querySelector('header[data-testid="stHeader"]');
-    if (!header) return;
+    const menuIcon = document.querySelector('.top-header .menu-icon');
+    if (!menuIcon) return;
     
-    // Check if we already added custom content
-    if (header.querySelector('.custom-header-content')) return;
+    function findAndClickSidebarToggle() {
+        // Try to find the native sidebar toggle (which is hidden but exists)
+        const selectors = [
+            'button[data-testid="stSidebarNavToggle"]',
+            'button[kind="header"]',
+            'button[data-testid="baseButton-header"]',
+            'button[title="View sidebar"]',
+            'button[aria-label="View sidebar"]'
+        ];
+        for (const selector of selectors) {
+            const btn = document.querySelector(selector);
+            if (btn) {
+                btn.click();
+                return true;
+            }
+        }
+        return false;
+    }
     
-    const customDiv = document.createElement('div');
-    customDiv.className = 'custom-header-content';
-    customDiv.innerHTML = `
-        <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
-        <span>Badr TV</span>
-    `;
-    
-    // Insert after the hamburger button (which is the first child in the header)
-    // In RTL, the first child is the hamburger button on the left.
-    const firstChild = header.firstChild;
-    header.insertBefore(customDiv, firstChild.nextSibling);
+    menuIcon.addEventListener('click', function() {
+        // First attempt
+        if (!findAndClickSidebarToggle()) {
+            // If not found, wait a bit and retry (DOM might not be fully ready)
+            setTimeout(findAndClickSidebarToggle, 300);
+        }
+    });
 });
 </script>
+""", unsafe_allow_html=True)
+
+# --- Custom Top Header (blue) ---
+st.markdown(f"""
+<div class="top-header">
+    <div class="logo">
+        <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
+        <h1>Badr TV</h1>
+    </div>
+    <div class="menu-icon">☰</div>
+</div>
 """, unsafe_allow_html=True)
 
 # --- Sidebar (simplified) ---
