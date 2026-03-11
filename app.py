@@ -734,6 +734,11 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                                     {"league_name": league, "logo_url": url},
                                     on_conflict="league_name"
                                 ).execute()
+                                # Update all matches with this league to use the new logo
+                                update_result = supabase.table("matches")\
+                                    .update({"league_logo": url})\
+                                    .eq("league", league)\
+                                    .execute()
                                 st.success(f"✅ {league}")
                                 found += 1
                             else:
@@ -743,6 +748,8 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                             st.warning(f"❌ {league} (فشل الاتصال)")
                             not_found += 1
                     st.info(f"النتائج: {found} تم العثور عليها، {not_found} لم يتم العثور عليها.")
+                    st.cache_data.clear()
+                    st.rerun()
 
 # --- Fetch matches with filters ---
 @st.cache_data(ttl=60)
