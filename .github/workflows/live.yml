@@ -3,7 +3,7 @@ name: Live Match Updates
 on:
   schedule:
     # Every 3 minutes for live matches
-    - cron: '*/5 14-23 * * *'
+    - cron: '*/3 * * * *'
   workflow_dispatch:
 
 jobs:
