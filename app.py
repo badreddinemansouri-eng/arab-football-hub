@@ -414,32 +414,18 @@ def render_matches_list(matches):
     for match in matches:
         status_display = get_match_status_display(match)
         
-        # Format display based on match status
-        if match["status"] == "LIVE":
-            # For LIVE matches: show score in the middle, no time on left
-            match_time_display = ""  # Empty for live matches
-            score_display = f"<span style='color:#ff4444; font-weight:bold; font-size:1.2rem;'>{match['home_score']} - {match['away_score']}</span>"
-        else:
-            # For upcoming matches: show time on left
-            try:
-                match_time_display = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00')).strftime("%H:%M")
-            except:
-                match_time_display = "--:--"
-            score_display = ""  # Empty for non-live matches
-        
         home_logo = match.get('home_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'
         away_logo = match.get('away_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'
         league_logo = match.get('league_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'
         league_name = html.escape(match.get('league', ''))
 
-        # Collect streams (both from match and admin)
+        # Collect streams
         streams = match.get("streams", [])
         if isinstance(streams, str):
             try:
                 streams = json.loads(streams)
             except:
                 streams = []
-        # Add admin streams if any
         try:
             admin_streams = supabase.table("admin_streams")\
                 .select("*")\
@@ -459,7 +445,7 @@ def render_matches_list(matches):
         except Exception as e:
             print(f"Error fetching admin streams: {e}")
 
-        # Build stream buttons HTML
+        # Build stream buttons
         stream_buttons = ""
         for s in streams:
             stream_link = f"/watch_stream?url={quote(s['url'])}"
@@ -469,56 +455,62 @@ def render_matches_list(matches):
             stream_buttons += f'<a class="stream-btn" href="{stream_link}" target="_self">📺 {safe_title} {verified_badge}{admin_badge}</a>'
         if not stream_buttons:
             stream_buttons = '<span style="color:#888; font-size:0.85rem;">لا توجد روابط حالياً</span>'
-        
-        # For LIVE matches, use a special layout with score in the middle
+
+        # Mobile-optimized card
         if match["status"] == "LIVE":
+            # LIVE match: score in one line
             st.markdown(f"""
-            <div class="match-list-item">
-                <div class="match-list-row" style="justify-content: space-between;">
-                    <span class="match-list-time" style="visibility: hidden;">00:00</span>
-                    <span class="match-list-teams" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                        <img src="{home_logo}" style="width:24px; height:24px;">
-                        <span style="font-weight:600;">{html.escape(match['home_team'])}</span>
-                        <span style="color:#ff4444; font-weight:bold; font-size:1.2rem; margin:0 10px;">{match['home_score']} - {match['away_score']}</span>
-                        <span style="font-weight:600;">{html.escape(match['away_team'])}</span>
-                        <img src="{away_logo}" style="width:24px; height:24px;">
-                    </span>
-                    <span class="match-list-status">{status_display}</span>
+            <div class="match-list-item" style="padding: 8px 10px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 200px;">
+                        <img src="{home_logo}" style="width: 22px; height: 22px; object-fit: contain;">
+                        <span style="font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px;">{html.escape(match['home_team'])}</span>
+                        <span style="color: #ff4444; font-weight: bold; font-size: 1rem; margin: 0 2px;">{match['home_score']}</span>
+                        <span style="color: #ff4444; font-weight: bold; font-size: 1rem;">-</span>
+                        <span style="color: #ff4444; font-weight: bold; font-size: 1rem; margin: 0 2px;">{match['away_score']}</span>
+                        <span style="font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px;">{html.escape(match['away_team'])}</span>
+                        <img src="{away_logo}" style="width: 22px; height: 22px; object-fit: contain;">
+                    </div>
+                    <span class="match-list-status" style="font-size: 0.8rem;">{status_display}</span>
                 </div>
-                <div class="match-list-league">
-                    <img src="{league_logo}">
-                    <span>{league_name}</span>
+                <div style="display: flex; align-items: center; gap: 6px; margin-top: 6px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.1); width: 100%;">
+                    <img src="{league_logo}" style="width: 16px; height: 16px; object-fit: contain;">
+                    <span style="font-size: 0.75rem; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">{league_name}</span>
                 </div>
-                <div class="match-list-buttons">
+                <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; width: 100%;">
                     {stream_buttons}
                 </div>
             </div>
             """, unsafe_allow_html=True)
         else:
-            # Regular layout for upcoming matches
+            # UPCOMING match: time on left, teams on right
+            try:
+                match_time_display = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00')).strftime("%H:%M")
+            except:
+                match_time_display = "--:--"
+            
             st.markdown(f"""
-            <div class="match-list-item">
-                <div class="match-list-row">
-                    <span class="match-list-time">{match_time_display}</span>
-                    <span class="match-list-teams">
-                        <img src="{home_logo}">
-                        <span>{html.escape(match['home_team'])}</span>
-                        <span>-</span>
-                        <span>{html.escape(match['away_team'])}</span>
-                        <img src="{away_logo}">
-                    </span>
-                    <span class="match-list-status">{status_display}</span>
+            <div class="match-list-item" style="padding: 8px 10px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; flex-wrap: wrap;">
+                    <span style="color: #ffd700; font-weight: bold; font-size: 0.9rem; min-width: 45px;">{match_time_display}</span>
+                    <div style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 200px; justify-content: center;">
+                        <img src="{home_logo}" style="width: 22px; height: 22px; object-fit: contain;">
+                        <span style="font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px;">{html.escape(match['home_team'])}</span>
+                        <span style="margin: 0 2px;">-</span>
+                        <span style="font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px;">{html.escape(match['away_team'])}</span>
+                        <img src="{away_logo}" style="width: 22px; height: 22px; object-fit: contain;">
+                    </div>
+                    <span class="match-list-status" style="font-size: 0.8rem;">{status_display}</span>
                 </div>
-                <div class="match-list-league">
-                    <img src="{league_logo}">
-                    <span>{league_name}</span>
+                <div style="display: flex; align-items: center; gap: 6px; margin-top: 6px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.1); width: 100%;">
+                    <img src="{league_logo}" style="width: 16px; height: 16px; object-fit: contain;">
+                    <span style="font-size: 0.75rem; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">{league_name}</span>
                 </div>
-                <div class="match-list-buttons">
+                <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; width: 100%;">
                     {stream_buttons}
                 </div>
             </div>
             """, unsafe_allow_html=True)
-
 def get_distinct_leagues():
     try:
         response = supabase.table("matches").select("league").execute()
