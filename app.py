@@ -50,15 +50,14 @@ st.markdown("""
 <script type="text/javascript" src="//resources.infolinks.com/js/infolinks_main.js"></script>
 """, unsafe_allow_html=True)
 
-# --- Custom CSS: hide native header, create custom header, remove all top space ---
+# --- Custom CSS: hide native header, create custom header, remove all whitespace ---
 st.markdown("""
 <style>
-    /* Hide default Streamlit header completely */
-    header[data-testid="stHeader"] {
-        display: none !important;
+    /* Reset body and app margins */
+    body {
+        margin: 0 !important;
+        padding: 0 !important;
     }
-    
-    /* Remove all default padding/margin */
     .stApp {
         margin-top: 0 !important;
         padding-top: 0 !important;
@@ -72,7 +71,17 @@ st.markdown("""
         margin-top: 0 !important;
         max-width: 100%;
     }
-    
+
+    /* Completely hide the native Streamlit header */
+    header[data-testid="stHeader"] {
+        display: none !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        visibility: hidden !important;
+        position: absolute !important;
+        top: -9999px !important;
+    }
+
     /* Custom header */
     .custom-header {
         background: linear-gradient(135deg, #1976D2, #0D47A1);
@@ -86,6 +95,8 @@ st.markdown("""
         direction: ltr; /* Keep hamburger on left */
         box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         height: 80px;
+        position: relative;
+        z-index: 1000;
     }
     .custom-header .hamburger {
         font-size: 2.5rem;
@@ -110,8 +121,8 @@ st.markdown("""
         margin: 0;
         font-weight: 700;
     }
-    
-    /* Match list styling */
+
+    /* Match list styling (unchanged) */
     .match-list-item {
         background: rgba(255,255,255,0.05);
         border-radius: 12px;
@@ -160,7 +171,7 @@ st.markdown("""
         50% { opacity: 0.7; }
         100% { opacity: 1; }
     }
-    
+
     /* Mobile adjustments */
     @media only screen and (max-width: 768px) {
         .custom-header .brand h1 { font-size: 1.6rem; }
@@ -183,9 +194,9 @@ st.markdown("""
 document.addEventListener('DOMContentLoaded', function() {
     const hamburger = document.getElementById('hamburgerBtn');
     if (!hamburger) return;
-    
+
+    // Function to find and click the native sidebar toggle
     function clickSidebarToggle() {
-        // Try all possible selectors for the native sidebar toggle
         const selectors = [
             'button[data-testid="stSidebarNavToggle"]',
             'button[kind="header"]',
@@ -202,10 +213,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         return false;
     }
-    
+
     hamburger.addEventListener('click', function() {
         if (!clickSidebarToggle()) {
-            // Retry after a short delay (DOM might not be fully ready)
+            // If not found, retry after a short delay (DOM might not be ready)
             setTimeout(clickSidebarToggle, 500);
         }
     });
@@ -213,7 +224,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 """, unsafe_allow_html=True)
 
-# --- Sidebar (same as before) ---
+# --- Sidebar (simplified) ---
 with st.sidebar:
     st.header("📢 **ادعم الموقع**")
     st.info("الإعلانات تساعدنا في استمرار الخدمة مجاناً للجميع.")
@@ -223,11 +234,11 @@ with st.sidebar:
     </a>
     """, unsafe_allow_html=True)
     st.markdown("---")
-    
+
     with st.expander("⚙️ **الإعدادات**", expanded=True):
         low_bandwidth = st.checkbox("وضع الانترنت الضعيف (نص فقط)")
         hide_old_finished = st.checkbox("إخفاء المباريات المنتهية بعد ساعتين", value=True)
-    
+
     with st.expander("👑 **لوحة التحكم**", expanded=False):
         if not st.session_state.admin_authenticated:
             admin_password = st.text_input("كلمة المرور", type="password")
@@ -246,7 +257,7 @@ with st.sidebar:
                 st.session_state.admin_authenticated = False
                 st.session_state.show_admin = False
                 st.rerun()
-    
+
     st.markdown("---")
     st.header("📲 **تابعنا**")
     cols = st.columns(2)
@@ -260,7 +271,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
     with st.container():
         st.markdown("<div class='admin-panel'>", unsafe_allow_html=True)
         st.header("👑 **لوحة تحكم المشرف - إضافة روابط يدوية**")
-        
+
         @st.cache_data(ttl=60)
         def get_upcoming_matches():
             try:
@@ -273,13 +284,13 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
             except Exception as e:
                 print(f"Error fetching upcoming matches: {e}")
                 return []
-        
+
         upcoming = get_upcoming_matches()
         if upcoming:
             match_options = {f"{m['home_team']} vs {m['away_team']} ({m['league']})": m['fixture_id'] for m in upcoming}
             selected_match = st.selectbox("اختر المباراة", list(match_options.keys()))
             fixture_id = match_options[selected_match]
-            
+
             col1, col2 = st.columns(2)
             with col1:
                 stream_url = st.text_input("رابط البث")
@@ -287,7 +298,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
             with col2:
                 stream_source = st.selectbox("المصدر", ["youtube", "facebook", "custom", "official"])
                 expiry_hours = st.number_input("عدد ساعات الصلاحية", min_value=1, max_value=24, value=3)
-            
+
             if st.button("إضافة الرابط"):
                 if stream_url:
                     expires_at = (datetime.now() + timedelta(hours=expiry_hours)).isoformat()
@@ -310,7 +321,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                         print(f"Error inserting admin stream: {e}")
                 else:
                     st.error("الرجاء إدخال رابط البث")
-            
+
             st.markdown("---")
             st.subheader("الروابط الحالية")
             try:
@@ -336,7 +347,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                 print(f"Error loading admin streams: {e}")
         else:
             st.info("لا توجد مباريات قادمة")
-        
+
         st.markdown("---")
         st.subheader("➕ إضافة مباراة يدوية")
         with st.form("add_custom_match"):
@@ -367,7 +378,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                 supabase.table("matches").insert(data).execute()
                 st.success("تمت إضافة المباراة بنجاح")
                 st.rerun()
-        
+
         st.markdown("</div>", unsafe_allow_html=True)
 
 # --- Logo auto-linker (only when authenticated) ---
@@ -377,7 +388,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
         **سيقوم هذا الأمر بالبحث عن شعارات الفرق في مخزن Supabase باستخدام عدة صيغ للأسماء.**  
         يمكنك بعد ذلك تنزيل قائمة الفرق التي لم يتم العثور على شعار لها لمعالجتها يدوياً.
         """)
-        
+
         st.info("""
         **المجلدات المتوقعة:**
         - Italy - Serie A
@@ -389,7 +400,7 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
         - International - Champions League
         - International - World Cup
         """)
-        
+
         if st.button("🔍 بدء البحث المتقدم"):
             with st.spinner("جاري البحث عن الشعارات..."):
                 teams_resp = supabase.table("matches").select("home_team, away_team").execute()
@@ -535,10 +546,10 @@ def render_matches_list(matches):
             match_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00')).strftime("%H:%M")
         except:
             match_time = "--:--"
-        
+
         home_logo = match.get('home_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'
         away_logo = match.get('away_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'
-        
+
         st.markdown(f"""
         <div class="match-list-item">
             <span class="match-list-time">{match_time}</span>
