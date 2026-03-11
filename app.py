@@ -21,7 +21,7 @@ st.set_page_config(
 )
 
 # -------------------------------------------------------------------
-# Mobile detection (optional, but keep)
+# Mobile detection (optional)
 # -------------------------------------------------------------------
 st.markdown("""
 <script>
@@ -136,6 +136,95 @@ st.markdown("""
         font-size: 1.8rem;
         font-weight: 700;
     }
+    
+    /* List view for matches */
+    .match-list-item {
+        background: rgba(255,255,255,0.05);
+        border-radius: 12px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border: 1px solid #333;
+        direction: rtl;
+    }
+    .match-list-time {
+        color: #ffd700;
+        font-weight: bold;
+        min-width: 50px;
+        text-align: center;
+        font-size: 0.9rem;
+    }
+    .match-list-teams {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+    .match-list-teams img {
+        width: 24px;
+        height: 24px;
+        object-fit: contain;
+    }
+    .match-list-status {
+        color: #888;
+        font-size: 0.85rem;
+        min-width: 65px;
+        text-align: left;
+    }
+    .match-list-live {
+        color: #ff4444;
+        animation: pulse 1.5s infinite;
+        font-weight: bold;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
+    }
+    
+    .live-badge {
+        background: linear-gradient(45deg, #ff4444, #ff6b6b);
+        color: white;
+        padding: 5px 12px;
+        border-radius: 25px;
+        font-size: 14px;
+        font-weight: bold;
+        display: inline-block;
+        animation: pulse 1.5s infinite;
+    }
+    
+    .stream-btn {
+        background: #ff6b6b;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 30px;
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-block;
+        margin: 5px 10px 5px 0;
+        border: none;
+        cursor: pointer;
+        transition: background 0.3s;
+        font-size: 14px;
+    }
+    .stream-btn:hover { background: #ff5252; color: white; }
+    
+    .verified { background: #4CAF50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 5px; }
+    .admin-added { background: #ff9800; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 5px; }
+    
+    .admin-panel { background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); color: white; padding: 20px; border-radius: 10px; margin: 10px 0; }
+    
+    @media only screen and (max-width: 768px) {
+        .match-list-item { padding: 8px 10px; }
+        .match-list-teams { font-size: 0.85rem; gap: 4px; }
+        .match-list-teams img { width: 20px; height: 20px; }
+    }
 </style>
 
 <!-- JavaScript to inject custom logo and title into the native header -->
@@ -152,15 +241,14 @@ document.addEventListener('DOMContentLoaded', function() {
         <span>Badr TV</span>
     `;
     
-    // Insert at the beginning of the header (after the native hamburger maybe)
-    // The native hamburger is the first button, we want to keep it.
+    // Insert after the hamburger button (first child)
     const firstChild = header.firstChild;
     header.insertBefore(customLeft, firstChild.nextSibling);
 });
 </script>
 """, unsafe_allow_html=True)
 
-# --- Sidebar (unchanged) ---
+# --- Sidebar ---
 with st.sidebar:
     st.header("📢 **ادعم الموقع**")
     st.info("الإعلانات تساعدنا في استمرار الخدمة مجاناً للجميع.")
@@ -204,7 +292,7 @@ with st.sidebar:
     with cols[1]:
         st.markdown("[![Telegram](https://img.icons8.com/color/48/000000/telegram-app--v1.png)](https://t.me/your_bot)")
 
-# --- Admin Panel (keep as is) ---
+# --- Admin Panel ---
 if st.session_state.admin_authenticated and st.session_state.show_admin:
     with st.container():
         st.markdown("<div class='admin-panel'>", unsafe_allow_html=True)
@@ -321,11 +409,139 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
         
         st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Logo auto-linker (keep as is) ---
+# --- Logo auto-linker (كامل) ---
 if st.session_state.admin_authenticated and st.session_state.show_admin:
     with st.expander("🖼️ **ربط الشعارات تلقائياً (نسخة محسنة)**"):
-        # ... (unchanged, keep your existing code) ...
-        pass
+        st.markdown("""
+        **سيقوم هذا الأمر بالبحث عن شعارات الفرق في مخزن Supabase باستخدام عدة صيغ للأسماء.**  
+        يمكنك بعد ذلك تنزيل قائمة الفرق التي لم يتم العثور على شعار لها لمعالجتها يدوياً.
+        """)
+        
+        st.info("""
+        **المجلدات المتوقعة:**
+        - Italy - Serie A
+        - England - Premier League
+        - Spain - LaLiga
+        - Germany - Bundesliga
+        - France - Ligue 1
+        - Portugal - Liga Portugal
+        - International - Champions League
+        - International - World Cup
+        """)
+        
+        if st.button("🔍 بدء البحث المتقدم"):
+            with st.spinner("جاري البحث عن الشعارات..."):
+                teams_resp = supabase.table("matches").select("home_team, away_team").execute()
+                teams = set()
+                for row in teams_resp.data:
+                    if row.get("home_team"):
+                        teams.add(row["home_team"])
+                    if row.get("away_team"):
+                        teams.add(row["away_team"])
+                teams = sorted(list(teams))
+                total = len(teams)
+                st.info(f"تم العثور على {total} فريق في قاعدة البيانات.")
+
+                league_folders = [
+                    "Italy - Serie A",
+                    "England - Premier League",
+                    "Spain - LaLiga",
+                    "Germany - Bundesliga",
+                    "France - Ligue 1",
+                    "Portugal - Liga Portugal",
+                    "International - Champions League",
+                    "International - World Cup"
+                ]
+
+                BUCKET_BASE = f"{SUPABASE_URL}/storage/v1/object/public/logos"
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                results = {"found": 0, "not_found": 0}
+                missing_teams = []
+
+                def generate_name_variations(team_name):
+                    variations = [team_name]
+                    suffixes = [" FC", " AFC", " United", " City", " Real", " CF", " AC", " AS", " SS", " SC", " Club", " Deportivo", " Futebol", " Clube"]
+                    base = team_name
+                    for suffix in suffixes:
+                        if base.endswith(suffix):
+                            base = base[:-len(suffix)]
+                            variations.append(base)
+                            break
+                    variations.append(team_name.replace(" ", "_"))
+                    if base != team_name:
+                        variations.append(base.replace(" ", "_"))
+                    return list(set(variations))
+
+                for i, team in enumerate(teams):
+                    status_text.text(f"معالجة {team}... ({i+1}/{total})")
+                    name_variations = generate_name_variations(team)
+                    found = False
+                    for name in name_variations:
+                        filename = f"{name}.png"
+                        for folder in league_folders:
+                            url = f"{BUCKET_BASE}/{folder}/{filename}"
+                            try:
+                                resp = requests.head(url, timeout=3)
+                                if resp.status_code == 200:
+                                    supabase.table("team_logos").upsert(
+                                        {"team_name": team, "logo_url": url},
+                                        on_conflict="team_name"
+                                    ).execute()
+                                    results["found"] += 1
+                                    found = True
+                                    st.success(f"✅ {team} -> {folder}/{filename}")
+                                    break
+                            except:
+                                continue
+                        if found:
+                            break
+                    if not found:
+                        results["not_found"] += 1
+                        missing_teams.append(team)
+                        st.warning(f"❌ {team} – لم يتم العثور على شعار")
+                    progress_bar.progress((i+1)/total)
+
+                status_text.text("اكتمل البحث!")
+                st.success(f"النتائج: تم العثور على {results['found']} شعار، لم يتم العثور على {results['not_found']}")
+
+                if missing_teams:
+                    missing_text = "\n".join(missing_teams)
+                    st.download_button(
+                        label="📥 تنزيل قائمة الفرق بدون شعار",
+                        data=missing_text,
+                        file_name="missing_logos.txt",
+                        mime="text/plain"
+                    )
+                    st.info("يمكنك استخدام هذه القائمة لإضافة الشعارات يدوياً إلى المجلد المناسب في Supabase.")
+
+        if st.button("🔍 تحديث شعارات البطولات"):
+            leagues = get_distinct_leagues()
+            if not leagues:
+                st.warning("لا توجد بطولات لعرضها.")
+            else:
+                with st.spinner("جاري البحث عن شعارات البطولات..."):
+                    found = 0
+                    not_found = 0
+                    for league in leagues:
+                        name = league.replace(' ', '_')
+                        url = f"{SUPABASE_URL}/storage/v1/object/public/logos/leagues/{name}.png"
+                        try:
+                            resp = requests.head(url, timeout=3)
+                            if resp.status_code == 200:
+                                supabase.table("league_logos").upsert(
+                                    {"league_name": league, "logo_url": url},
+                                    on_conflict="league_name"
+                                ).execute()
+                                st.success(f"✅ {league}")
+                                found += 1
+                            else:
+                                st.warning(f"❌ {league}")
+                                not_found += 1
+                        except:
+                            st.warning(f"❌ {league} (فشل الاتصال)")
+                            not_found += 1
+                    st.info(f"النتائج: {found} تم العثور عليها، {not_found} لم يتم العثور عليها.")
 
 # --- Helper functions ---
 def time_until(match_time_str):
