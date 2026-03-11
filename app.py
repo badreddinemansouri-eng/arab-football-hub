@@ -20,6 +20,17 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# --- Logo (Streamlit 1.35+)
+try:
+    st.logo(
+        "https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg",
+        size="large",
+        link=None,
+        icon_image=None
+    )
+except:
+    pass  # older Streamlit – we'll handle via CSS
+
 # --- Auto-refresh ---
 st.markdown('<meta http-equiv="refresh" content="180">', unsafe_allow_html=True)
 
@@ -40,7 +51,7 @@ if "admin_authenticated" not in st.session_state:
 if "show_admin" not in st.session_state:
     st.session_state.show_admin = False
 
-# --- Inject ad scripts (replace with actual codes) ---
+# --- Ad scripts (replace with your codes) ---
 st.markdown("""
 <script type="text/javascript" data-cfasync="false" src="https://your-propellerads-script.com"></script>
 <script type="text/javascript">
@@ -50,14 +61,10 @@ st.markdown("""
 <script type="text/javascript" src="//resources.infolinks.com/js/infolinks_main.js"></script>
 """, unsafe_allow_html=True)
 
-# --- Custom CSS: hide native header, create custom header, remove all whitespace ---
+# --- Custom CSS to style native header, remove whitespace, and add title ---
 st.markdown("""
 <style>
-    /* Reset body and app margins */
-    body {
-        margin: 0 !important;
-        padding: 0 !important;
-    }
+    /* Reset any top padding/margin */
     .stApp {
         margin-top: 0 !important;
         padding-top: 0 !important;
@@ -72,54 +79,53 @@ st.markdown("""
         max-width: 100%;
     }
 
-    /* Completely hide the native Streamlit header */
+    /* Style the native header */
     header[data-testid="stHeader"] {
-        display: none !important;
-        height: 0 !important;
-        min-height: 0 !important;
-        visibility: hidden !important;
-        position: absolute !important;
-        top: -9999px !important;
+        background: linear-gradient(135deg, #1976D2 0%, #0D47A1 100%) !important;
+        color: white !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        padding: 10px 20px !important;
+        height: 80px !important;
+        border-radius: 0 0 20px 20px;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important; /* Center content horizontally */
+        direction: ltr; /* Keep hamburger on left, rest centered */
     }
 
-    /* Custom header */
-    .custom-header {
-        background: linear-gradient(135deg, #1976D2, #0D47A1);
-        color: white;
-        padding: 10px 20px;
-        border-radius: 0 0 20px 20px;
-        margin: 0 0 20px 0;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        direction: ltr; /* Keep hamburger on left */
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        height: 80px;
-        position: relative;
-        z-index: 1000;
+    /* Hide the default page title (the one from st.set_page_config) */
+    header[data-testid="stHeader"] > div:has(> p) {
+        display: none !important;
     }
-    .custom-header .hamburger {
-        font-size: 2.5rem;
-        cursor: pointer;
-        user-select: none;
+
+    /* Hide the default logo if present */
+    header[data-testid="stHeader"] [data-testid="stLogo"] {
+        display: none !important;
     }
-    .custom-header .brand {
+
+    /* Custom centered content: logo + title */
+    header[data-testid="stHeader"]::after {
+        content: "";
+        display: none;
+    }
+    /* We'll inject via JavaScript a centered div */
+    .custom-header-center {
         display: flex;
         align-items: center;
         gap: 15px;
-        margin-left: auto; /* push to right */
-        direction: rtl; /* logo on right, text on left */
+        margin: 0 auto;
+        direction: rtl;
     }
-    .custom-header .brand img {
+    .custom-header-center img {
         width: 60px;
         height: 60px;
         border-radius: 50%;
         object-fit: cover;
     }
-    .custom-header .brand h1 {
+    .custom-header-center span {
         font-size: 2.2rem;
-        margin: 0;
         font-weight: 700;
+        color: white;
     }
 
     /* Match list styling (unchanged) */
@@ -172,59 +178,36 @@ st.markdown("""
         100% { opacity: 1; }
     }
 
-    /* Mobile adjustments */
     @media only screen and (max-width: 768px) {
-        .custom-header .brand h1 { font-size: 1.6rem; }
-        .custom-header .brand img { width: 45px; height: 45px; }
-        .custom-header { height: 70px; }
+        .custom-header-center span { font-size: 1.6rem; }
+        .custom-header-center img { width: 45px; height: 45px; }
+        header[data-testid="stHeader"] { height: 70px !important; }
     }
 </style>
 
-<!-- Custom header -->
-<div class="custom-header">
-    <div class="hamburger" id="hamburgerBtn">☰</div>
-    <div class="brand">
-        <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
-        <h1>Badr TV</h1>
-    </div>
-</div>
-
-<!-- JavaScript to make hamburger open sidebar -->
+<!-- JavaScript to inject centered logo + title -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const hamburger = document.getElementById('hamburgerBtn');
-    if (!hamburger) return;
+    const header = document.querySelector('header[data-testid="stHeader"]');
+    if (!header) return;
 
-    // Function to find and click the native sidebar toggle
-    function clickSidebarToggle() {
-        const selectors = [
-            'button[data-testid="stSidebarNavToggle"]',
-            'button[kind="header"]',
-            'button[data-testid="baseButton-header"]',
-            'button[title="View sidebar"]',
-            'button[aria-label="View sidebar"]'
-        ];
-        for (const selector of selectors) {
-            const btn = document.querySelector(selector);
-            if (btn) {
-                btn.click();
-                return true;
-            }
-        }
-        return false;
-    }
+    // Check if already injected
+    if (header.querySelector('.custom-header-center')) return;
 
-    hamburger.addEventListener('click', function() {
-        if (!clickSidebarToggle()) {
-            // If not found, retry after a short delay (DOM might not be ready)
-            setTimeout(clickSidebarToggle, 500);
-        }
-    });
+    const centerDiv = document.createElement('div');
+    centerDiv.className = 'custom-header-center';
+    centerDiv.innerHTML = `
+        <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
+        <span>Badr TV</span>
+    `;
+
+    // Append to header – it will be centered because header has justify-content: center
+    header.appendChild(centerDiv);
 });
 </script>
 """, unsafe_allow_html=True)
 
-# --- Sidebar (simplified) ---
+# --- Sidebar (simplified, unchanged) ---
 with st.sidebar:
     st.header("📢 **ادعم الموقع**")
     st.info("الإعلانات تساعدنا في استمرار الخدمة مجاناً للجميع.")
@@ -266,7 +249,7 @@ with st.sidebar:
     with cols[1]:
         st.markdown("[![Telegram](https://img.icons8.com/color/48/000000/telegram-app--v1.png)](https://t.me/your_bot)")
 
-# --- Admin Panel (only when authenticated) ---
+# --- Admin Panel (unchanged) ---
 if st.session_state.admin_authenticated and st.session_state.show_admin:
     with st.container():
         st.markdown("<div class='admin-panel'>", unsafe_allow_html=True)
