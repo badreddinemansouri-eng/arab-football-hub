@@ -14,35 +14,11 @@ from urllib.parse import quote
 
 # --- Page config ---
 st.set_page_config(
-    page_title="Badr TV | جميع المباريات العالمية",
+    page_title="Badr TV",
     page_icon="⚽",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
-
-# -------------------------------------------------------------------
-# Mobile detection (optional)
-# -------------------------------------------------------------------
-st.markdown("""
-<script>
-(function() {
-    const isMobile = window.innerWidth < 768;
-    const url = new URL(window.location);
-    if (isMobile && !url.searchParams.has('mobile')) {
-        url.searchParams.set('mobile', 'true');
-        window.location.replace(url);
-    } else if (!isMobile && url.searchParams.has('mobile')) {
-        url.searchParams.delete('mobile');
-        window.location.replace(url);
-    }
-})();
-</script>
-""", unsafe_allow_html=True)
-
-mobile_param = st.query_params.get("mobile", [None])
-if isinstance(mobile_param, list):
-    mobile_param = mobile_param[0]
-st.session_state.mobile_view = (mobile_param == "true")
 
 # --- Auto-refresh ---
 st.markdown('<meta http-equiv="refresh" content="180">', unsafe_allow_html=True)
@@ -74,20 +50,15 @@ st.markdown("""
 <script type="text/javascript" src="//resources.infolinks.com/js/infolinks_main.js"></script>
 """, unsafe_allow_html=True)
 
-# --- Custom CSS: hide native header, add custom header with hamburger ---
+# --- Custom CSS: hide native header, create custom header, remove all top space ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
-    
-    * { font-family: 'Cairo', sans-serif; }
-    .main, .block-container, [data-testid="stMarkdownContainer"] { direction: rtl; text-align: right; }
-    
-    /* Completely hide the default Streamlit header */
+    /* Hide default Streamlit header completely */
     header[data-testid="stHeader"] {
         display: none !important;
     }
     
-    /* Remove any top padding/margin from the app container */
+    /* Remove all default padding/margin */
     .stApp {
         margin-top: 0 !important;
         padding-top: 0 !important;
@@ -104,33 +75,29 @@ st.markdown("""
     
     /* Custom header */
     .custom-header {
-        background: linear-gradient(135deg, #1976D2 0%, #0D47A1 100%);
+        background: linear-gradient(135deg, #1976D2, #0D47A1);
+        color: white;
         padding: 10px 20px;
         border-radius: 0 0 20px 20px;
         margin: 0 0 20px 0;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        color: white;
+        direction: ltr; /* Keep hamburger on left */
         box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        direction: ltr; /* Hamburger on left, content on right */
-        position: relative;
-        z-index: 1000;
-        width: 100%;
         height: 80px;
     }
     .custom-header .hamburger {
         font-size: 2.5rem;
         cursor: pointer;
         user-select: none;
-        color: white;
     }
     .custom-header .brand {
         display: flex;
         align-items: center;
         gap: 15px;
-        direction: rtl; /* Logo on right, text on left */
-        margin-left: auto; /* Push brand to the right */
+        margin-left: auto; /* push to right */
+        direction: rtl; /* logo on right, text on left */
     }
     .custom-header .brand img {
         width: 60px;
@@ -144,7 +111,7 @@ st.markdown("""
         font-weight: 700;
     }
     
-    /* List view for matches */
+    /* Match list styling */
     .match-list-item {
         background: rgba(255,255,255,0.05);
         border-radius: 12px;
@@ -188,56 +155,21 @@ st.markdown("""
         animation: pulse 1.5s infinite;
         font-weight: bold;
     }
-    
     @keyframes pulse {
         0% { opacity: 1; }
         50% { opacity: 0.7; }
         100% { opacity: 1; }
     }
     
-    .live-badge {
-        background: linear-gradient(45deg, #ff4444, #ff6b6b);
-        color: white;
-        padding: 5px 12px;
-        border-radius: 25px;
-        font-size: 14px;
-        font-weight: bold;
-        display: inline-block;
-        animation: pulse 1.5s infinite;
-    }
-    
-    .stream-btn {
-        background: #ff6b6b;
-        color: white;
-        padding: 8px 16px;
-        border-radius: 30px;
-        text-decoration: none;
-        font-weight: 600;
-        display: inline-block;
-        margin: 5px 10px 5px 0;
-        border: none;
-        cursor: pointer;
-        transition: background 0.3s;
-        font-size: 14px;
-    }
-    .stream-btn:hover { background: #ff5252; color: white; }
-    
-    .verified { background: #4CAF50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 5px; }
-    .admin-added { background: #ff9800; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 5px; }
-    
-    .admin-panel { background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); color: white; padding: 20px; border-radius: 10px; margin: 10px 0; }
-    
+    /* Mobile adjustments */
     @media only screen and (max-width: 768px) {
-        .match-list-item { padding: 8px 10px; }
-        .match-list-teams { font-size: 0.85rem; gap: 4px; }
-        .match-list-teams img { width: 20px; height: 20px; }
         .custom-header .brand h1 { font-size: 1.6rem; }
         .custom-header .brand img { width: 45px; height: 45px; }
         .custom-header { height: 70px; }
     }
 </style>
 
-<!-- Custom Header -->
+<!-- Custom header -->
 <div class="custom-header">
     <div class="hamburger" id="hamburgerBtn">☰</div>
     <div class="brand">
@@ -246,13 +178,14 @@ st.markdown("""
     </div>
 </div>
 
+<!-- JavaScript to make hamburger open sidebar -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const hamburger = document.getElementById('hamburgerBtn');
     if (!hamburger) return;
     
-    function clickNativeToggle() {
-        // Try multiple selectors to find the native sidebar toggle button
+    function clickSidebarToggle() {
+        // Try all possible selectors for the native sidebar toggle
         const selectors = [
             'button[data-testid="stSidebarNavToggle"]',
             'button[kind="header"]',
@@ -271,26 +204,24 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     hamburger.addEventListener('click', function() {
-        if (!clickNativeToggle()) {
-            // If not found, wait a bit and retry (DOM might not be fully ready)
-            setTimeout(clickNativeToggle, 500);
+        if (!clickSidebarToggle()) {
+            // Retry after a short delay (DOM might not be fully ready)
+            setTimeout(clickSidebarToggle, 500);
         }
     });
 });
 </script>
 """, unsafe_allow_html=True)
 
-# --- Sidebar ---
+# --- Sidebar (same as before) ---
 with st.sidebar:
     st.header("📢 **ادعم الموقع**")
     st.info("الإعلانات تساعدنا في استمرار الخدمة مجاناً للجميع.")
-    
     st.markdown("""
     <a href="https://your-affiliate-link.com" target="_blank">
         <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/baner.png" style="width:100%; border-radius:10px;">
     </a>
     """, unsafe_allow_html=True)
-    
     st.markdown("---")
     
     with st.expander("⚙️ **الإعدادات**", expanded=True):
@@ -344,7 +275,6 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                 return []
         
         upcoming = get_upcoming_matches()
-        
         if upcoming:
             match_options = {f"{m['home_team']} vs {m['away_team']} ({m['league']})": m['fixture_id'] for m in upcoming}
             selected_match = st.selectbox("اختر المباراة", list(match_options.keys()))
@@ -389,7 +319,6 @@ if st.session_state.admin_authenticated and st.session_state.show_admin:
                     .eq("is_active", True)\
                     .execute()\
                     .data
-                
                 if admin_streams:
                     for stream in admin_streams:
                         match = stream.get("matches", {})
@@ -633,14 +562,13 @@ def get_distinct_leagues():
         print(f"Error fetching leagues: {e}")
         return []
 
-# --- Fetch matches with filters ---
+# --- Fetch matches ---
 @st.cache_data(ttl=60)
 def get_filtered_matches(hide_old_finished):
     try:
         query = supabase.table("matches").select("*")
         response = query.order("match_time", desc=False).execute()
         matches = response.data
-
         if hide_old_finished:
             now_utc = datetime.now(timezone.utc)
             cutoff = now_utc - timedelta(hours=2)
@@ -658,38 +586,23 @@ def get_filtered_matches(hide_old_finished):
         else:
             return matches
     except Exception as e:
-        st.error("عذراً، حدث خطأ في تحميل المباريات. يرجى تحديث الصفحة.")
+        st.error("عذراً، حدث خطأ في تحميل المباريات.")
         print(f"Error fetching matches: {e}")
         return []
 
 matches = get_filtered_matches(hide_old_finished)
 
-# -------------------------------------------------------------------
-# Live Matches (always on top)
-# -------------------------------------------------------------------
+# --- Live Matches ---
 st.header("🔥 **المباريات المباشرة الآن**")
-live_matches = []
-for m in matches:
-    if m["status"] == "LIVE":
-        try:
-            match_time = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00'))
-            now = datetime.now(match_time.tzinfo)
-            if now <= match_time + timedelta(hours=3):
-                live_matches.append(m)
-        except:
-            live_matches.append(m)
-
+live_matches = [m for m in matches if m["status"] == "LIVE"]
 if live_matches:
     render_matches_list(live_matches)
 else:
     st.info("لا توجد مباريات مباشرة حالياً.")
 
-# -------------------------------------------------------------------
-# Upcoming Matches
-# -------------------------------------------------------------------
+# --- Upcoming Matches ---
 st.header("📅 **المباريات القادمة**")
 upcoming = [m for m in matches if m["status"] == "UPCOMING"]
-
 if upcoming:
     render_matches_list(upcoming)
 else:
@@ -698,7 +611,6 @@ else:
 # --- Statistics ---
 st.markdown("---")
 st.header("🌍 **البطولات حول العالم**")
-
 @st.cache_data(ttl=3600)
 def get_league_stats():
     try:
@@ -715,29 +627,26 @@ def get_league_stats():
     except Exception as e:
         print(f"Error in league stats: {e}")
         return []
-
 league_stats = get_league_stats()
-
 if league_stats:
     cols = st.columns(4)
     for i, (league, count) in enumerate(league_stats[:12]):
         with cols[i % 4]:
             st.markdown(f"**{league}**  \n{count} مباراة")
 
-# --- Footer with donation ---
+# --- Footer ---
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; background: linear-gradient(135deg, #1e1e2f, #2a2a40); padding: 30px; border-radius: 20px;'>
     <h3 style='color: white;'>ادعم استمرارية الموقع</h3>
-    <p style='color: #ccc;'>تبرعك يساعد في توفير خدمة أفضل للجميع، خاصة لمن لا يستطيعون الاشتراك.</p>
+    <p style='color: #ccc;'>تبرعك يساعد في توفير خدمة أفضل للجميع.</p>
     <a href='https://www.paypal.com/donate/?hosted_button_id=YOUR_ID' target='_blank'>
         <img src='https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif' alt='Donate'/>
     </a>
-    <p style='color: #888; font-size: 12px; margin-top: 20px;'>جميع الروابط مجانية وموثوقة • أكثر من 1000 بطولة حول العالم</p>
 </div>
 """, unsafe_allow_html=True)
 
-# --- PopAds script (kept at bottom) ---
+# --- PopAds ---
 st.components.v1.html("""
     <script src="//popads.net/pop.js" async></script>
 """, height=0)
