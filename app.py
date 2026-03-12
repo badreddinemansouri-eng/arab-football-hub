@@ -9,6 +9,9 @@ import requests
 import zoneinfo
 from urllib.parse import quote
 import html
+import textwrap
+from utils.auth import sign_up, sign_in, sign_out, load_favorites, load_profile, toggle_favorite
+from utils.logos import get_team_logo, get_league_logo
 
 # -------------------- Page Config --------------------
 st.set_page_config(
@@ -40,68 +43,14 @@ if "admin_auth" not in st.session_state:
 if "show_admin" not in st.session_state:
     st.session_state.show_admin = False
 
-# -------------------- Auth Functions --------------------
-def sign_up(email, password):
-    try:
-        res = supabase.auth.sign_up({"email": email, "password": password})
-        if res.user:
-            st.success("تم إنشاء الحساب! تحقق من بريدك الإلكتروني.")
-        else:
-            st.error("حدث خطأ")
-    except Exception as e:
-        st.error(str(e))
-
-def sign_in(email, password):
-    try:
-        res = supabase.auth.sign_in_with_password({"email": email, "password": password})
-        if res.user:
-            st.session_state.user = res.user
-            load_favorites()
-            load_profile()
-            st.rerun()
-        else:
-            st.error("بيانات الدخول غير صحيحة")
-    except Exception as e:
-        st.error(str(e))
-
-def sign_out():
-    supabase.auth.sign_out()
-    st.session_state.user = None
-    st.session_state.favorites = []
-    st.session_state.profile = None
-    st.rerun()
-
-def load_favorites():
-    if st.session_state.user:
-        res = supabase.table("favorites").select("team_name").eq("user_id", st.session_state.user.id).execute()
-        st.session_state.favorites = [row["team_name"] for row in res.data]
-
-def load_profile():
-    if st.session_state.user:
-        res = supabase.table("user_profiles").select("*").eq("user_id", st.session_state.user.id).execute()
-        if res.data:
-            st.session_state.profile = res.data[0]
-
-def toggle_favorite(team_name):
-    if not st.session_state.user:
-        st.warning("يجب تسجيل الدخول أولاً")
-        return False
-    if team_name in st.session_state.favorites:
-        supabase.table("favorites").delete().eq("user_id", st.session_state.user.id).eq("team_name", team_name).execute()
-        st.session_state.favorites.remove(team_name)
-    else:
-        supabase.table("favorites").insert({"user_id": st.session_state.user.id, "team_name": team_name}).execute()
-        st.session_state.favorites.append(team_name)
-    return True
-
-# -------------------- Custom CSS with Blue Header --------------------
+# -------------------- Custom CSS (with modern search bar) --------------------
 def get_css():
-    base_css = """
+    base_css = textwrap.dedent("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
         * { font-family: 'Cairo', sans-serif; }
         .main, .block-container { direction: rtl; text-align: right; }
-        /* Blue header bar */
+        /* Blue header */
         .custom-header {
             background: linear-gradient(135deg, #1976D2, #0D47A1);
             padding: 10px 20px;
@@ -139,26 +88,65 @@ def get_css():
         .stButton>button { background: #1976d2; color: white; border-radius: 30px; }
         .stTabs [data-baseweb="tab-list"] { gap: 8px; }
         .stTabs [data-baseweb="tab"] { border-radius: 20px; padding: 8px 16px; }
+        /* Professional search bar */
+        .search-container {
+            position: relative;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .search-container input {
+            width: 100%;
+            padding: 12px 45px 12px 15px;
+            border: 1px solid #444;
+            border-radius: 30px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s;
+        }
+        .search-container input:focus {
+            border-color: #1976d2;
+            box-shadow: 0 0 8px #1976d2;
+        }
+        .search-container::after {
+            content: "🔍";
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2rem;
+            color: #aaa;
+            pointer-events: none;
+        }
+        .last-updated {
+            text-align: left;
+            color: #888;
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+        }
     </style>
-    """
+    """)
     if st.session_state.theme == "dark":
-        return base_css + """
+        return base_css + textwrap.dedent("""
         <style>
             .main, .block-container { background: #0f0f1a; color: white; }
             .match-card { background: #1a1a2e; }
             .stTabs [data-baseweb="tab"] { background-color: transparent; color: white; }
             .stTabs [aria-selected="true"] { background-color: #1976d2; }
+            .search-container input { background: rgba(255,255,255,0.1); color: white; border-color: #444; }
         </style>
-        """
+        """)
     else:
-        return base_css + """
+        return base_css + textwrap.dedent("""
         <style>
             .main, .block-container { background: #f5f5f5; color: #333; }
             .match-card { background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
             .stTabs [data-baseweb="tab"] { background-color: transparent; color: #333; }
             .stTabs [aria-selected="true"] { background-color: #1976d2; color: white; }
+            .search-container input { background: white; color: #333; border-color: #ccc; }
         </style>
-        """
+        """)
 
 st.markdown(get_css(), unsafe_allow_html=True)
 
@@ -171,6 +159,9 @@ st.markdown("""
     </div>
 </div>
 """, unsafe_allow_html=True)
+
+# -------------------- Last Updated Timestamp --------------------
+st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 
 # -------------------- Sidebar --------------------
 with st.sidebar:
@@ -202,15 +193,22 @@ with st.sidebar:
         st.rerun()
 
     st.markdown("---")
-    st.header("🔍 بحث")
-    search_query = st.text_input("ابحث عن فريق أو لاعب", key="search_input")
+    # Professional search bar
+    st.markdown('<div class="search-container">', unsafe_allow_html=True)
+    search_query = st.text_input(" ", label_visibility="collapsed", key="search_input", placeholder="ابحث عن فريق أو لاعب")
+    st.markdown('</div>', unsafe_allow_html=True)
     if search_query:
-        teams = supabase.table("teams").select("id, name, logo").ilike("name", f"%{search_query}%").execute()
-        for t in teams.data:
-            st.markdown(f"[{t['name']}](/team?team_id={t['id']})")
-        players = supabase.table("players").select("id, name, photo").ilike("name", f"%{search_query}%").execute()
-        for p in players.data:
-            st.markdown(f"[{p['name']}](/player?player_id={p['id']})")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**الفرق**")
+            teams = supabase.table("teams").select("id, name, logo").ilike("name", f"%{search_query}%").execute()
+            for t in teams.data:
+                st.markdown(f"[{t['name']}](/team?team_id={t['id']})")
+        with col2:
+            st.markdown("**اللاعبين**")
+            players = supabase.table("players").select("id, name, photo").ilike("name", f"%{search_query}%").execute()
+            for p in players.data:
+                st.markdown(f"[{p['name']}](/player?player_id={p['id']})")
 
     st.markdown("---")
     st.header("⭐ المفضلة")
@@ -507,11 +505,13 @@ def time_until(match_time_str):
         return "---"
 
 def render_match_card(match, show_favorite=True):
-    home_team = html.escape(match['home_team'])
-    away_team = html.escape(match['away_team'])
-    home_logo = match.get('home_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'
-    away_logo = match.get('away_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'
-    league_logo = match.get('league_logo') or 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif'
+    # Team names with fallback
+    home_team = html.escape(match.get('home_team', '???'))
+    away_team = html.escape(match.get('away_team', '???'))
+    # Use magic logo resolver
+    home_logo = match.get('home_logo') or get_team_logo(home_team)
+    away_logo = match.get('away_logo') or get_team_logo(away_team)
+    league_logo = match.get('league_logo') or get_league_logo(match.get('league', ''))
     league_name = html.escape(match.get('league', ''))
 
     # Collect streams from match and admin
@@ -558,7 +558,6 @@ def render_match_card(match, show_favorite=True):
             status = "<span style='color:#666;'>لم تبدأ بعد</span>"
             center = "--:--"
 
-    # Favorite button is omitted to avoid broken HTML. Users can manage favorites from sidebar.
     # Stream buttons
     stream_buttons = ""
     for s in streams[:3]:
@@ -623,16 +622,19 @@ with tab2:
     finished = [m for m in matches if m['status'] == 'FINISHED']
     if finished:
         for m in finished:
+            # Use magic logos
+            home_logo = m.get('home_logo') or get_team_logo(m['home_team'])
+            away_logo = m.get('away_logo') or get_team_logo(m['away_team'])
             st.markdown(f"""
             <div class="match-card">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <div style="flex:1; text-align:center;">
-                        <img src="{m.get('home_logo') or ''}" style="width:32px; height:32px; object-fit:contain;">
+                        <img src="{home_logo}" style="width:32px; height:32px; object-fit:contain;">
                         <span>{html.escape(m['home_team'])}</span>
                     </div>
                     <div><strong style="font-size:1.2rem;">{m['home_score']} - {m['away_score']}</strong></div>
                     <div style="flex:1; text-align:center;">
-                        <img src="{m.get('away_logo') or ''}" style="width:32px; height:32px; object-fit:contain;">
+                        <img src="{away_logo}" style="width:32px; height:32px; object-fit:contain;">
                         <span>{html.escape(m['away_team'])}</span>
                     </div>
                 </div>
