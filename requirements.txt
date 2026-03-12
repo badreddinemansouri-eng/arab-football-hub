@@ -1,6 +1,7 @@
 streamlit
-pandas
 supabase
 requests
 python-telegram-bot==20.0
 python-dotenv
+plotly
+pandas
