@@ -94,7 +94,7 @@ def toggle_favorite(team_name):
         st.session_state.favorites.append(team_name)
     return True
 
-# -------------------- Custom CSS for Themes + Blue Header --------------------
+# -------------------- Custom CSS with Blue Header --------------------
 def get_css():
     base_css = """
     <style>
@@ -109,7 +109,7 @@ def get_css():
             margin-bottom: 20px;
             display: flex;
             align-items: center;
-            justify-content: center;  /* Center the content */
+            justify-content: center;
             color: white;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
@@ -546,7 +546,6 @@ def render_match_card(match, show_favorite=True):
         status = "<span style='color:#d32f2f;'>🔴 مباشر</span>"
     else:
         try:
-            # Convert stored UTC time to local Tunis time
             utc_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
             local_time = utc_time.astimezone(tz_tunis)
             diff = (local_time - datetime.now(tz_tunis)).total_seconds() / 60
@@ -559,15 +558,7 @@ def render_match_card(match, show_favorite=True):
             status = "<span style='color:#666;'>لم تبدأ بعد</span>"
             center = "--:--"
 
-    # Favorite button
-    fav_btn = ""
-    if show_favorite and st.session_state.user:
-        is_fav = (home_team in st.session_state.favorites or away_team in st.session_state.favorites)
-        if is_fav:
-            fav_btn = f'<button onclick="toggleFavorite(\'{home_team}\')" style="background:gold; border:none; border-radius:20px; padding:4px 8px; cursor:pointer;">⭐ إزالة</button>'
-        else:
-            fav_btn = f'<button onclick="toggleFavorite(\'{home_team}\')" style="background:#eee; border:none; border-radius:20px; padding:4px 8px; cursor:pointer;">☆ إضافة</button>'
-
+    # Favorite button is omitted to avoid broken HTML. Users can manage favorites from sidebar.
     # Stream buttons
     stream_buttons = ""
     for s in streams[:3]:
@@ -599,7 +590,6 @@ def render_match_card(match, show_favorite=True):
             <img src="{league_logo}" style="width:20px; height:20px; object-fit:contain;">
             <span style="color:#aaa;">{league_name}</span>
             <div style="flex:1;"></div>
-            {fav_btn}
             {details_link}
         </div>
         <div style="margin-top:8px; display: flex; flex-wrap: wrap; gap:4px; justify-content: center;">
@@ -654,42 +644,48 @@ with tab2:
 
 with tab3:
     st.header("🏆 جدول الترتيب")
-    @st.cache_data(ttl=3600)
-    def get_competitions_with_standings():
-        resp = supabase.table("standings").select("competition_code, competition_name, data").execute()
-        return resp.data if resp.data else []
+    try:
+        @st.cache_data(ttl=3600)
+        def get_competitions_with_standings():
+            resp = supabase.table("standings").select("competition_code, competition_name, data").execute()
+            return resp.data if resp.data else []
 
-    comps = get_competitions_with_standings()
-    if not comps:
-        st.info("لا توجد ترتيبات متاحة حالياً")
-    else:
-        comp_names = [c["competition_name"] for c in comps]
-        selected_comp = st.selectbox("اختر البطولة", comp_names, key="standings_select")
-        comp_data = next(c for c in comps if c["competition_name"] == selected_comp)
-        standings = comp_data["data"].get("standings", [])
-        if not standings:
-            st.warning("لا توجد معلومات ترتيب لهذه البطولة")
+        comps = get_competitions_with_standings()
+        if not comps:
+            st.info("لا توجد ترتيبات متاحة حالياً")
         else:
-            table = standings[0].get("table", [])
-            if table:
-                import pandas as pd
-                df = []
-                for row in table:
-                    df.append({
-                        "المركز": row["position"],
-                        "الفريق": row["team"]["name"],
-                        "لعب": row["playedGames"],
-                        "فوز": row["won"],
-                        "تعادل": row["draw"],
-                        "خسارة": row["lost"],
-                        "له": row["goalsFor"],
-                        "عليه": row["goalsAgainst"],
-                        "فارق": row["goalDifference"],
-                        "نقاط": row["points"]
-                    })
-                st.dataframe(df, use_container_width=True, hide_index=True)
+            comp_names = [c["competition_name"] for c in comps]
+            selected_comp = st.selectbox("اختر البطولة", comp_names, key="standings_select")
+            comp_data = next(c for c in comps if c["competition_name"] == selected_comp)
+            standings = comp_data["data"].get("standings", [])
+            if not standings:
+                st.warning("لا توجد معلومات ترتيب لهذه البطولة")
             else:
-                st.info("لا توجد بيانات جدول متاحة")
+                table = standings[0].get("table", [])
+                if table:
+                    import pandas as pd
+                    df = []
+                    for row in table:
+                        df.append({
+                            "المركز": row["position"],
+                            "الفريق": row["team"]["name"],
+                            "لعب": row["playedGames"],
+                            "فوز": row["won"],
+                            "تعادل": row["draw"],
+                            "خسارة": row["lost"],
+                            "له": row["goalsFor"],
+                            "عليه": row["goalsAgainst"],
+                            "فارق": row["goalDifference"],
+                            "نقاط": row["points"]
+                        })
+                    st.dataframe(df, use_container_width=True, hide_index=True)
+                else:
+                    st.info("لا توجد بيانات جدول متاحة")
+    except Exception as e:
+        if "relation" in str(e) or "does not exist" in str(e):
+            st.warning("جدول الترتيب غير موجود. يرجى تشغيل السكربت الكامل لإنشاء الجداول المطلوبة.")
+        else:
+            st.error(f"حدث خطأ: {e}")
 
 with tab4:
     st.header("⭐ مبارياتي المفضلة")
