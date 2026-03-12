@@ -503,7 +503,7 @@ def render_match_card(match, show_favorite=True):
     else:
         try:
             # Convert stored UTC time to local Tunis time
-            utc_time = datetime.fromisoformat(match["date"].replace('Z', '+00:00'))
+            utc_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
             local_time = utc_time.astimezone(tz_tunis)
             diff = (local_time - datetime.now(tz_tunis)).total_seconds() / 60
             if 0 < diff <= 30:
