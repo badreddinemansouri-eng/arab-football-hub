@@ -3,178 +3,32 @@ import time
 import re
 import json
 from urllib.parse import urlparse, parse_qs, quote, unquote
-from datetime import datetime
+from datetime import datetime, timedelta
 import requests
-import base64
+import zoneinfo
+from supabase import create_client
 
 # -------------------------------------------------------------------
 # Page configuration – MUST be first
 # -------------------------------------------------------------------
 st.set_page_config(
-    page_title="مشاهدة البث المباشر - مركز الكرة العربية",
+    page_title="مشاهدة البث المباشر - Badr TV",
     page_icon="⚽",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
 # -------------------------------------------------------------------
-# Custom RTL styling with modern touches
+# Load secrets and init Supabase
 # -------------------------------------------------------------------
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
-    
-    * { font-family: 'Cairo', sans-serif; box-sizing: border-box; }
-    
-    /* Force RTL and smooth gradient background */
-    .main, .block-container { 
-        direction: rtl; 
-        text-align: right; 
-        background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
-        color: white;
-        padding: 1rem !important;
-    }
-    
-    /* Modern button style */
-    .stButton > button {
-        background: linear-gradient(45deg, #ff4d4d, #ff8080);
-        color: white;
-        border: none;
-        border-radius: 50px;
-        padding: 12px 24px;
-        font-weight: 700;
-        font-size: 1rem;
-        transition: all 0.3s ease;
-        box-shadow: 0 8px 20px rgba(255, 75, 75, 0.3);
-        border: 1px solid rgba(255,255,255,0.1);
-    }
-    .stButton > button:hover {
-        background: linear-gradient(45deg, #ff3333, #ff6666);
-        transform: translateY(-3px);
-        box-shadow: 0 12px 28px rgba(255, 75, 75, 0.4);
-    }
-    
-    /* Loading spinner animation */
-    .loading-spinner {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 200px;
-    }
-    .spinner {
-        border: 6px solid rgba(255,255,255,0.1);
-        border-top: 6px solid #ff4d4d;
-        border-radius: 50%;
-        width: 60px;
-        height: 60px;
-        animation: spin 1s linear infinite;
-    }
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-    
-    /* Video container */
-    .video-container {
-        position: relative;
-        padding-bottom: 56.25%;
-        height: 0;
-        overflow: hidden;
-        max-width: 100%;
-        background: #000;
-        border-radius: 20px;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-        margin: 20px 0;
-        border: 1px solid #333;
-    }
-    .video-container iframe,
-    .video-container video,
-    .video-container .hls-player {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        border: 0;
-        border-radius: 20px;
-    }
-    
-    /* Share buttons */
-    .share-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        background: rgba(255,255,255,0.1);
-        color: white;
-        margin: 0 5px;
-        transition: 0.3s;
-        text-decoration: none;
-        font-size: 22px;
-        backdrop-filter: blur(5px);
-        border: 1px solid rgba(255,255,255,0.1);
-    }
-    .share-btn:hover { 
-        transform: scale(1.15); 
-        background: rgba(255,255,255,0.2);
-    }
-    
-    /* Status badges */
-    .badge {
-        display: inline-block;
-        padding: 6px 14px;
-        border-radius: 30px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        margin: 2px;
-        background: rgba(255,255,255,0.1);
-        backdrop-filter: blur(5px);
-        border: 1px solid rgba(255,255,255,0.1);
-    }
-    .badge.live { background: #ff4444; color: white; animation: pulse 1.5s infinite; }
-    .badge.embed { background: #2ecc71; color: white; }
-    .badge.generic { background: #f39c12; color: white; }
-    
-    /* Ad containers */
-    .ad-container {
-        background: rgba(0,0,0,0.2);
-        border-radius: 15px;
-        padding: 15px;
-        margin: 20px 0;
-        text-align: center;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255,255,255,0.05);
-    }
-    
-    /* Tooltip */
-    .tooltip {
-        position: relative;
-        display: inline-block;
-    }
-    .tooltip .tooltiptext {
-        visibility: hidden;
-        width: 120px;
-        background-color: #333;
-        color: #fff;
-        text-align: center;
-        border-radius: 6px;
-        padding: 5px;
-        position: absolute;
-        z-index: 1;
-        bottom: 125%;
-        left: 50%;
-        margin-left: -60px;
-        opacity: 0;
-        transition: opacity 0.3s;
-    }
-    .tooltip:hover .tooltiptext {
-        visibility: visible;
-        opacity: 1;
-    }
-</style>
-""", unsafe_allow_html=True)
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
+supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+# -------------------------------------------------------------------
+# Timezone
+# -------------------------------------------------------------------
+tz_tunis = zoneinfo.ZoneInfo("Africa/Tunis")
 
 # -------------------------------------------------------------------
 # Session state
@@ -189,7 +43,7 @@ if "extraction_failed" not in st.session_state:
     st.session_state.extraction_failed = False
 
 # -------------------------------------------------------------------
-# Get and validate stream URL
+# Get and validate stream URL and match ID
 # -------------------------------------------------------------------
 stream_url = st.query_params.get("url", [None])
 if isinstance(stream_url, list):
@@ -211,9 +65,93 @@ except:
     pass
 
 # -------------------------------------------------------------------
-# Title
+# Fetch match details if match_id provided
 # -------------------------------------------------------------------
-st.title("⚽ **مشاهدة البث المباشر**")
+match_data = None
+if match_id:
+    try:
+        res = supabase.table("matches").select("*").eq("fixture_id", match_id).execute()
+        if res.data:
+            match_data = res.data[0]
+    except Exception as e:
+        st.warning("تعذر تحميل معلومات المباراة")
+
+# -------------------------------------------------------------------
+# Title and context
+# -------------------------------------------------------------------
+if match_data:
+    st.title(f"⚽ {match_data['home_team']} vs {match_data['away_team']}")
+    try:
+        utc_time = datetime.fromisoformat(match_data["match_time"].replace('Z', '+00:00'))
+        local_time = utc_time.astimezone(tz_tunis)
+        st.caption(f"{match_data['league']} – {local_time.strftime('%H:%M %Y-%m-%d')}")
+    except:
+        st.caption(match_data['league'])
+else:
+    st.title("⚽ مشاهدة البث المباشر")
+
+# -------------------------------------------------------------------
+# Custom CSS – inherits main app theme + stream page specifics
+# -------------------------------------------------------------------
+def get_css():
+    base_css = """
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+        * { font-family: 'Cairo', sans-serif; box-sizing: border-box; }
+        .main, .block-container { direction: rtl; text-align: right; padding: 1rem !important; }
+        .stButton > button {
+            background: linear-gradient(45deg, #ff4d4d, #ff8080);
+            color: white; border: none; border-radius: 50px; padding: 12px 24px;
+            font-weight: 700; font-size: 1rem; transition: all 0.3s ease;
+            box-shadow: 0 8px 20px rgba(255, 75, 75, 0.3);
+        }
+        .stButton > button:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(255, 75, 75, 0.4); }
+        .video-container {
+            position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;
+            max-width: 100%; background: #000; border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5); margin: 20px 0; border: 1px solid #333;
+        }
+        .video-container iframe, .video-container video, .video-container .hls-player {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; border-radius: 20px;
+        }
+        .share-btn {
+            display: inline-flex; align-items: center; justify-content: center; width: 50px; height: 50px;
+            border-radius: 50%; background: rgba(255,255,255,0.1); color: white; margin: 0 5px;
+            transition: 0.3s; text-decoration: none; font-size: 22px; backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .share-btn:hover { transform: scale(1.15); background: rgba(255,255,255,0.2); }
+        .badge {
+            display: inline-block; padding: 6px 14px; border-radius: 30px; font-size: 0.85rem;
+            font-weight: 600; margin: 2px; background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.1);
+        }
+        .badge.live { background: #ff4444; color: white; animation: pulse 1.5s infinite; }
+        .badge.embed { background: #2ecc71; color: white; }
+        .ad-container {
+            background: rgba(0,0,0,0.2); border-radius: 15px; padding: 15px; margin: 20px 0;
+            text-align: center; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05);
+        }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+    </style>
+    """
+    if st.session_state.get("theme", "dark") == "dark":
+        return base_css + """
+        <style>
+            .main, .block-container { background: linear-gradient(135deg, #0f0f1a, #1a1a2e); color: white; }
+            .stApp { background: #0f0f1a; }
+        </style>
+        """
+    else:
+        return base_css + """
+        <style>
+            .main, .block-container { background: #f5f5f5; color: #333; }
+            .stApp { background: #f5f5f5; }
+            .badge { background: rgba(0,0,0,0.05); color: #333; }
+        </style>
+        """
+
+st.markdown(get_css(), unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
 # Intelligent source detection (supports 20+ platforms)
@@ -624,31 +562,92 @@ else:
     st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
-# Share buttons – share page URL (fixed base URL issue)
+# Match context & alternative streams (if match_id known)
+# -------------------------------------------------------------------
+if match_data:
+    st.markdown("---")
+    st.subheader("📋 معلومات المباراة")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.image(match_data.get('home_logo') or 'https://via.placeholder.com/100', width=80)
+        st.write(f"**{match_data['home_team']}**")
+        st.write(f" goals: {match_data['home_score']}")
+    with col2:
+        st.image(match_data.get('away_logo') or 'https://via.placeholder.com/100', width=80)
+        st.write(f"**{match_data['away_team']}**")
+        st.write(f" goals: {match_data['away_score']}")
+
+    # Fetch other streams for this match (admin and regular)
+    all_streams = match_data.get("streams", [])
+    if isinstance(all_streams, str):
+        try:
+            all_streams = json.loads(all_streams)
+        except:
+            all_streams = []
+    try:
+        admin_streams = supabase.table("admin_streams").select("*").eq("fixture_id", match_id).eq("is_active", True).execute().data
+        for a in admin_streams:
+            all_streams.append({"title": a.get("stream_title", "بث إضافي"), "url": a["stream_url"]})
+    except:
+        pass
+
+    if all_streams:
+        st.subheader("🔗 روابط بديلة")
+        for s in all_streams:
+            st.markdown(f'<a href="/watch_stream?url={quote(s["url"])}&match={match_id}" target="_self" style="display:block; background:#1976d2; color:white; padding:8px; margin:4px 0; border-radius:30px; text-align:center; text-decoration:none;">{s["title"]}</a>', unsafe_allow_html=True)
+
+    # Back to match details
+    st.markdown(f'<a href="/match_details?match_id={match_id}" target="_self" style="display:block; margin-top:16px; background:#666; color:white; padding:10px; border-radius:30px; text-align:center; text-decoration:none;">📄 العودة إلى صفحة المباراة</a>', unsafe_allow_html=True)
+
+# -------------------------------------------------------------------
+# Chat / Comments (lightweight version)
+# -------------------------------------------------------------------
+st.markdown("---")
+st.subheader("💬 تعليقات المشاهدين")
+if "user" in st.session_state and st.session_state.user:
+    new_comment = st.text_input("اكتب تعليقاً...", key="stream_comment")
+    if st.button("إرسال") and new_comment and match_id:
+        try:
+            supabase.table("comments").insert({
+                "match_id": match_id,
+                "user_id": st.session_state.user.id,
+                "content": new_comment
+            }).execute()
+            st.success("تم الإرسال")
+            st.rerun()
+        except:
+            st.error("حدث خطأ")
+else:
+    st.info("سجل الدخول للمشاركة في التعليقات")
+
+if match_id:
+    comments = supabase.table("comments").select("*, users(email)").eq("match_id", match_id).order("created_at", desc=True).limit(20).execute()
+    if comments.data:
+        for c in comments.data:
+            user = c.get("users", {}).get("email", "مستخدم") if c.get("users") else "مستخدم"
+            st.markdown(f"**{user}**: {c['content']}")
+    else:
+        st.write("لا توجد تعليقات بعد")
+
+# -------------------------------------------------------------------
+# Share buttons – share page URL
 # -------------------------------------------------------------------
 st.markdown("---")
 cols = st.columns(4)
-
-# Build absolute URL for sharing
 try:
     host = st.context.headers.get('host', '')
     protocol = 'https' if st.context.headers.get('x-forwarded-proto', 'http') == 'https' else 'http'
     base_url = f"{protocol}://{host}"
-except Exception:
+except:
     base_url = ""
-
-page_url_str = f"{base_url}/watch_stream?url={quote(stream_url)}"
-share_text = "شاهد البث المباشر على مركز الكرة العربية"
-
+page_url_str = f"{base_url}/watch_stream?url={quote(stream_url)}{'&match='+match_id if match_id else ''}"
+share_text = "شاهد البث المباشر على Badr TV"
 with cols[0]:
-    whatsapp_url = f"https://wa.me/?text={quote(share_text + ' ' + page_url_str)}"
-    st.markdown(f'<a href="{whatsapp_url}" target="_blank" class="share-btn whatsapp">📱</a>', unsafe_allow_html=True)
+    st.markdown(f'<a href="https://wa.me/?text={quote(share_text+" "+page_url_str)}" target="_blank" class="share-btn whatsapp">📱</a>', unsafe_allow_html=True)
 with cols[1]:
-    twitter_url = f"https://twitter.com/intent/tweet?text={quote(share_text + ' ' + page_url_str)}"
-    st.markdown(f'<a href="{twitter_url}" target="_blank" class="share-btn twitter">🐦</a>', unsafe_allow_html=True)
+    st.markdown(f'<a href="https://twitter.com/intent/tweet?text={quote(share_text+" "+page_url_str)}" target="_blank" class="share-btn twitter">🐦</a>', unsafe_allow_html=True)
 with cols[2]:
-    fb_url = f"https://www.facebook.com/sharer/sharer.php?u={quote(page_url_str)}"
-    st.markdown(f'<a href="{fb_url}" target="_blank" class="share-btn facebook">📘</a>', unsafe_allow_html=True)
+    st.markdown(f'<a href="https://www.facebook.com/sharer/sharer.php?u={quote(page_url_str)}" target="_blank" class="share-btn facebook">📘</a>', unsafe_allow_html=True)
 with cols[3]:
     if st.button("📱 رمز QR"):
         qr_data = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={quote(page_url_str)}"
@@ -659,10 +658,10 @@ with cols[3]:
 # -------------------------------------------------------------------
 st.markdown("---")
 with st.expander("🚨 الإبلاغ عن رابط معطل"):
-    st.write("إذا كان هذا الرابط لا يعمل، يرجى إرسال بلاغ وسنقوم بمراجعته.")
     reason = st.text_area("تفاصيل المشكلة (اختياري)", height=100)
     if st.button("إرسال البلاغ", use_container_width=True):
-        st.success("تم استلام البلاغ، شكراً لك! سنقوم بمراجعة الرابط في أقرب وقت.")
+        # In a real app, you'd save to a reports table
+        st.success("تم استلام البلاغ، شكراً لك!")
 
 # -------------------------------------------------------------------
 # Back to home
