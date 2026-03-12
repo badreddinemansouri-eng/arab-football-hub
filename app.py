@@ -8,6 +8,7 @@ import time
 import requests
 import zoneinfo
 from urllib.parse import quote
+import html
 
 # -------------------- Page Config --------------------
 st.set_page_config(
@@ -22,6 +23,9 @@ SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
+# -------------------- Timezone --------------------
+tz_tunis = zoneinfo.ZoneInfo("Africa/Tunis")
+
 # -------------------- Session State --------------------
 if "user" not in st.session_state:
     st.session_state.user = None
@@ -35,9 +39,6 @@ if "admin_auth" not in st.session_state:
     st.session_state.admin_auth = False
 if "show_admin" not in st.session_state:
     st.session_state.show_admin = False
-
-# -------------------- Timezone --------------------
-tz_tunis = zoneinfo.ZoneInfo("Africa/Tunis")
 
 # -------------------- Auth Functions --------------------
 def sign_up(email, password):
@@ -134,23 +135,23 @@ with st.sidebar:
     st.header("👤 الحساب")
     if st.session_state.user:
         st.write(f"مرحباً {st.session_state.user.email}")
-        if st.button("تسجيل الخروج"):
+        if st.button("تسجيل الخروج", key="logout_main"):
             sign_out()
     else:
         with st.expander("تسجيل الدخول"):
             email = st.text_input("البريد الإلكتروني", key="login_email")
             password = st.text_input("كلمة المرور", type="password", key="login_password")
-            if st.button("دخول"):
+            if st.button("دخول", key="login_main"):
                 sign_in(email, password)
         with st.expander("إنشاء حساب"):
             new_email = st.text_input("البريد الإلكتروني", key="signup_email")
             new_pass = st.text_input("كلمة المرور", type="password", key="signup_pass")
-            if st.button("تسجيل"):
+            if st.button("تسجيل", key="signup_main"):
                 sign_up(new_email, new_pass)
 
     st.markdown("---")
     st.header("⚙️ الإعدادات")
-    theme = st.radio("المظهر", ["داكن", "فاتح"], index=0 if st.session_state.theme=="dark" else 1)
+    theme = st.radio("المظهر", ["داكن", "فاتح"], index=0 if st.session_state.theme=="dark" else 1, key="theme_radio")
     if theme == "داكن" and st.session_state.theme != "dark":
         st.session_state.theme = "dark"
         st.rerun()
@@ -160,7 +161,7 @@ with st.sidebar:
 
     st.markdown("---")
     st.header("🔍 بحث")
-    search_query = st.text_input("ابحث عن فريق أو لاعب")
+    search_query = st.text_input("ابحث عن فريق أو لاعب", key="search_input")
     if search_query:
         teams = supabase.table("teams").select("id, name, logo").ilike("name", f"%{search_query}%").execute()
         for t in teams.data:
@@ -185,8 +186,9 @@ with st.sidebar:
     with st.expander("👑 **لوحة التحكم**", expanded=False):
         if not st.session_state.admin_auth:
             admin_pass = st.text_input("كلمة المرور", type="password", key="admin_pass")
-            if st.button("دخول"):
-                if hashlib.sha256(admin_pass.encode()).hexdigest() == "59e6b3b4a0c3f2d1e5a8b7c9d4e6f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9":  # hash of "badr11101999."
+            if st.button("دخول", key="admin_login"):
+                # hash of "badr11101999." (use your own)
+                if hashlib.sha256(admin_pass.encode()).hexdigest() == "59e6b3b4a0c3f2d1e5a8b7c9d4e6f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9":
                     st.session_state.admin_auth = True
                     st.success("تم تسجيل الدخول بنجاح")
                     st.rerun()
@@ -194,9 +196,9 @@ with st.sidebar:
                     st.error("كلمة المرور غير صحيحة")
         else:
             st.success("مرحباً أيها المشرف")
-            if st.button("إظهار لوحة التحكم"):
+            if st.button("إظهار لوحة التحكم", key="show_admin_btn"):
                 st.session_state.show_admin = not st.session_state.show_admin
-            if st.button("تسجيل الخروج"):
+            if st.button("تسجيل الخروج", key="admin_logout"):
                 st.session_state.admin_auth = False
                 st.session_state.show_admin = False
                 st.rerun()
@@ -212,7 +214,7 @@ with st.sidebar:
                     resp = supabase.table("matches")\
                         .select("*")\
                         .in_("status", ["UPCOMING", "LIVE"])\
-                        .order("date")\
+                        .order("match_time")\
                         .execute()
                     return resp.data
                 except Exception as e:
@@ -222,18 +224,18 @@ with st.sidebar:
             upcoming = get_upcoming_matches()
             if upcoming:
                 match_options = {f"{m['home_team']} vs {m['away_team']} ({m['league']})": m['fixture_id'] for m in upcoming}
-                selected_match = st.selectbox("اختر المباراة", list(match_options.keys()))
+                selected_match = st.selectbox("اختر المباراة", list(match_options.keys()), key="match_select")
                 fixture_id = match_options[selected_match]
 
                 col1, col2 = st.columns(2)
                 with col1:
-                    stream_url = st.text_input("رابط البث")
-                    stream_title = st.text_input("عنوان الرابط (اختياري)")
+                    stream_url = st.text_input("رابط البث", key="stream_url")
+                    stream_title = st.text_input("عنوان الرابط (اختياري)", key="stream_title")
                 with col2:
-                    stream_source = st.selectbox("المصدر", ["youtube", "facebook", "custom", "official"])
-                    expiry_hours = st.number_input("عدد ساعات الصلاحية", min_value=1, max_value=24, value=3)
+                    stream_source = st.selectbox("المصدر", ["youtube", "facebook", "custom", "official"], key="stream_source")
+                    expiry_hours = st.number_input("عدد ساعات الصلاحية", min_value=1, max_value=24, value=3, key="expiry_hours")
 
-                if st.button("إضافة الرابط"):
+                if st.button("إضافة الرابط", key="add_stream_btn"):
                     if stream_url:
                         expires_at = (datetime.now() + timedelta(hours=expiry_hours)).isoformat()
                         data = {
@@ -284,7 +286,7 @@ with st.sidebar:
 
             st.markdown("---")
             st.subheader("➕ إضافة مباراة يدوية")
-            with st.form("add_custom_match"):
+            with st.form("add_custom_match_form"):
                 custom_home = st.text_input("الفريق المستضيف")
                 custom_away = st.text_input("الفريق الضيف")
                 custom_league = st.text_input("الدوري")
@@ -304,7 +306,7 @@ with st.sidebar:
                         "home_team": custom_home,
                         "away_team": custom_away,
                         "league": custom_league,
-                        "date": match_time,
+                        "match_time": match_time,
                         "status": "UPCOMING",
                         "home_score": 0,
                         "away_score": 0,
@@ -443,7 +445,7 @@ with st.sidebar:
 # -------------------- Data Fetching --------------------
 @st.cache_data(ttl=30)
 def get_matches():
-    resp = supabase.table("matches").select("*").order("date", desc=False).execute()
+    resp = supabase.table("matches").select("*").order("match_time", desc=False).execute()
     return resp.data
 
 matches = get_matches()
@@ -620,7 +622,7 @@ with tab3:
         st.info("لا توجد ترتيبات متاحة حالياً")
     else:
         comp_names = [c["competition_name"] for c in comps]
-        selected_comp = st.selectbox("اختر البطولة", comp_names)
+        selected_comp = st.selectbox("اختر البطولة", comp_names, key="standings_select")
         comp_data = next(c for c in comps if c["competition_name"] == selected_comp)
         standings = comp_data["data"].get("standings", [])
         if not standings:
@@ -682,7 +684,7 @@ with tab5:
 
 with tab6:
     st.header("🔮 توقعات المباريات")
-    upcoming_pred = supabase.table("matches").select("fixture_id, home_team, away_team, date").eq("status", "UPCOMING").order("date").limit(10).execute()
+    upcoming_pred = supabase.table("matches").select("fixture_id, home_team, away_team, match_time").eq("status", "UPCOMING").order("match_time").limit(10).execute()
     for m in upcoming_pred.data:
         pred = supabase.table("predictions").select("*").eq("fixture_id", m["fixture_id"]).execute()
         if pred.data:
