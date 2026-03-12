@@ -542,7 +542,7 @@ def render_match_card(match, show_favorite=True):
 
     # Determine center display and status
     if match['status'] == 'LIVE':
-        center = f"<span style='color:#d32f2f; font-weight:bold; font-size:1.5rem;'>{match['home_score']} - {match['away_score']}</span>"
+        center = f"<span style='color:#d32f2f; font-weight:bold; font-size:1.8rem;'>{match['home_score']} - {match['away_score']}</span>"
         status = "<span style='color:#d32f2f;'>🔴 مباشر</span>"
     else:
         try:
@@ -553,7 +553,7 @@ def render_match_card(match, show_favorite=True):
                 status = "<span style='color:#ff8c00;'>⏳ بعد قليل</span>"
             else:
                 status = "<span style='color:#666;'>لم تبدأ بعد</span>"
-            center = f"<span style='color:#1976d2; font-weight:bold; font-size:1.3rem;'>{local_time.strftime('%H:%M')}</span>"
+            center = f"<span style='color:#1976d2; font-weight:bold; font-size:1.8rem;'>{local_time.strftime('%H:%M')}</span>"
         except:
             status = "<span style='color:#666;'>لم تبدأ بعد</span>"
             center = "--:--"
@@ -596,6 +596,7 @@ def render_match_card(match, show_favorite=True):
         </div>
     </div>
     """
+ 
 
 # -------------------- Tabs --------------------
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 المباريات", "📊 النتائج", "🏆 الترتيب", "⭐ المفضلة", "📰 الأخبار", "🔮 التوقعات"])
