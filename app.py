@@ -94,41 +94,83 @@ def toggle_favorite(team_name):
         st.session_state.favorites.append(team_name)
     return True
 
-# -------------------- Custom CSS for Themes --------------------
+# -------------------- Custom CSS for Themes + Blue Header --------------------
 def get_css():
+    base_css = """
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+        * { font-family: 'Cairo', sans-serif; }
+        .main, .block-container { direction: rtl; text-align: right; }
+        /* Blue header bar */
+        .custom-header {
+            background: linear-gradient(135deg, #1976D2, #0D47A1);
+            padding: 10px 20px;
+            border-radius: 0 0 20px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;  /* Center the content */
+            color: white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .custom-header .header-content {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .custom-header img {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .custom-header h1 {
+            font-size: 2.2rem;
+            margin: 0;
+            font-weight: 700;
+        }
+        /* Match card styling */
+        .match-card {
+            border-radius: 20px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        .stButton>button { background: #1976d2; color: white; border-radius: 30px; }
+        .stTabs [data-baseweb="tab-list"] { gap: 8px; }
+        .stTabs [data-baseweb="tab"] { border-radius: 20px; padding: 8px 16px; }
+    </style>
+    """
     if st.session_state.theme == "dark":
-        return """
+        return base_css + """
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
-            * { font-family: 'Cairo', sans-serif; }
-            .main, .block-container { direction: rtl; text-align: right; background: #0f0f1a; color: white; }
-            .match-card { background: #1a1a2e; border-radius: 20px; padding: 16px; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
-            .stButton>button { background: #1976d2; color: white; border-radius: 30px; }
-            .stTabs [data-baseweb="tab-list"] { gap: 8px; }
-            .stTabs [data-baseweb="tab"] { background-color: transparent; border-radius: 20px; padding: 8px 16px; color: white; }
+            .main, .block-container { background: #0f0f1a; color: white; }
+            .match-card { background: #1a1a2e; }
+            .stTabs [data-baseweb="tab"] { background-color: transparent; color: white; }
             .stTabs [aria-selected="true"] { background-color: #1976d2; }
         </style>
         """
     else:
-        return """
+        return base_css + """
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
-            * { font-family: 'Cairo', sans-serif; }
-            .main, .block-container { direction: rtl; text-align: right; background: #f5f5f5; color: #333; }
-            .match-card { background: white; border-radius: 20px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-            .stButton>button { background: #1976d2; color: white; border-radius: 30px; }
-            .stTabs [data-baseweb="tab-list"] { gap: 8px; }
-            .stTabs [data-baseweb="tab"] { background-color: transparent; border-radius: 20px; padding: 8px 16px; color: #333; }
+            .main, .block-container { background: #f5f5f5; color: #333; }
+            .match-card { background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+            .stTabs [data-baseweb="tab"] { background-color: transparent; color: #333; }
             .stTabs [aria-selected="true"] { background-color: #1976d2; color: white; }
         </style>
         """
+
 st.markdown(get_css(), unsafe_allow_html=True)
 
-# -------------------- Header --------------------
-col1, col2, col3 = st.columns([1,2,1])
-with col2:
-    st.image("https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg", width=80)
-    st.markdown("<h1 style='text-align: center;'>⚽ Badr TV</h1>", unsafe_allow_html=True)
+# -------------------- Custom Blue Header --------------------
+st.markdown("""
+<div class="custom-header">
+    <div class="header-content">
+        <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
+        <h1>Badr TV</h1>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 # -------------------- Sidebar --------------------
 with st.sidebar:
