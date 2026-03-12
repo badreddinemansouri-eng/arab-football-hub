@@ -424,25 +424,38 @@ def render_matches_list(matches):
             center_display = f"<span style='color: #d32f2f; font-weight: bold; font-size: 1.5rem;'>{match['home_score']} - {match['away_score']}</span>"
             status_display = "<span style='color: #d32f2f; font-size: 0.85rem;'>🔴 مباشر</span>"
         else:
-            # Check if match is within 30 minutes for "بعد قليل"
             try:
                 match_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
-                now = datetime.now(match_time.tzinfo)
-                diff_minutes = (match_time - now).total_seconds() / 60
-                if 0 < diff_minutes <= 30:
-                    status_display = "<span style='color: #ff8c00; font-size: 0.85rem;'>⏳ بعد قليل</span>"
+                # Ensure timezone awareness (UTC)
+                if match_time.tzinfo is None:
+                    match_time = match_time.replace(tzinfo=timezone.utc)
+                now = datetime.now(timezone.utc)
+                match_date = match_time.date()
+                today = now.date()
+                
+                # Format time
+                match_time_str = match_time.strftime("%H:%M")
+                
+                # Determine status or date
+                if match_date == today:
+                    # Today: show time-based status
+                    diff_minutes = (match_time - now).total_seconds() / 60
+                    if 0 < diff_minutes <= 30:
+                        status_display = "<span style='color: #ff8c00; font-size: 0.85rem;'>⏳ بعد قليل</span>"
+                    else:
+                        status_display = "<span style='color: #666; font-size: 0.85rem;'>لم تبدأ بعد</span>"
                 else:
-                    status_display = "<span style='color: #666; font-size: 0.85rem;'>لم تبدأ بعد</span>"
-            except:
-                status_display = "<span style='color: #666; font-size: 0.85rem;'>لم تبدأ بعد</span>"
-
-            try:
-                match_time_str = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00')).strftime("%H:%M")
-            except:
+                    # Different day: show date
+                    date_str = match_date.strftime("%m-%d")  # e.g., "03-12"
+                    status_display = f"<span style='color: #666; font-size: 0.85rem;'>{date_str}</span>"
+            except Exception as e:
+                print(f"Date parsing error: {e}")
                 match_time_str = "--:--"
+                status_display = "<span style='color: #666; font-size: 0.85rem;'>لم تبدأ بعد</span>"
+            
             center_display = f"<span style='color: #1976d2; font-weight: bold; font-size: 1.3rem;'>{match_time_str}</span>"
 
-        # Collect streams
+        # Collect streams (unchanged)
         streams = match.get("streams", [])
         if isinstance(streams, str):
             try:
@@ -477,32 +490,27 @@ def render_matches_list(matches):
         if not stream_buttons:
             stream_buttons = '<span style="color:#999; font-size:0.85rem;">لا توجد روابط حالياً</span>'
 
-        # Light card background, stable centering
+        # Light card background with stable centering
         html_content = f"""
         <div style="background: #ffffff; border-radius: 20px; padding: 16px; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e0e0e0; direction: rtl;">
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                <!-- Home team column -->
                 <div style="flex: 1; min-width: 0; text-align: center;">
                     <img src="{home_logo}" style="width: 48px; height: 48px; object-fit: contain; margin-bottom: 6px;">
                     <div style="color: #333; font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{home_team}</div>
                 </div>
-                <!-- Center column -->
                 <div style="flex: 1; min-width: 0; text-align: center;">
                     {center_display}
                     <div style="margin-top: 4px;">{status_display}</div>
                 </div>
-                <!-- Away team column -->
                 <div style="flex: 1; min-width: 0; text-align: center;">
                     <img src="{away_logo}" style="width: 48px; height: 48px; object-fit: contain; margin-bottom: 6px;">
                     <div style="color: #333; font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{away_team}</div>
                 </div>
             </div>
-            <!-- League info -->
             <div style="display: flex; align-items: center; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid #eee;">
                 <img src="{league_logo}" style="width: 20px; height: 20px; object-fit: contain;">
                 <span style="color: #666; font-size: 0.9rem;">{league_name}</span>
             </div>
-            <!-- Stream buttons -->
             <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;">
                 {stream_buttons}
             </div>
