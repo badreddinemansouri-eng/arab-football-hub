@@ -2,51 +2,151 @@ import os
 import sys
 import requests
 from supabase import create_client, Client
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import json
 import time
-import unicodedata
-import re
 
-# Environment variables
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_ANON_KEY = os.environ["SUPABASE_ANON_KEY"]
-FOOTBALL_DATA_TOKEN = os.environ["FOOTBALL_DATA_TOKEN"]
+FOOTBALL_DATA_TOKEN = os.environ.get("FOOTBALL_DATA_TOKEN", "")
+RAPIDAPI_KEY = os.environ.get("RAPIDAPI_KEY", "")
+ONESIGNAL_APP_ID = os.environ.get("ONESIGNAL_APP_ID", "")
+ONESIGNAL_API_KEY = os.environ.get("ONESIGNAL_API_KEY", "")
 YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY", "")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-# -------------------------------------------------------------------
-# football-data.org API configuration
-# -------------------------------------------------------------------
-API_BASE_URL = "https://api.football-data.org/v4"
-HEADERS = { "X-Auth-Token": FOOTBALL_DATA_TOKEN }
+FOOTBALL_DATA_API = "https://api.football-data.org/v4"
+FOOTBALL_DATA_HEADERS = { "X-Auth-Token": FOOTBALL_DATA_TOKEN }
+
+RAPIDAPI_HOST = "api-football-v1.p.rapidapi.com"
+RAPIDAPI_HEADERS = {
+    "X-RapidAPI-Key": RAPIDAPI_KEY,
+    "X-RapidAPI-Host": RAPIDAPI_HOST
+}
 
 ALLOWED_COMPETITIONS = [
-    "PL", "PD", "BL1", "SA", "FL1", "CL", "EC", "WC",
+    "PL", "PD", "BL1", "SA", "FL1", "CL", "EC", "WC", "BSA"
 ]
 
 # -------------------------------------------------------------------
-# Helper functions
+# Helper: check if custom match exists (to avoid overwriting)
 # -------------------------------------------------------------------
-def fetch_all_competitions():
-    url = f"{API_BASE_URL}/competitions"
-    try:
-        resp = requests.get(url, headers=HEADERS, timeout=10)
-        if resp.status_code != 200:
-            print(f"Error response: {resp.text}")
-            return []
-        data = resp.json()
-        competitions = data.get("competitions", [])
-        filtered = [c for c in competitions if c["code"] in ALLOWED_COMPETITIONS]
-        print(f"Found {len(filtered)} allowed competitions")
-        return filtered
-    except Exception as e:
-        print(f"Exception in fetch_all_competitions: {e}")
-        return []
+def custom_match_exists(home_team, away_team, match_date):
+    res = supabase.table("matches")\
+        .select("fixture_id")\
+        .eq("source", "custom")\
+        .eq("home_team", home_team)\
+        .eq("away_team", away_team)\
+        .gte("date", match_date + "T00:00:00+00:00")\
+        .lt("date", match_date + "T23:59:59+00:00")\
+        .execute()
+    return len(res.data) > 0
 
-def fetch_matches(competition_code=None, date_from=None, date_to=None, status=None):
-    url = f"{API_BASE_URL}/matches"
+# -------------------------------------------------------------------
+# API-Football helpers
+# -------------------------------------------------------------------
+def api_football_request(endpoint, params=None):
+    url = f"https://{RAPIDAPI_HOST}/{endpoint}"
+    try:
+        resp = requests.get(url, headers=RAPIDAPI_HEADERS, params=params, timeout=15)
+        data = resp.json()
+        if data.get("errors"):
+            print(f"API-Football errors: {data['errors']}")
+            return None
+        return data.get("response")
+    except Exception as e:
+        print(f"API-Football request error: {e}")
+        return None
+
+def fetch_teams_by_league(league_id, season):
+    params = {"league": league_id, "season": season}
+    return api_football_request("teams", params)
+
+def fetch_players_by_team(team_id):
+    params = {"team": team_id}
+    return api_football_request("players", params)
+
+def fetch_match_details(fixture_id):
+    params = {"fixture": fixture_id}
+    response = api_football_request("fixtures", params)
+    if not response:
+        return
+    data = response[0]
+    # Update matches table
+    match_update = {
+        "date": data["fixture"]["date"],
+        "status": data["fixture"]["status"]["short"],
+        "elapsed": data["fixture"]["status"]["elapsed"],
+        "referee": data["fixture"]["referee"],
+        "home_score": data["goals"]["home"],
+        "away_score": data["goals"]["away"],
+        "halftime_home": data["score"]["halftime"]["home"],
+        "halftime_away": data["score"]["halftime"]["away"],
+        "fulltime_home": data["score"]["fulltime"]["home"],
+        "fulltime_away": data["score"]["fulltime"]["away"],
+        "extratime_home": data["score"]["extratime"]["home"],
+        "extratime_away": data["score"]["extratime"]["away"],
+        "penalty_home": data["score"]["penalty"]["home"],
+        "penalty_away": data["score"]["penalty"]["away"],
+        "winner": "home" if data["teams"]["home"]["winner"] else "away" if data["teams"]["away"]["winner"] else "draw"
+    }
+    supabase.table("matches").update(match_update).eq("fixture_id", fixture_id).execute()
+    # Statistics
+    stats = data.get("statistics", [])
+    for team_stats in stats:
+        team_id = team_stats["team"]["id"]
+        for stat in team_stats["statistics"]:
+            supabase.table("match_statistics").upsert({
+                "fixture_id": fixture_id,
+                "team_id": team_id,
+                "type": stat["type"],
+                "value": stat["value"]
+            }, on_conflict=["fixture_id", "team_id", "type"]).execute()
+    # Lineups
+    lineups = data.get("lineups", [])
+    for lineup in lineups:
+        supabase.table("lineups").upsert({
+            "fixture_id": fixture_id,
+            "team_id": lineup["team"]["id"],
+            "formation": lineup["formation"],
+            "starting_xi": lineup["startXI"],
+            "substitutes": lineup["substitutes"],
+            "coach_name": lineup["coach"]["name"]
+        }, on_conflict=["fixture_id", "team_id"]).execute()
+    # Events
+    events = data.get("events", [])
+    for ev in events:
+        supabase.table("match_events").insert({
+            "fixture_id": fixture_id,
+            "elapsed": ev["time"]["elapsed"],
+            "extra_minute": ev["time"]["extra"],
+            "team_id": ev["team"]["id"],
+            "player_id": ev["player"]["id"] if ev.get("player") else None,
+            "assist_player_id": ev["assist"]["id"] if ev.get("assist") else None,
+            "type": ev["type"],
+            "detail": ev["detail"],
+            "comments": ev["comments"]
+        }).execute()
+    return data
+
+def fetch_head2head(team1, team2):
+    params = {"h2h": f"{team1}-{team2}"}
+    return api_football_request("fixtures/headtohead", params)
+
+def fetch_top_scorers(league_id, season):
+    params = {"league": league_id, "season": season}
+    return api_football_request("players/topscorers", params)
+
+def fetch_predictions(fixture_id):
+    params = {"fixture": fixture_id}
+    return api_football_request("predictions", params)
+
+# -------------------------------------------------------------------
+# football-data.org functions (matches, standings)
+# -------------------------------------------------------------------
+def fetch_matches_fd(competition_code=None, date_from=None, date_to=None, status=None):
+    url = f"{FOOTBALL_DATA_API}/matches"
     params = {}
     if competition_code:
         params["competitions"] = competition_code
@@ -57,287 +157,137 @@ def fetch_matches(competition_code=None, date_from=None, date_to=None, status=No
     if status:
         params["status"] = status
     try:
-        resp = requests.get(url, headers=HEADERS, params=params, timeout=10)
+        resp = requests.get(url, headers=FOOTBALL_DATA_HEADERS, params=params, timeout=10)
         data = resp.json()
-        matches = data.get("matches", [])
-        return matches
+        return data.get("matches", [])
     except Exception as e:
-        print(f"Error fetching matches: {e}")
+        print(f"FD error: {e}")
         return []
-def slugify_team_name(name):
-    """Convert a team name to a safe ASCII string (e.g., 'FC Bayern München' -> 'FC_Bayern_Munchen')."""
-    if not name:
-        return ""
-    # Normalize unicode characters to ASCII equivalents
-    name = unicodedata.normalize('NFKD', name).encode('ascii', 'ignore').decode('ascii')
-    # Remove any punctuation except spaces
-    name = re.sub(r'[^\w\s]', '', name)
-    # Replace spaces with underscores
-    return name.replace(' ', '_')
 
-def find_team_logo_in_storage(team_name):
-    """Search for a team logo in Supabase storage using original and slugified names."""
-    folders = [
-        "Italy - Serie A", "England - Premier League", "Spain - LaLiga",
-        "Germany - Bundesliga", "France - Ligue 1", "Portugal - Liga Portugal",
-        "International - Champions League", "International - World Cup"
-    ]
-    base_url = f"{SUPABASE_URL}/storage/v1/object/public/logos"
-    
-    # Try both original (with spaces) and original with underscores, and slugified
-    candidates = [
-        team_name,
-        team_name.replace(' ', '_'),
-        slugify_team_name(team_name)
-    ]
-    
-    for folder in folders:
-        for name in candidates:
-            encoded_name = requests.utils.quote(name)
-            url = f"{base_url}/{folder}/{encoded_name}.png"
-            try:
-                if requests.head(url, timeout=3).status_code == 200:
-                    # Found – return URL
-                    return url
-            except:
-                continue
-    return None
-def get_team_logo_from_db(team_name):
-    """Get logo URL from team_logos table; if not found, try storage and store result."""
-    if not team_name:
-        return None
-    # First check the team_logos table
-    try:
-        result = supabase.table("team_logos").select("logo_url").eq("team_name", team_name).execute()
-        if result.data and result.data[0].get("logo_url"):
-            return result.data[0]["logo_url"]
-    except Exception as e:
-        print(f"Error looking up logo for {team_name}: {e}")
-
-    # Not in table – try to find in storage
-    url = find_team_logo_in_storage(team_name)
-    if url:
-        # Store it for future use
-        try:
-            supabase.table("team_logos").upsert(
-                {"team_name": team_name, "logo_url": url},
-                on_conflict="team_name"
-            ).execute()
-        except Exception as e:
-            print(f"Error storing logo for {team_name}: {e}")
-        return url
-
-    return None
-
-def slugify_league_name(name):
-    """Convert league name to a safe ASCII string."""
-    if not name:
-        return ""
-    name = unicodedata.normalize('NFKD', name).encode('ascii', 'ignore').decode('ascii')
-    name = re.sub(r'[^\w\s]', '', name)
-    return name.replace(' ', '_')
-
-def find_league_logo_in_storage(league_name):
-    """Search for a league logo in Supabase storage."""
-    base_url = f"{SUPABASE_URL}/storage/v1/object/public/logos/leagues"
-    # Try original (with spaces), underscores, and slugified
-    candidates = [
-        league_name,
-        league_name.replace(' ', '_'),
-        slugify_league_name(league_name)
-    ]
-    for name in candidates:
-        encoded = requests.utils.quote(name)
-        url = f"{base_url}/{encoded}.png"
-        try:
-            if requests.head(url, timeout=3).status_code == 200:
-                return url
-        except:
-            continue
-    return None    
-
-def get_league_logo_from_db(league_name):
-    if not league_name:
-        return None
-    # Check table first
-    try:
-        result = supabase.table("league_logos").select("logo_url").eq("league_name", league_name).execute()
-        if result.data and result.data[0].get("logo_url"):
-            return result.data[0]["logo_url"]
-    except Exception as e:
-        print(f"Error looking up league logo for {league_name}: {e}")
-
-    # Not in table – try storage
-    url = find_league_logo_in_storage(league_name)
-    if url:
-        # Store for future
-        try:
-            supabase.table("league_logos").upsert(
-                {"league_name": league_name, "logo_url": url},
-                on_conflict="league_name"
-            ).execute()
-        except Exception as e:
-            print(f"Error storing league logo for {league_name}: {e}")
-        return url
-    return None
-
-def get_country_flag(country_name):
-    if not country_name:
-        return None
-    code = country_name.lower().replace(" ", "-")
-    return f"https://flagpedia.net/data/flags/icon/72x54/{code}.png"
-
-def parse_match(match):
-    competition = match.get("competition", {})
-    home_team = match.get("homeTeam", {})
-    away_team = match.get("awayTeam", {})
+def parse_match_fd(match):
+    comp = match.get("competition", {})
+    home = match.get("homeTeam", {})
+    away = match.get("awayTeam", {})
     score = match.get("score", {})
     status = match.get("status", "SCHEDULED")
-
     if status in ["FINISHED"]:
         status_cat = "FINISHED"
     elif status in ["IN_PLAY", "PAUSED"]:
         status_cat = "LIVE"
     else:
         status_cat = "UPCOMING"
-
-    if status_cat == "LIVE":
-        regular = score.get("regularTime", {})
-        home_score = regular.get("home", 0)
-        away_score = regular.get("away", 0)
-    else:
-        full = score.get("fullTime", {})
-        home_score = full.get("home", 0)
-        away_score = full.get("away", 0)
-
-    home_logo = get_team_logo_from_db(home_team.get("name", ""))
-    away_logo = get_team_logo_from_db(away_team.get("name", ""))
-    league_logo = get_league_logo_from_db(competition.get("name", "Unknown"))
-    country = competition.get("area", {}).get("name")
-    country_flag = get_country_flag(country)
-
-    match_data = {
+    full = score.get("fullTime", {})
+    home_score = full.get("home", 0)
+    away_score = full.get("away", 0)
+    return {
         "fixture_id": match["id"],
-        "league": competition.get("name", "Unknown"),
-        "league_logo": league_logo,
-        "home_team": home_team.get("name", "Unknown"),
-        "away_team": away_team.get("name", "Unknown"),
-        "home_logo": home_logo,
-        "away_logo": away_logo,
-        "country": country,
-        "country_logo": country_flag,
-        "match_time": match.get("utcDate"),
-        "status": status_cat,
+        "league": comp.get("name", "Unknown"),
+        "league_id": comp.get("id"),
+        "home_team": home.get("name", ""),
+        "away_team": away.get("name", ""),
         "home_score": home_score,
         "away_score": away_score,
-        "streams": [],
-        "broadcasters": [],
+        "status": status_cat,
+        "date": match.get("utcDate"),
+        "home_team_id": None,
+        "away_team_id": None,
     }
-    return match_data
-
-def search_youtube_streams(match):
-    return []
 
 def upsert_match(match_data):
     try:
         supabase.table("matches").upsert(match_data, on_conflict="fixture_id").execute()
+        print(f"Upserted match {match_data['fixture_id']}: {match_data['home_team']} vs {match_data['away_team']}")
     except Exception as e:
-        print(f"Error upserting match {match_data['fixture_id']}: {e}")
+        print(f"Error upserting match: {e}")
 
-def update_all_matches():
-    print(f"[{datetime.now()}] Running global match update...")
-    competitions = fetch_all_competitions()
-    if not competitions:
-        print("No competitions found.")
-        return
+def update_standings():
+    for code in ALLOWED_COMPETITIONS:
+        url = f"{FOOTBALL_DATA_API}/competitions/{code}/standings"
+        try:
+            resp = requests.get(url, headers=FOOTBALL_DATA_HEADERS, timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                supabase.table("standings").upsert({
+                    "competition_code": code,
+                    "competition_name": data["competition"]["name"],
+                    "data": data
+                }, on_conflict="competition_code").execute()
+                print(f"Standings updated for {code}")
+        except Exception as e:
+            print(f"Error updating standings for {code}: {e}")
 
-    today = datetime.now().strftime("%Y-%m-%d")
-    next_week = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
-
-    for comp in competitions:
-        code = comp["code"]
-        name = comp["name"]
-        print(f"Fetching matches for {name} ({code})...")
-
-        matches = fetch_matches(competition_code=code, date_from=today, date_to=next_week)
-
-        for match in matches:
-            match_data = parse_match(match)
-
-            if match_data["status"] in ["LIVE", "UPCOMING"]:
-                streams = search_youtube_streams(match_data)
-                match_data["streams"] = json.dumps(streams)
-
-            admin_streams = supabase.table("admin_streams")\
-                .select("*")\
-                .eq("fixture_id", match_data["fixture_id"])\
-                .eq("is_active", True)\
-                .execute()\
-                .data
-            if admin_streams:
-                existing = json.loads(match_data["streams"]) if match_data["streams"] else []
-                for admin in admin_streams:
-                    existing.append({
-                        "title": admin.get("stream_title", "Official Stream"),
-                        "url": admin["stream_url"],
-                        "source": admin.get("stream_source", "admin"),
-                        "verified": True,
-                        "admin_added": True
-                    })
-                match_data["streams"] = json.dumps(existing)
-
-            upsert_match(match_data)
-            print(f"Updated: {match_data['home_team']} vs {match_data['away_team']}")
-            time.sleep(0.5)
-
-        time.sleep(1)
-
-    now = datetime.now().isoformat()
-    supabase.table("admin_streams")\
-        .update({"is_active": False})\
-        .lt("expires_at", now)\
-        .execute()
-
-    print("Global update complete!")
-
+# -------------------------------------------------------------------
+# Main update functions
+# -------------------------------------------------------------------
 def update_live():
     print(f"[{datetime.now()}] Running live update...")
-
-    # 1. Update currently live matches (IN_PLAY or PAUSED)
-    live_matches = fetch_matches(status="IN_PLAY,PAUSED")
-    for match in live_matches:
-        match_data = parse_match(match)
-        upsert_match(match_data)
-        print(f"Updated live: {match_data['home_team']} vs {match_data['away_team']}")
-
-    # 2. Fetch matches from today through tomorrow (to catch any that might start soon)
+    live = fetch_matches_fd(status="IN_PLAY,PAUSED")
+    print(f"Fetched {len(live)} live matches from FD")
+    for m in live:
+        data = parse_match_fd(m)
+        # Check custom conflict
+        match_date = data["date"][:10]
+        if custom_match_exists(data["home_team"], data["away_team"], match_date):
+            print(f"Skipping {data['home_team']} vs {data['away_team']} – custom match exists")
+            continue
+        upsert_match(data)
+        # Fetch detailed data from API-Football (if available)
+        if RAPIDAPI_KEY:
+            fetch_match_details(data["fixture_id"])
+    # Also fetch today's matches to catch status changes
     today = datetime.now().strftime("%Y-%m-%d")
     tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
-    upcoming_matches = fetch_matches(date_from=today, date_to=tomorrow)
+    upcoming = fetch_matches_fd(date_from=today, date_to=tomorrow)
+    for m in upcoming:
+        data = parse_match_fd(m)
+        match_date = data["date"][:10]
+        if custom_match_exists(data["home_team"], data["away_team"], match_date):
+            print(f"Skipping {data['home_team']} vs {data['away_team']} – custom match exists")
+            continue
+        upsert_match(data)
+    print("Live update complete.")
 
-    # 3. Proactively update matches scheduled within the next 15 minutes
-    now_utc = datetime.now(timezone.utc)
-    soon_threshold = now_utc + timedelta(minutes=15)
-
-    for match in upcoming_matches:
-        match_time_str = match.get("utcDate")
-        if match_time_str:
-            try:
-                match_time = datetime.fromisoformat(match_time_str.replace('Z', '+00:00'))
-                if match_time <= soon_threshold:
-                    match_data = parse_match(match)
-                    upsert_match(match_data)
-                    print(f"Proactively updated: {match_data['home_team']} vs {match_data['away_team']} (scheduled at {match_time_str})")
-            except Exception as e:
-                print(f"Error parsing time for match {match.get('id')}: {e}")
-
-    print(f"Processed {len(upcoming_matches)} matches from {today} to {tomorrow}.")
+def update_full():
+    print(f"[{datetime.now()}] Running full update...")
+    update_standings()
+    if RAPIDAPI_KEY:
+        # Fetch teams, players, top scorers for each league
+        leagues = [
+            {"id": 39, "season": 2025, "name": "PL"},
+            {"id": 140, "season": 2025, "name": "PD"},
+            # add more as needed
+        ]
+        for l in leagues:
+            teams = fetch_teams_by_league(l["id"], l["season"])
+            if teams:
+                for t in teams:
+                    team = t["team"]
+                    supabase.table("teams").upsert({
+                        "id": team["id"],
+                        "name": team["name"],
+                        "logo": team["logo"],
+                        "country": team["country"]
+                    }, on_conflict="id").execute()
+            scorers = fetch_top_scorers(l["id"], l["season"])
+            if scorers:
+                for s in scorers:
+                    supabase.table("top_scorers").upsert({
+                        "league_id": l["id"],
+                        "league_name": l["name"],
+                        "season": str(l["season"]),
+                        "player_id": s["player"]["id"],
+                        "team_id": s["statistics"][0]["team"]["id"],
+                        "goals": s["statistics"][0]["goals"]["total"],
+                        "assists": s["statistics"][0]["goals"]["assists"],
+                        "penalties": s["statistics"][0]["penalty"]["scored"]
+                    }, on_conflict=["league_id", "season", "player_id"]).execute()
+    print("Full update complete.")
 
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else "live"
     if mode == "live":
         update_live()
     elif mode == "full":
-        update_all_matches()
+        update_full()
     else:
         print("Unknown mode. Use 'live' or 'full'.")
