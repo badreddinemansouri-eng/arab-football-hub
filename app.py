@@ -574,7 +574,7 @@ def render_match_card(match, show_favorite=True):
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
             <div style="flex:1; text-align:center;">
                 <img src="{home_logo}" style="width:48px; height:48px; object-fit:contain; margin-bottom:6px;">
-                <div style="color:white; font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{home_team}</div>
+                <div style="font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px; margin:0 auto;">{home_team}</div>
             </div>
             <div style="flex:1; text-align:center;">
                 {center}
@@ -582,7 +582,7 @@ def render_match_card(match, show_favorite=True):
             </div>
             <div style="flex:1; text-align:center;">
                 <img src="{away_logo}" style="width:48px; height:48px; object-fit:contain; margin-bottom:6px;">
-                <div style="color:white; font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{away_team}</div>
+                <div style="font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px; margin:0 auto;">{away_team}</div>
             </div>
         </div>
         <div style="display: flex; align-items: center; gap:8px; margin-top:12px; padding-top:8px; border-top:1px solid #444;">
@@ -596,6 +596,7 @@ def render_match_card(match, show_favorite=True):
         </div>
     </div>
     """
+        
  
 
 # -------------------- Tabs --------------------
