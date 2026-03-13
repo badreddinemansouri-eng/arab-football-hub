@@ -43,6 +43,8 @@ if "admin_auth" not in st.session_state:
 if "show_admin" not in st.session_state:
     st.session_state.show_admin = False
 
+# -------------------- Auth Functions (imported from utils) --------------------
+
 # -------------------- Custom CSS (with modern search bar) --------------------
 def get_css():
     base_css = textwrap.dedent("""
@@ -540,11 +542,23 @@ def render_match_card(match, show_favorite=True):
     except Exception as e:
         print(f"Error fetching admin streams: {e}")
 
-    # Determine center display and status
-    if match['status'] == 'LIVE':
+    # Determine effective status (fallback for stale data)
+    effective_status = match['status']
+    if effective_status != 'FINISHED':
+        try:
+            match_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
+            now = datetime.now(datetime.timezone.utc)
+            # If match was scheduled more than 3 hours ago, consider it finished
+            if now - match_time > timedelta(hours=3):
+                effective_status = 'FINISHED'
+        except:
+            pass
+
+    # Build center and status display based on effective_status
+    if effective_status == 'LIVE':
         center = f"<span style='color:#d32f2f; font-weight:bold; font-size:1.8rem;'>{match['home_score']} - {match['away_score']}</span>"
-        status = "<span style='color:#d32f2f;'>🔴 مباشر</span>"
-    else:  # UPCOMING
+        status_display = "<span style='color:#d32f2f;'>🔴 مباشر</span>"
+    elif effective_status == 'UPCOMING':
         try:
             utc_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
             local_time = utc_time.astimezone(tz_tunis)
@@ -552,21 +566,27 @@ def render_match_card(match, show_favorite=True):
             match_date = local_time.date()
             
             if match_date == today:
-                # Today: show time-based status
                 diff = (local_time - datetime.now(tz_tunis)).total_seconds() / 60
                 if 0 < diff <= 30:
-                    status = "<span style='color:#ff8c00;'>⏳ بعد قليل</span>"
+                    status_display = "<span style='color:#ff8c00;'>⏳ بعد قليل</span>"
                 else:
-                    status = "<span style='color:#666;'>لم تبدأ بعد</span>"
+                    status_display = "<span style='color:#666;'>لم تبدأ بعد</span>"
                 center = f"<span style='color:#1976d2; font-weight:bold; font-size:1.8rem;'>{local_time.strftime('%H:%M')}</span>"
             else:
-                # Future date: show date in status, time in center
-                status = f"<span style='color:#888;'>{match_date.strftime('%m-%d')}</span>"
+                status_display = f"<span style='color:#888;'>{match_date.strftime('%m-%d')}</span>"
                 center = f"<span style='color:#1976d2; font-weight:bold; font-size:1.8rem;'>{local_time.strftime('%H:%M')}</span>"
         except Exception as e:
-            print(f"Date parsing error: {e}")
-            status = "<span style='color:#666;'>لم تبدأ بعد</span>"
+            status_display = "<span style='color:#666;'>لم تبدأ بعد</span>"
             center = "--:--"
+    else:  # FINISHED
+        try:
+            utc_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
+            local_time = utc_time.astimezone(tz_tunis)
+            status_display = f"<span style='color:#888;'>{local_time.strftime('%m-%d')}</span>"
+            center = f"<span style='color:#888; font-weight:bold; font-size:1.5rem;'>{match['home_score']} - {match['away_score']}</span>"
+        except:
+            status_display = "<span style='color:#888;'>انتهت</span>"
+            center = f"{match['home_score']} - {match['away_score']}"
 
     # Stream buttons
     stream_buttons = ""
@@ -588,7 +608,7 @@ def render_match_card(match, show_favorite=True):
             </div>
             <div style="flex:1; text-align:center;">
                 {center}
-                <div style="margin-top:4px;">{status}</div>
+                <div style="margin-top:4px;">{status_display}</div>
             </div>
             <div style="flex:1; text-align:center;">
                 <img src="{away_logo}" style="width:48px; height:48px; object-fit:contain; margin-bottom:6px;">
@@ -606,9 +626,6 @@ def render_match_card(match, show_favorite=True):
         </div>
     </div>
     """
-
-        
- 
 
 # -------------------- Tabs --------------------
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 المباريات", "📊 النتائج", "🏆 الترتيب", "⭐ المفضلة", "📰 الأخبار", "🔮 التوقعات"])
@@ -632,23 +649,18 @@ with tab1:
 
 with tab2:
     st.header("📊 النتائج")
-    # Get all finished matches
     finished = [m for m in matches if m['status'] == 'FINISHED']
-    # Sort by match_time descending (newest first)
     finished.sort(key=lambda x: x['match_time'], reverse=True)
-    
     if finished:
         for m in finished:
             home_logo = m.get('home_logo') or get_team_logo(m['home_team'])
             away_logo = m.get('away_logo') or get_team_logo(m['away_team'])
-            # Convert match_time to local date for display
             try:
                 utc_time = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00'))
                 local_time = utc_time.astimezone(tz_tunis)
                 date_str = local_time.strftime('%Y-%m-%d')
             except:
                 date_str = "---"
-            
             st.markdown(f"""
             <div class="match-card">
                 <div style="display:flex; align-items:center; gap:8px;">
