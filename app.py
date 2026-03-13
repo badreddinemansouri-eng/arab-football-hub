@@ -231,7 +231,9 @@ with st.sidebar:
             if st.button("دخول", key="admin_login"):
                 # hash of "badr11101999." (use your own)
                 if hashlib.sha256(admin_pass.encode()).hexdigest() == "59e6b3b4a0c3f2d1e5a8b7c9d4e6f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9":
+                    print(f"Entered hash: {entered_hash}")
                     st.session_state.admin_auth = True
+        
                     st.success("تم تسجيل الدخول بنجاح")
                     st.rerun()
                 else:
