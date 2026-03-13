@@ -328,7 +328,6 @@ with st.sidebar:
                     print(f"Error loading admin streams: {e}")
             else:
                 st.info("لا توجد مباريات قادمة")
-
             st.markdown("---")
             st.subheader("➕ إضافة مباراة يدوية")
             with st.form("add_custom_match_form"):
@@ -340,11 +339,19 @@ with st.sidebar:
                 custom_stream = st.text_input("رابط البث (اختياري)")
                 submitted = st.form_submit_button("إضافة المباراة")
                 if submitted and custom_home and custom_away:
-                    # Convert local Tunis time to UTC for storage
+        # Debug: print input
+                    print(f"Input local datetime: {custom_date} {custom_time} (assumed Africa/Tunis)")
+        
+        # Convert local Tunis time to UTC for storage
                     local_dt = datetime.combine(custom_date, custom_time).replace(tzinfo=tz_tunis)
+                    print(f"Local aware datetime: {local_dt}")
+        
                     utc_dt = local_dt.astimezone(timezone.utc)
+                    print(f"UTC datetime: {utc_dt}")
+        
                     match_time = utc_dt.isoformat()
-
+                    print(f"Stored match_time: {match_time}")
+        
                     new_id = -random.randint(10000, 99999)
                     data = {
                         "fixture_id": new_id,
@@ -365,6 +372,7 @@ with st.sidebar:
                     supabase.table("matches").insert(data).execute()
                     st.success("تمت إضافة المباراة بنجاح")
                     st.rerun()
+
 
             st.markdown("---")
             st.subheader("🖼️ ربط الشعارات تلقائياً")
