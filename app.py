@@ -544,17 +544,27 @@ def render_match_card(match, show_favorite=True):
     if match['status'] == 'LIVE':
         center = f"<span style='color:#d32f2f; font-weight:bold; font-size:1.8rem;'>{match['home_score']} - {match['away_score']}</span>"
         status = "<span style='color:#d32f2f;'>🔴 مباشر</span>"
-    else:
+    else:  # UPCOMING
         try:
             utc_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
             local_time = utc_time.astimezone(tz_tunis)
-            diff = (local_time - datetime.now(tz_tunis)).total_seconds() / 60
-            if 0 < diff <= 30:
-                status = "<span style='color:#ff8c00;'>⏳ بعد قليل</span>"
+            today = datetime.now(tz_tunis).date()
+            match_date = local_time.date()
+            
+            if match_date == today:
+                # Today: show time-based status
+                diff = (local_time - datetime.now(tz_tunis)).total_seconds() / 60
+                if 0 < diff <= 30:
+                    status = "<span style='color:#ff8c00;'>⏳ بعد قليل</span>"
+                else:
+                    status = "<span style='color:#666;'>لم تبدأ بعد</span>"
+                center = f"<span style='color:#1976d2; font-weight:bold; font-size:1.8rem;'>{local_time.strftime('%H:%M')}</span>"
             else:
-                status = "<span style='color:#666;'>لم تبدأ بعد</span>"
-            center = f"<span style='color:#1976d2; font-weight:bold; font-size:1.8rem;'>{local_time.strftime('%H:%M')}</span>"
-        except:
+                # Future date: show date in status, time in center
+                status = f"<span style='color:#888;'>{match_date.strftime('%m-%d')}</span>"
+                center = f"<span style='color:#1976d2; font-weight:bold; font-size:1.8rem;'>{local_time.strftime('%H:%M')}</span>"
+        except Exception as e:
+            print(f"Date parsing error: {e}")
             status = "<span style='color:#666;'>لم تبدأ بعد</span>"
             center = "--:--"
 
@@ -596,6 +606,7 @@ def render_match_card(match, show_favorite=True):
         </div>
     </div>
     """
+
         
  
 
