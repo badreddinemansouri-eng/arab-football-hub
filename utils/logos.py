@@ -49,7 +49,7 @@ def get_initials(name):
         return words[0][:2].upper()
     else:
         return (words[0][0] + words[-1][0]).upper()
-
+@functools.lru_cache(maxsize=500)
 def get_team_logo(team_name):
     """
     Returns a team logo URL. Tries:
@@ -89,7 +89,7 @@ def get_team_logo(team_name):
     # Optionally store fallback to avoid repeated lookups? We can store it, but it's not a real logo.
     # For consistency, we'll just return it.
     return placeholder
-
+@functools.lru_cache(maxsize=500)
 def get_league_logo(league_name):
     """
     Returns a league logo URL. Tries:
