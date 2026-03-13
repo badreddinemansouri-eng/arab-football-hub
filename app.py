@@ -233,7 +233,7 @@ with st.sidebar:
                 entered_hash = hashlib.sha256(admin_pass.encode()).hexdigest()
                 # Debug: show the hash on screen (remove after fixing)
                 st.warning(f"DEBUG: The hash of your entered password is: `{entered_hash}`")
-                if entered_hash == "e9f1e3b2a4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1":
+                if entered_hash == "f00bf9d13f09fa3962d4a7d21de2479699adc840b74e34195a0eedb6dd45ceb4":
                     st.session_state.admin_auth = True
                     st.success("تم تسجيل الدخول بنجاح")
                     st.rerun()
