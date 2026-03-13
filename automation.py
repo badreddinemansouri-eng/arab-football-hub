@@ -7,6 +7,7 @@ import json
 import time
 import unicodedata
 import re
+import feedparser  # <-- added
 
 # Environment variables
 SUPABASE_URL = os.environ["SUPABASE_URL"]
@@ -27,13 +28,9 @@ ALLOWED_COMPETITIONS = [
 ]
 
 # -------------------------------------------------------------------
-# Helper: check if custom match exists (using match_time)
+# Helper: check if custom match exists
 # -------------------------------------------------------------------
 def custom_match_exists(home_team, away_team, match_date):
-    """
-    Check if there is already a custom match (source = 'custom') on the given date with the same teams.
-    match_date should be a string in format 'YYYY-MM-DD'.
-    """
     result = supabase.table("matches")\
         .select("fixture_id")\
         .eq("source", "custom")\
@@ -45,7 +42,7 @@ def custom_match_exists(home_team, away_team, match_date):
     return len(result.data) > 0
 
 # -------------------------------------------------------------------
-# Helper functions for logo handling (unchanged from your original)
+# Logo helpers (unchanged)
 # -------------------------------------------------------------------
 def slugify_team_name(name):
     if not name:
@@ -152,7 +149,7 @@ def get_country_flag(country_name):
     return f"https://flagpedia.net/data/flags/icon/72x54/{code}.png"
 
 # -------------------------------------------------------------------
-# Fetch competitions and matches (unchanged)
+# Match fetching and parsing (unchanged)
 # -------------------------------------------------------------------
 def fetch_all_competitions():
     url = f"{API_BASE_URL}/competitions"
@@ -245,22 +242,85 @@ def upsert_match(match_data):
         print(f"Error upserting match {match_data['fixture_id']}: {e}")
 
 # -------------------------------------------------------------------
-# Update functions (with optional custom match skip)
+# News fetching functions
+# -------------------------------------------------------------------
+def fetch_news_from_feed(feed_url, language="en"):
+    """
+    Fetch news from a given RSS feed and store in news table.
+    language should be 'en' or 'ar'.
+    """
+    print(f"[{datetime.now()}] Fetching {language} news from {feed_url}")
+    try:
+        feed = feedparser.parse(feed_url)
+        if feed.bozo:
+            print(f"Feed parsing error: {feed.bozo_exception}")
+            return
+        entries = feed.entries[:20]  # limit to 20 per feed
+        for entry in entries:
+            # Extract image
+            image = None
+            if hasattr(entry, 'media_content'):
+                image = entry.media_content[0]['url']
+            elif hasattr(entry, 'links'):
+                for link in entry.links:
+                    if link.get('type', '').startswith('image'):
+                        image = link['href']
+                        break
+            if not image and hasattr(entry, 'description'):
+                match = re.search(r'<img[^>]+src="([^"]+)"', entry.description)
+                if match:
+                    image = match.group(1)
+            if not image and hasattr(entry, 'summary'):
+                match = re.search(r'<img[^>]+src="([^"]+)"', entry.summary)
+                if match:
+                    image = match.group(1)
+
+            # Prepare data
+            data = {
+                "title": entry.get('title', '')[:255],
+                "content": entry.get('summary', entry.get('description', ''))[:1000],
+                "image": image,
+                "source": feed.feed.get('title', 'Unknown Source'),
+                "url": entry.get('link', ''),
+                "published_at": entry.get('published', entry.get('updated', datetime.now().isoformat())),
+                "language": language
+            }
+            # Upsert based on URL to avoid duplicates
+            supabase.table("news").upsert(data, on_conflict="url").execute()
+            print(f"Inserted {language} news: {data['title'][:50]}...")
+    except Exception as e:
+        print(f"Error fetching news from {feed_url}: {e}")
+
+def update_news():
+    """Fetch from all configured RSS feeds."""
+    english_feeds = [
+        "http://feeds.bbci.co.uk/sport/football/rss.xml",          # BBC
+        "https://www.skysports.com/rss/12040",                    # Sky Sports
+        "https://www.theguardian.com/football/rss",               # The Guardian
+        "https://www.espn.com/espn/rss/football/news",            # ESPN
+    ]
+    arabic_feeds = [
+        "https://www.aljazeera.net/aljazeerarss/sports",          # Al Jazeera
+        "http://www.kooora.com/?rss",                              # Kooora
+        "https://www.alarabiya.net/.rss/ar/sport.xml",            # Al Arabiya
+    ]
+
+    for feed in english_feeds:
+        fetch_news_from_feed(feed, language="en")
+    for feed in arabic_feeds:
+        fetch_news_from_feed(feed, language="ar")
+
+# -------------------------------------------------------------------
+# Main update functions
 # -------------------------------------------------------------------
 def update_live():
     print(f"[{datetime.now()}] Running live update...")
-
     # 1. Update currently live matches
     live_matches = fetch_matches(status="IN_PLAY,PAUSED")
     for match in live_matches:
-        match_data = parse_match(match)
-        # Optional: skip if custom match exists
-        # match_date = match_data["match_time"][:10]
-        # if custom_match_exists(match_data["home_team"], match_data["away_team"], match_date):
-        #     print(f"Skipping {match_data['home_team']} vs {match_data['away_team']} – custom match exists")
-        #     continue
-        upsert_match(match_data)
-        print(f"Updated live: {match_data['home_team']} vs {match_data['away_team']}")
+        data = parse_match(match)
+        upsert_match(data)
+        print(f"Updated live: {data['home_team']} vs {data['away_team']}")
 
     # 2. Fetch today + tomorrow matches
     today = datetime.now().strftime("%Y-%m-%d")
@@ -277,9 +337,9 @@ def update_live():
             try:
                 match_time = datetime.fromisoformat(match_time_str.replace('Z', '+00:00'))
                 if match_time <= soon_threshold:
-                    match_data = parse_match(match)
-                    upsert_match(match_data)
-                    print(f"Proactively updated: {match_data['home_team']} vs {match_data['away_team']} (scheduled at {match_time_str})")
+                    data = parse_match(match)
+                    upsert_match(data)
+                    print(f"Proactively updated: {data['home_team']} vs {data['away_team']} (scheduled at {match_time_str})")
             except Exception as e:
                 print(f"Error parsing time for match {match.get('id')}: {e}")
 
@@ -293,20 +353,20 @@ def update_all_matches():
         return
 
     today = datetime.now().strftime("%Y-%m-%d")
-    next_week = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
+    next_3_days = (datetime.now() + timedelta(days=3)).strftime("%Y-%m-%d")
 
     for comp in competitions:
         code = comp["code"]
         name = comp["name"]
         print(f"Fetching matches for {name} ({code})...")
 
-        matches = fetch_matches(competition_code=code, date_from=today, date_to=next_week)
+        matches = fetch_matches(competition_code=code, date_from=today, date_to=next_3_days)
 
         for match in matches:
             match_data = parse_match(match)
 
             if match_data["status"] in ["LIVE", "UPCOMING"]:
-                streams = search_youtube_streams(match_data)  # (you can keep or remove this)
+                streams = search_youtube_streams(match_data)  # placeholder
                 match_data["streams"] = json.dumps(streams)
 
             # Merge admin streams
@@ -340,6 +400,9 @@ def update_all_matches():
         .update({"is_active": False})\
         .lt("expires_at", now)\
         .execute()
+
+    # Fetch news after matches
+    update_news()
 
     print("Global update complete!")
 
