@@ -1,6 +1,6 @@
 import streamlit as st
 from supabase import create_client, Client
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 import hashlib
 import random
@@ -230,10 +230,10 @@ with st.sidebar:
         if not st.session_state.admin_auth:
             admin_pass = st.text_input("كلمة المرور", type="password", key="admin_pass")
             if st.button("دخول", key="admin_login"):
-                entered_hash = hashlib.sha256(admin_pass.encode()).hexdigest()
+                hashlib.sha256(admin_pass.encode()).hexdigest() == "f00bf9d13f09fa3962d4a7d21de2479699adc840b74e34195a0eedb6dd45ceb4":
                 # Debug: show the hash on screen (remove after fixing)
-                st.warning(f"DEBUG: The hash of your entered password is: `{entered_hash}`")
-                if entered_hash == "f00bf9d13f09fa3962d4a7d21de2479699adc840b74e34195a0eedb6dd45ceb4":
+        
+
                     st.session_state.admin_auth = True
                     st.success("تم تسجيل الدخول بنجاح")
                     st.rerun()
@@ -342,7 +342,7 @@ with st.sidebar:
                 if submitted and custom_home and custom_away:
                     # Convert local Tunis time to UTC for storage
                     local_dt = datetime.combine(custom_date, custom_time).replace(tzinfo=tz_tunis)
-                    utc_dt = local_dt.astimezone(datetime.timezone.utc)
+                    utc_dt = local_dt.astimezone(timezone.utc)
                     match_time = utc_dt.isoformat()
 
                     new_id = -random.randint(10000, 99999)
