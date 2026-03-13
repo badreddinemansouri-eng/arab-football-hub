@@ -335,7 +335,7 @@ with st.sidebar:
                 custom_away = st.text_input("الفريق الضيف")
                 custom_league = st.text_input("الدوري")
                 custom_date = st.date_input("التاريخ", datetime.now())
-                custom_time = st.time_input("الوقت", datetime.now().time())
+                custom_time = st.time_input("الوقت", datetime.now().time(), key="custom_match_time")
                 custom_stream = st.text_input("رابط البث (اختياري)")
                 submitted = st.form_submit_button("إضافة المباراة")
                 if submitted and custom_home and custom_away:
