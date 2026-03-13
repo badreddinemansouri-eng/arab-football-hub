@@ -11,7 +11,8 @@ import feedparser  # <-- added
 
 # Environment variables
 SUPABASE_URL = os.environ["SUPABASE_URL"]
-SUPABASE_ANON_KEY = os.environ["SUPABASE_ANON_KEY"]
+SUPABASE_SERVICE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
+# SUPABASE_ANON_KEY = os.environ["SUPABASE_ANON_KEY"]
 FOOTBALL_DATA_TOKEN = os.environ["FOOTBALL_DATA_TOKEN"]
 YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY", "")
 
