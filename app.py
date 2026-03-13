@@ -651,7 +651,18 @@ with tab1:
         st.info("لا توجد مباريات مباشرة حالياً")
 
     st.header("📅 المباريات القادمة")
-    upcoming = [m for m in matches if m['status'] == 'UPCOMING']
+    now_utc = datetime.now(timezone.utc)
+    three_days_later = now_utc + timedelta(days=3)
+    upcoming = []
+    for m in matches:
+        if m['status'] == 'UPCOMING':
+            try:
+                match_time = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00'))
+                if match_time <= three_days_later:
+                    upcoming.append(m)
+            except:
+                upcoming.append(m)  # if date parsing fails, keep it (optional)
+    upcoming.sort(key=lambda x: x['match_time'])  # show earliest first
     if upcoming:
         for m in upcoming:
             st.markdown(render_match_card(m), unsafe_allow_html=True)
