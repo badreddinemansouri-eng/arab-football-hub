@@ -632,12 +632,23 @@ with tab1:
 
 with tab2:
     st.header("📊 النتائج")
+    # Get all finished matches
     finished = [m for m in matches if m['status'] == 'FINISHED']
+    # Sort by match_time descending (newest first)
+    finished.sort(key=lambda x: x['match_time'], reverse=True)
+    
     if finished:
         for m in finished:
-            # Use magic logos
             home_logo = m.get('home_logo') or get_team_logo(m['home_team'])
             away_logo = m.get('away_logo') or get_team_logo(m['away_team'])
+            # Convert match_time to local date for display
+            try:
+                utc_time = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00'))
+                local_time = utc_time.astimezone(tz_tunis)
+                date_str = local_time.strftime('%Y-%m-%d')
+            except:
+                date_str = "---"
+            
             st.markdown(f"""
             <div class="match-card">
                 <div style="display:flex; align-items:center; gap:8px;">
@@ -651,7 +662,9 @@ with tab2:
                         <span>{html.escape(m['away_team'])}</span>
                     </div>
                 </div>
-                <div style="text-align:center; color:#aaa; margin-top:8px;">{html.escape(m.get('league',''))}</div>
+                <div style="text-align:center; color:#aaa; margin-top:8px;">
+                    {html.escape(m.get('league',''))} • {date_str}
+                </div>
             </div>
             """, unsafe_allow_html=True)
     else:
