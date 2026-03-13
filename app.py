@@ -230,7 +230,7 @@ with st.sidebar:
         if not st.session_state.admin_auth:
             admin_pass = st.text_input("كلمة المرور", type="password", key="admin_pass")
             if st.button("دخول", key="admin_login"):
-                hashlib.sha256(admin_pass.encode()).hexdigest() == "f00bf9d13f09fa3962d4a7d21de2479699adc840b74e34195a0eedb6dd45ceb4":
+                if hashlib.sha256(admin_pass.encode()).hexdigest() == "f00bf9d13f09fa3962d4a7d21de2479699adc840b74e34195a0eedb6dd45ceb4":
                 # Debug: show the hash on screen (remove after fixing)
         
 
