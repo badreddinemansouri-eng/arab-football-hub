@@ -16,7 +16,7 @@ SUPABASE_SERVICE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
 FOOTBALL_DATA_TOKEN = os.environ["FOOTBALL_DATA_TOKEN"]
 YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY", "")
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 # -------------------------------------------------------------------
 # football-data.org API configuration
