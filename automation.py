@@ -299,9 +299,9 @@ def fetch_news_from_feed(feed_url, language="en"):
 def update_news():
     """Fetch from Arabic sports RSS feeds only."""
     arabic_feeds = [
-        "https://www.beinsports.com/ar/rss",                         # beIN Sports Arabic
-        "https://www.alarabiya.net/.rss/ar/sport.xml",               # Al Arabiya Sports
-        "https://www.kooora.com/?rss",                                # Kooora (popular football)
+        "https://www.beinsports.com/ar/rss",
+        "https://www.filgoal.com/rss",
+        "https://www.goal.com/feeds/ar/news",
     ]
     for feed in arabic_feeds:
         fetch_news_from_feed(feed, "ar")
