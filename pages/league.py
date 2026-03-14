@@ -1,15 +1,17 @@
 import streamlit as st
 from supabase import create_client
 import pandas as pd
+from datetime import datetime
+import html
 
-st.set_page_config(page_title="الدوري", page_icon="🏆")
+st.set_page_config(page_title="الدوري", page_icon="🏆", layout="wide")
+
+supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_ANON_KEY"])
 
 league_id = st.query_params.get("league_id")
 if not league_id:
     st.error("لم يتم تحديد الدوري")
     st.stop()
-
-supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_ANON_KEY"])
 
 @st.cache_data(ttl=3600)
 def get_league_name(lid):
@@ -45,10 +47,21 @@ with tab1:
         st.info("لا توجد معلومات ترتيب")
 
 with tab2:
-    matches = supabase.table("matches").select("*").eq("league_id", league_id).order("date", desc=True).limit(100).execute()
+    matches = supabase.table("matches")\
+        .select("*")\
+        .eq("league_id", league_id)\
+        .order("match_time", desc=True)\
+        .limit(100)\
+        .execute()
     if matches.data:
         for m in matches.data:
-            st.write(f"{m['home_team']} {m['home_score']}-{m['away_score']} {m['away_team']} - {m['date'][:10]}")
+            try:
+                utc_time = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00'))
+                local_time = utc_time.astimezone(tz_tunis)
+                date_str = local_time.strftime("%Y-%m-%d")
+            except:
+                date_str = m["match_time"][:10]
+            st.write(f"{m['home_team']} {m['home_score']}-{m['away_score']} {m['away_team']} - {date_str}")
     else:
         st.info("لا توجد مباريات")
 
@@ -63,9 +76,15 @@ with tab3:
         st.info("لا يوجد جدول دور")
 
 with tab4:
-    scorers = supabase.table("top_scorers").select("*, players(name)").eq("league_id", league_id).order("goals", desc=True).limit(20).execute()
+    scorers = supabase.table("top_scorers")\
+        .select("players(name), goals, assists")\
+        .eq("league_id", league_id)\
+        .order("goals", desc=True)\
+        .limit(20)\
+        .execute()
     if scorers.data:
         for s in scorers.data:
-            st.write(f"{s['players']['name']} - {s['goals']} هدف ({s.get('assists', 0)} أسيست)")
+            name = s.get('players', {}).get('name', 'لاعب')
+            st.write(f"{name} - {s['goals']} هدف ({s.get('assists', 0)} أسيست)")
     else:
         st.info("لا توجد قائمة هدافين")
