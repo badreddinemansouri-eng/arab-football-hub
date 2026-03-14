@@ -315,10 +315,16 @@ def cleanup_old_news():
 def update_news():
     """Fetch from Arabic sports RSS feeds only."""
     arabic_feeds = [
-        "http://www.gulf-times.com/rssFeed/3/39",           # Gulf Times Sports
-        "https://alarab.qa/category/رياضة-محلية/feed",      # Alarab Qatar Sports
-        "https://www.wekora.com/feed",                       # Wekora (sports only)
-        "https://www.skynewsarabia.com/rss/feed/رياضة",     # Sky News Arabia Sports
+        
+        "https://www.filgoal.com/rss/Arab",           # Arab football
+        "https://www.filgoal.com/rss/Africa",         # African competitions
+        "https://www.filgoal.com/rss/Egypt",          # Egyptian league
+        "https://www.btolat.com/rss/1513",            # CAF Champions League
+        "https://www.btolat.com/rss/1",                # Egyptian league (alternative)
+        "https://www.france24.com/ar/%D8%AA%D8%A7%D8%BA/%D8%AF%D9%88%D8%B1%D9%8A-%D8%A3%D8%A8%D8%B7%D8%A7%D9%84-%D8%A3%D9%81%D8%B1%D9%8A%D9%82%D9%8A%D8%A7/rss",
+         # Gulf Times Sports
+         # Alarab Qatar Sports                      # Wekora (sports only)
+        # Sky News Arabia Sports
     ]
     for feed in arabic_feeds:
         fetch_news_from_feed(feed, "ar")
