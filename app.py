@@ -795,21 +795,153 @@ with tab4:
 
 with tab5:
     st.header("📰 آخر الأخبار")
-    news = supabase.table("news").select("*").order("published_at", desc=True).limit(50).execute()
-    if news.data:
-        for item in news.data:
-            with st.container():
-                col1, col2 = st.columns([1,4])
-                with col1:
-                    if item.get("image"):
-                        st.image(item["image"], width=100)
-                with col2:
-                    st.subheader(item["title"])
-                    st.write(item.get("content", "")[:200] + "...")
-                    st.caption(f"المصدر: {item['source']} | {item['published_at'][:10]}")
-                st.markdown("---")
-    else:
+
+    # Custom CSS for news cards (works with both light/dark themes)
+    st.markdown("""
+    <style>
+        .news-card {
+            background: #ffffff;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border: 1px solid #e0e0e0;
+            transition: transform 0.2s;
+            direction: rtl;
+        }
+        .news-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+        .news-image {
+            width: 100%;
+            max-height: 150px;
+            object-fit: cover;
+            border-radius: 12px;
+            margin-bottom: 10px;
+        }
+        .news-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin: 0 0 8px 0;
+            color: #333;
+            text-decoration: none;
+        }
+        .news-title a {
+            color: #333;
+            text-decoration: none;
+        }
+        .news-title a:hover {
+            color: #1976d2;
+        }
+        .news-content {
+            color: #666;
+            margin: 0 0 12px 0;
+            line-height: 1.6;
+        }
+        .news-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #888;
+            font-size: 0.9rem;
+            flex-wrap: wrap;
+        }
+        .source-badge {
+            background: #1976d2;
+            color: white;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+        }
+        .lang-badge {
+            background: #166534;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+        .lang-badge.en {
+            background: #1e3a8a;
+        }
+        /* Dark mode overrides – adjust if your app uses a theme class */
+        body[data-theme="dark"] .news-card {
+            background: #1e1e2e;
+            border-color: #333;
+        }
+        body[data-theme="dark"] .news-title a {
+            color: #f0f0f0;
+        }
+        body[data-theme="dark"] .news-content {
+            color: #aaa;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    @st.cache_data(ttl=3600)
+    def get_news():
+        cutoff = (datetime.now() - timedelta(days=14)).isoformat()
+        try:
+            res = supabase.table("news")\
+                .select("*")\
+                .gte("published_at", cutoff)\
+                .order("published_at", desc=True)\
+                .limit(50)\
+                .execute()
+            return res.data
+        except Exception as e:
+            st.error(f"حدث خطأ في جلب الأخبار: {e}")
+            return []
+
+    news = get_news()
+
+    if not news:
         st.info("لا توجد أخبار حالياً")
+    else:
+        for item in news:
+            # Escape all strings
+            safe_title = html.escape(item.get('title', ''))
+            safe_content = html.escape(item.get('content', ''))[:200] + "..." if item.get('content') else ''
+            safe_source = html.escape(item.get('source', 'مصدر غير معروف'))
+            safe_url = html.escape(item.get('url', ''))
+            safe_image = html.escape(item.get('image', '')) if item.get('image') else None
+
+            # Format date
+            try:
+                pub_date = datetime.fromisoformat(item["published_at"].replace('Z', '+00:00'))
+                date_str = pub_date.strftime("%Y-%m-%d %H:%M")
+            except:
+                date_str = "تاريخ غير معروف"
+
+            # Language badge
+            lang = item.get("language", "ar")
+            lang_badge = '<span class="lang-badge en">🇬🇧 EN</span>' if lang == "en" else '<span class="lang-badge">🇸🇦 AR</span>'
+
+            # Build card HTML
+            card_html = '<div class="news-card">'
+            if safe_image:
+                card_html += f'<img src="{safe_image}" class="news-image">'
+            card_html += f'''
+                <a href="{safe_url}" target="_blank" class="news-title">
+                    <h3>{safe_title}</h3>
+                </a>
+                <div class="news-content">{safe_content}</div>
+                <div class="news-meta">
+                    <span class="source-badge">📰 {safe_source}</span>
+                    <span>🕒 {date_str}</span>
+                    {lang_badge}
+                </div>
+            </div>
+            '''
+
+            # Render safely
+            try:
+                if hasattr(st, 'html'):
+                    st.html(card_html)
+                else:
+                    st.markdown(card_html, unsafe_allow_html=True)
+            except Exception as e:
+                st.error(f"حدث خطأ في عرض الخبر: {e}")
 
 with tab6:
     st.header("🔮 توقعات المباريات")
