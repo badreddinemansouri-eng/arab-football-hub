@@ -12,7 +12,7 @@ st.title("📰 آخر الأخبار")
 @st.cache_data(ttl=3600)
 def get_news():
     # Only show news from the last 2 days
-    cutoff = (datetime.now() - timedelta(days=2)).isoformat()
+    cutoff = (datetime.now() - timedelta(days=7)).isoformat()
     res = supabase.table("news")\
         .select("*")\
         .gte("published_at", cutoff)\
