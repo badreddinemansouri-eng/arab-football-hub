@@ -1,6 +1,6 @@
+from datetime import datetime, timedelta
 import streamlit as st
 from supabase import create_client
-from datetime import datetime
 import html
 
 st.set_page_config(page_title="الأخبار", page_icon="📰", layout="wide")
@@ -11,10 +11,19 @@ st.title("📰 آخر الأخبار")
 
 @st.cache_data(ttl=3600)
 def get_news():
-    res = supabase.table("news").select("*").order("published_at", desc=True).limit(50).execute()
+    # Only show news from the last 2 days
+    cutoff = (datetime.now() - timedelta(days=2)).isoformat()
+    res = supabase.table("news")\
+        .select("*")\
+        .gte("published_at", cutoff)\
+        .order("published_at", desc=True)\
+        .limit(50)\
+        .execute()
     return res.data
 
 news = get_news()
+
+# ... rest of display code remains unchanged ...
 
 if not news:
     st.info("لا توجد أخبار حالياً")
