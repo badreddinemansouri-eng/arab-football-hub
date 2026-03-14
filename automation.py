@@ -306,10 +306,10 @@ def fetch_news_from_feed(feed_url, language="ar"):
 
 def cleanup_old_news():
     """Delete news older than 7 days to keep the database clean."""
-    cutoff = (datetime.now() - timedelta(days=3)).isoformat()
+    cutoff = (datetime.now() - timedelta(days=7)).isoformat()
     try:
         result = supabase.table("news").delete().lt("published_at", cutoff).execute()
-        print(f"Deleted {len(result.data)} news items older than 3 days.")
+        print(f"Deleted {len(result.data)} news items older than 7 days.")
     except Exception as e:
         print(f"Error during news cleanup: {e}")
 def update_news():
