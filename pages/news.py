@@ -9,7 +9,7 @@ supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_ANON_K
 
 st.title("📰 آخر الأخبار")
 
-# Custom CSS for news cards (works with both light/dark themes)
+# Custom CSS for clean cards (light background, matches your design)
 st.markdown("""
 <style>
     .news-card {
@@ -20,6 +20,7 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         border: 1px solid #e0e0e0;
         transition: transform 0.2s;
+        direction: rtl;
     }
     .news-card:hover {
         transform: translateY(-2px);
@@ -76,7 +77,7 @@ st.markdown("""
     .lang-badge.en {
         background: #1e3a8a;
     }
-    /* Dark mode overrides */
+    /* Dark mode overrides (optional – remove if you want only light) */
     @media (prefers-color-scheme: dark) {
         .news-card {
             background: #1e1e2e;
@@ -88,9 +89,6 @@ st.markdown("""
         .news-content {
             color: #aaa;
         }
-        .news-meta {
-            color: #888;
-        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -99,13 +97,17 @@ st.markdown("""
 def get_news():
     # Show news from the last 14 days
     cutoff = (datetime.now() - timedelta(days=7)).isoformat()
-    res = supabase.table("news")\
-        .select("*")\
-        .gte("published_at", cutoff)\
-        .order("published_at", desc=True)\
-        .limit(50)\
-        .execute()
-    return res.data
+    try:
+        res = supabase.table("news")\
+            .select("*")\
+            .gte("published_at", cutoff)\
+            .order("published_at", desc=True)\
+            .limit(50)\
+            .execute()
+        return res.data
+    except Exception as e:
+        st.error(f"حدث خطأ في جلب الأخبار: {e}")
+        return []
 
 news = get_news()
 
@@ -113,6 +115,13 @@ if not news:
     st.info("لا توجد أخبار حالياً")
 else:
     for item in news:
+        # Safely escape all strings
+        safe_title = html.escape(item.get('title', ''))
+        safe_content = html.escape(item.get('content', ''))[:200] + "..." if item.get('content') else ''
+        safe_source = html.escape(item.get('source', 'مصدر غير معروف'))
+        safe_url = html.escape(item.get('url', ''))
+        safe_image = html.escape(item.get('image', '')) if item.get('image') else None
+
         # Format publication date
         try:
             pub_date = datetime.fromisoformat(item["published_at"].replace('Z', '+00:00'))
@@ -120,23 +129,39 @@ else:
         except:
             date_str = "تاريخ غير معروف"
 
-        # Language badge class
-        lang_class = "lang-badge en" if item.get("language") == "en" else "lang-badge"
+        # Language badge
+        lang = item.get("language", "ar")
+        if lang == "en":
+            lang_badge = '<span class="lang-badge en">🇬🇧 EN</span>'
+        else:
+            lang_badge = '<span class="lang-badge">🇸🇦 AR</span>'
 
-        # Image HTML
-        image_html = f'<img src="{html.escape(item["image"])}" class="news-image">' if item.get("image") else ''
-
-        st.markdown(f"""
+        # Build the card HTML safely using an f-string with escaped variables
+        card_html = f"""
         <div class="news-card">
-            {image_html}
-            <a href="{html.escape(item['url'])}" target="_blank" class="news-title">
-                <h3>{html.escape(item['title'])}</h3>
+        """
+
+        if safe_image:
+            card_html += f'<img src="{safe_image}" class="news-image">'
+
+        card_html += f"""
+            <a href="{safe_url}" target="_blank" class="news-title">
+                <h3>{safe_title}</h3>
             </a>
-            <div class="news-content">{html.escape(item.get('content', ''))[:200]}...</div>
+            <div class="news-content">{safe_content}</div>
             <div class="news-meta">
-                <span class="source-badge">📰 {html.escape(item.get('source', 'مصدر غير معروف'))}</span>
+                <span class="source-badge">📰 {safe_source}</span>
                 <span>🕒 {date_str}</span>
-                <span class="{lang_class}">{'🇬🇧 EN' if item.get('language') == 'en' else '🇸🇦 AR'}</span>
+                {lang_badge}
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """
+
+        # Render using st.html if available (safer), else fallback to st.markdown
+        try:
+            if hasattr(st, 'html'):
+                st.html(card_html)
+            else:
+                st.markdown(card_html, unsafe_allow_html=True)
+        except Exception as e:
+            st.error(f"حدث خطأ في عرض الخبر: {e}")
