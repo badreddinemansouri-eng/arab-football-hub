@@ -315,10 +315,10 @@ def cleanup_old_news():
 def update_news():
     """Fetch from Arabic sports RSS feeds only."""
     arabic_feeds = [
-        "https://www.beinsports.com/ar/rss",
-        "https://www.goal.com/feeds/ar?fmt=rss"
-        "https://www.filgoal.com/rss",
-        "https://www.goal.com/feeds/ar/news",
+        "http://www.gulf-times.com/rssFeed/3/39",           # Gulf Times Sports
+        "https://alarab.qa/category/رياضة-محلية/feed",      # Alarab Qatar Sports
+        "https://www.wekora.com/feed",                       # Wekora (sports only)
+        "https://www.skynewsarabia.com/rss/feed/رياضة",     # Sky News Arabia Sports
     ]
     for feed in arabic_feeds:
         fetch_news_from_feed(feed, "ar")
