@@ -297,17 +297,12 @@ def fetch_news_from_feed(feed_url, language="en"):
         print(f"Error fetching news from {feed_url}: {e}")
 
 def update_news():
-    english_feeds = [
-        "http://feeds.bbci.co.uk/sport/football/rss.xml",      # BBC
-        "https://www.skysports.com/rss/12040",                # Sky Sports
-        "https://www.theguardian.com/football/rss",           # The Guardian
-    ]
+    """Fetch from Arabic sports RSS feeds only."""
     arabic_feeds = [
-        "https://www.aljazeera.net/aljazeerarss/sports",      # Al Jazeera
+        "https://www.beinsports.com/ar/rss",                         # beIN Sports Arabic
+        "https://www.alarabiya.net/.rss/ar/sport.xml",               # Al Arabiya Sports
+        "https://www.kooora.com/?rss",                                # Kooora (popular football)
     ]
-
-    for feed in english_feeds:
-        fetch_news_from_feed(feed, "en")
     for feed in arabic_feeds:
         fetch_news_from_feed(feed, "ar")
 # -------------------------------------------------------------------
