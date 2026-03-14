@@ -245,11 +245,7 @@ def upsert_match(match_data):
 # -------------------------------------------------------------------
 # News fetching functions
 # -------------------------------------------------------------------
-def fetch_news_from_feed(feed_url, language="en"):
-    """
-    Fetch news from a given RSS feed and store in news table.
-    language should be 'en' or 'ar'.
-    """
+def fetch_news_from_feed(feed_url, language="ar"):
     print(f"[{datetime.now()}] Fetching {language} news from {feed_url}")
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
     try:
@@ -261,8 +257,13 @@ def fetch_news_from_feed(feed_url, language="en"):
         if feed.bozo:
             print(f"Feed parsing error: {feed.bozo_exception}")
             return
-        entries = feed.entries[:20]
-        for entry in entries:
+        entries = feed.entries
+        print(f"Total entries in feed: {len(entries)}")
+        if not entries:
+            print("No entries found.")
+            return
+        for i, entry in enumerate(entries[:20]):  # process up to 20
+            print(f"Processing entry {i+1}: {entry.get('title', 'No title')}")
             # Extract image
             image = None
             if hasattr(entry, 'media_content'):
@@ -281,6 +282,7 @@ def fetch_news_from_feed(feed_url, language="en"):
                 if match:
                     image = match.group(1)
 
+            # Prepare data
             data = {
                 "title": entry.get('title', '')[:255],
                 "content": entry.get('summary', entry.get('description', ''))[:1000],
@@ -290,23 +292,31 @@ def fetch_news_from_feed(feed_url, language="en"):
                 "published_at": entry.get('published', entry.get('updated', datetime.now().isoformat())),
                 "language": language
             }
-            # Upsert using the unique constraint on 'url'
-            supabase.table("news").upsert(data, on_conflict="url").execute()
-            print(f"Inserted {language} news: {data['title'][:50]}...")
+            # Ensure URL is present
+            if not data["url"]:
+                print("Skipping entry: no URL")
+                continue
+            try:
+                supabase.table("news").upsert(data, on_conflict="url").execute()
+                print(f"Inserted {language} news: {data['title'][:50]}...")
+            except Exception as e:
+                print(f"Upsert failed for {data['title'][:30]}: {e}")
     except Exception as e:
         print(f"Error fetching news from {feed_url}: {e}")
+
 def cleanup_old_news():
     """Delete news older than 7 days to keep the database clean."""
-    cutoff = (datetime.now() - timedelta(days=7)).isoformat()
+    cutoff = (datetime.now() - timedelta(days=2)).isoformat()
     try:
         result = supabase.table("news").delete().lt("published_at", cutoff).execute()
-        print(f"Deleted {len(result.data)} news items older than 7 days.")
+        print(f"Deleted {len(result.data)} news items older than 2 days.")
     except Exception as e:
         print(f"Error during news cleanup: {e}")
 def update_news():
     """Fetch from Arabic sports RSS feeds only."""
     arabic_feeds = [
         "https://www.beinsports.com/ar/rss",
+        "https://www.goal.com/feeds/ar?fmt=rss"
         "https://www.filgoal.com/rss",
         "https://www.goal.com/feeds/ar/news",
     ]
