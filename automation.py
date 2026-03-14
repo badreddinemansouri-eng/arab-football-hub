@@ -295,7 +295,14 @@ def fetch_news_from_feed(feed_url, language="en"):
             print(f"Inserted {language} news: {data['title'][:50]}...")
     except Exception as e:
         print(f"Error fetching news from {feed_url}: {e}")
-
+def cleanup_old_news():
+    """Delete news older than 7 days to keep the database clean."""
+    cutoff = (datetime.now() - timedelta(days=7)).isoformat()
+    try:
+        result = supabase.table("news").delete().lt("published_at", cutoff).execute()
+        print(f"Deleted {len(result.data)} news items older than 7 days.")
+    except Exception as e:
+        print(f"Error during news cleanup: {e}")
 def update_news():
     """Fetch from Arabic sports RSS feeds only."""
     arabic_feeds = [
@@ -305,6 +312,7 @@ def update_news():
     ]
     for feed in arabic_feeds:
         fetch_news_from_feed(feed, "ar")
+    cleanup_old_news()
 # -------------------------------------------------------------------
 # Main update functions
 # -------------------------------------------------------------------
