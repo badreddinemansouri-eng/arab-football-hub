@@ -98,7 +98,7 @@ st.markdown("""
 @st.cache_data(ttl=3600)
 def get_news():
     # Show news from the last 14 days
-    cutoff = (datetime.now() - timedelta(days=14)).isoformat()
+    cutoff = (datetime.now() - timedelta(days=7)).isoformat()
     res = supabase.table("news")\
         .select("*")\
         .gte("published_at", cutoff)\
