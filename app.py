@@ -52,10 +52,35 @@ def get_css():
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
         * { font-family: 'Cairo', sans-serif; }
         .main, .block-container { direction: rtl; text-align: right; }
-        /* Hide default Streamlit header */
+
+        /* Make native header blue and hide everything except the hamburger */
         header[data-testid="stHeader"] {
+            background: linear-gradient(135deg, #1976D2, #0D47A1) !important;
+            color: white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            padding: 0 20px !important;
+            height: 60px !important;
+            display: flex !important;
+            align-items: center !important;
+        }
+
+        /* Hide default title (the page title) */
+        header[data-testid="stHeader"] > div:has(> p) {
             display: none !important;
         }
+
+        /* Hide all other children except the first button (hamburger) */
+        header[data-testid="stHeader"] > *:not(:first-child):not(.custom-header-content) {
+            display: none !important;
+        }
+
+        /* Keep hamburger icon visible and styled */
+        header[data-testid="stHeader"] button {
+            color: white !important;
+        }
+
+        /* (Optional) If you want to add logo/title inside the native header,
+           you can inject a div via JavaScript as done before. 
         /* Blue header */
         .custom-header {
             background: linear-gradient(135deg, #1976D2, #0D47A1);
