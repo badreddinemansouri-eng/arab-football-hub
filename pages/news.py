@@ -9,13 +9,13 @@ supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_ANON_K
 
 st.title("📰 آخر الأخبار")
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=0)
 def get_news():
     res = supabase.table("news").select("*").order("published_at", desc=True).limit(50).execute()
     return res.data
 
 news = get_news()
-
+st.write(f"Number of news items: {len(news)}")  # temporary debug
 if not news:
     st.info("لا توجد أخبار حالياً")
 else:
