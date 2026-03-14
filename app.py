@@ -52,6 +52,10 @@ def get_css():
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
         * { font-family: 'Cairo', sans-serif; }
         .main, .block-container { direction: rtl; text-align: right; }
+        /* Hide default Streamlit header */
+        header[data-testid="stHeader"] {
+            display: none !important;
+        }
         /* Blue header */
         .custom-header {
             background: linear-gradient(135deg, #1976D2, #0D47A1);
