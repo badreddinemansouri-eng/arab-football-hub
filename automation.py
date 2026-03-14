@@ -315,10 +315,9 @@ def cleanup_old_news():
 def update_news():
     """Fetch from Arabic sports RSS feeds only."""
     arabic_feeds = [
-        "https://www.france24.com/ar/%D8%AA%D8%A7%D8%BA/%D8%AF%D9%88%D8%B1%D9%8A-%D8%A3%D8%A8%D8%B7%D8%A7%D9%84-%D8%A3%D9%81%D8%B1%D9%8A%D9%82%D9%8A%D8%A7/rss",  # France24 CAF
-        "https://news.google.com/rss/topics/CAAqKAgKIiJDQkFTRXdvSkwyMHZNR1ptZHpWbUVnWmxjeTAwTVRzQVFBRkFICg?hl=ar&gl=EG&ceid=EG:ar",  # Egypt
-        "https://news.google.com/rss/topics/CAAqKAgKIiJDQkFTRXdvSkwyMHZNR1ptZHpWbUVnWmxjeTAwTVRzQVFBRkFICg?hl=ar&gl=TN&ceid=TN:ar",  # Tunisia
-        "https://news.google.com/rss/topics/CAAqKAgKIiJDQkFTRXdvSkwyMHZNR1ptZHpWbUVnWmxjeTAwTVRzQVFBRkFICg?hl=ar&gl=SA&ceid=SA:ar",  # Saudi Arabia
+        "https://www.france24.com/ar/%D8%AA%D8%A7%D8%BA/%D8%AF%D9%88%D8%B1%D9%8A-%D8%A3%D8%A8%D8%B7%D8%A7%D9%84-%D8%A3%D9%81%D8%B1%D9%8A%D9%82%D9%8A%D8%A7/rss",  # CAF Champions League (working)
+        "https://www.france24.com/ar/sports/rss",   
+        "http://feeds.bbci.co.uk/arabic/sport/rss.xml", #General sports (new)
     ]
     for feed in arabic_feeds:
         fetch_news_from_feed(feed, "ar")
