@@ -251,12 +251,17 @@ def fetch_news_from_feed(feed_url, language="en"):
     language should be 'en' or 'ar'.
     """
     print(f"[{datetime.now()}] Fetching {language} news from {feed_url}")
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
     try:
-        feed = feedparser.parse(feed_url)
+        resp = requests.get(feed_url, headers=headers, timeout=10)
+        if resp.status_code != 200:
+            print(f"Feed returned status {resp.status_code}")
+            return
+        feed = feedparser.parse(resp.text)
         if feed.bozo:
             print(f"Feed parsing error: {feed.bozo_exception}")
             return
-        entries = feed.entries[:20]  # limit to 20 per feed
+        entries = feed.entries[:20]
         for entry in entries:
             # Extract image
             image = None
@@ -276,7 +281,6 @@ def fetch_news_from_feed(feed_url, language="en"):
                 if match:
                     image = match.group(1)
 
-            # Prepare data
             data = {
                 "title": entry.get('title', '')[:255],
                 "content": entry.get('summary', entry.get('description', ''))[:1000],
@@ -286,31 +290,26 @@ def fetch_news_from_feed(feed_url, language="en"):
                 "published_at": entry.get('published', entry.get('updated', datetime.now().isoformat())),
                 "language": language
             }
-            # Upsert based on URL to avoid duplicates
+            # Upsert using the unique constraint on 'url'
             supabase.table("news").upsert(data, on_conflict="url").execute()
             print(f"Inserted {language} news: {data['title'][:50]}...")
     except Exception as e:
         print(f"Error fetching news from {feed_url}: {e}")
 
 def update_news():
-    """Fetch from all configured RSS feeds."""
     english_feeds = [
-        "http://feeds.bbci.co.uk/sport/football/rss.xml",          # BBC
-        "https://www.skysports.com/rss/12040",                    # Sky Sports
-        "https://www.theguardian.com/football/rss",               # The Guardian
-        "https://www.espn.com/espn/rss/football/news",            # ESPN
+        "http://feeds.bbci.co.uk/sport/football/rss.xml",      # BBC
+        "https://www.skysports.com/rss/12040",                # Sky Sports
+        "https://www.theguardian.com/football/rss",           # The Guardian
     ]
     arabic_feeds = [
-        "https://www.aljazeera.net/aljazeerarss/sports",          # Al Jazeera
-        "http://www.kooora.com/?rss",                              # Kooora
-        "https://www.alarabiya.net/.rss/ar/sport.xml",            # Al Arabiya
+        "https://www.aljazeera.net/aljazeerarss/sports",      # Al Jazeera
     ]
 
     for feed in english_feeds:
-        fetch_news_from_feed(feed, language="en")
+        fetch_news_from_feed(feed, "en")
     for feed in arabic_feeds:
-        fetch_news_from_feed(feed, language="ar")
-
+        fetch_news_from_feed(feed, "ar")
 # -------------------------------------------------------------------
 # Main update functions
 # -------------------------------------------------------------------
