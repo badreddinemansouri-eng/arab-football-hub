@@ -37,7 +37,7 @@ if "profile" not in st.session_state:
 if "favorites" not in st.session_state:
     st.session_state.favorites = []
 if "theme" not in st.session_state:
-    st.session_state.theme = "dark"
+    st.session_state.theme = "light"
 if "admin_auth" not in st.session_state:
     st.session_state.admin_auth = False
 if "show_admin" not in st.session_state:
