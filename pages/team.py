@@ -86,7 +86,7 @@ def get_next_events(tsdb_id):
             data = resp.json()
             return data.get("events", [])
     except:
-    pass
+        pass
     return []
 
 @st.cache_data(ttl=3600)
