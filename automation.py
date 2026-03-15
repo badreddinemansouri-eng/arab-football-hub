@@ -206,13 +206,15 @@ def parse_fd_match(match):
     competition = match.get("competition", {})
     home_team = match.get("homeTeam", {})
     away_team = match.get("awayTeam", {})
+    
+    # DEBUG: print team IDs for every match
+    print(f"Match {match['id']} - home_team_id: {home_team.get('id')}, away_team_id: {away_team.get('id')}")
+
+    # ... rest of the function unchanged
     score = match.get("score", {})
     status = match.get("status", "SCHEDULED")
 
-    # DEBUG: print team dictionaries for the first few matches
-    if match.get("id") and int(match["id"]) % 1000 < 5:  # limit to avoid spam
-        print(f"Match {match['id']}: home_team dict = {home_team}")
-        print(f"Match {match['id']}: away_team dict = {away_team}")
+    
 
     # ... rest of the function unchanged ...
 
