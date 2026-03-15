@@ -152,14 +152,14 @@ def get_country_flag(country_name):
 # Helper: upsert team (new)
 # -------------------------------------------------------------------
 def upsert_team(team_id, team_name):
-    """Store a team in the teams table (football-data.org ID)."""
     if not team_id or not team_name:
         return
     try:
-        supabase.table("teams").upsert({
+        result = supabase.table("teams").upsert({
             "id": team_id,
             "name": team_name
         }, on_conflict="id").execute()
+        print(f"Upserted team {team_id}: {team_name}")
     except Exception as e:
         print(f"Error upserting team {team_id}: {e}")
 
