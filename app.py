@@ -518,11 +518,123 @@ with st.sidebar:
             st.markdown("---")
             st.subheader("🖼️ ربط الشعارات تلقائياً")
             with st.expander("ربط شعارات الفرق"):
-                # (keep your existing logo scanner code – unchanged)
-                pass
+                st.markdown("""
+                **سيقوم هذا الأمر بالبحث عن شعارات الفرق في مخزن Supabase باستخدام عدة صيغ للأسماء.**  
+                يمكنك بعد ذلك تنزيل قائمة الفرق التي لم يتم العثور على شعار لها لمعالجتها يدوياً.
+                """)
+                st.info("""
+                **المجلدات المتوقعة:**  
+                Italy - Serie A, England - Premier League, Spain - LaLiga, Germany - Bundesliga, France - Ligue 1, Portugal - Liga Portugal, International - Champions League, International - World Cup
+                """)
+
+                if st.button("🔍 بدء البحث المتقدم", key="search_team_logos"):
+                    with st.spinner("جاري البحث عن الشعارات..."):
+                        teams_resp = supabase.table("matches").select("home_team, away_team").execute()
+                        teams = set()
+                        for row in teams_resp.data:
+                            if row.get("home_team"):
+                                teams.add(row["home_team"])
+                            if row.get("away_team"):
+                                teams.add(row["away_team"])
+                        teams = sorted(list(teams))
+                        total = len(teams)
+                        st.info(f"تم العثور على {total} فريق في قاعدة البيانات.")
+
+                        league_folders = [
+                            "Italy - Serie A", "England - Premier League", "Spain - LaLiga",
+                            "Germany - Bundesliga", "France - Ligue 1", "Portugal - Liga Portugal",
+                            "International - Champions League", "International - World Cup"
+                        ]
+                        BUCKET_BASE = f"{SUPABASE_URL}/storage/v1/object/public/logos"
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+                        results = {"found": 0, "not_found": 0}
+                        missing_teams = []
+
+                        def generate_name_variations(team_name):
+                            variations = [team_name]
+                            suffixes = [" FC", " AFC", " United", " City", " Real", " CF", " AC", " AS", " SS", " SC", " Club", " Deportivo", " Futebol", " Clube"]
+                            base = team_name
+                            for suffix in suffixes:
+                                if base.endswith(suffix):
+                                    base = base[:-len(suffix)]
+                                    variations.append(base)
+                                    break
+                            variations.append(team_name.replace(" ", "_"))
+                            if base != team_name:
+                                variations.append(base.replace(" ", "_"))
+                            return list(set(variations))
+
+                        for i, team in enumerate(teams):
+                            status_text.text(f"معالجة {team}... ({i+1}/{total})")
+                            name_variations = generate_name_variations(team)
+                            found = False
+                            for name in name_variations:
+                                filename = f"{name}.png"
+                                for folder in league_folders:
+                                    url = f"{BUCKET_BASE}/{folder}/{filename}"
+                                    try:
+                                        resp = requests.head(url, timeout=3)
+                                        if resp.status_code == 200:
+                                            supabase.table("team_logos").upsert(
+                                                {"team_name": team, "logo_url": url},
+                                                on_conflict="team_name"
+                                            ).execute()
+                                            results["found"] += 1
+                                            found = True
+                                            st.success(f"✅ {team} -> {folder}/{filename}")
+                                            break
+                                    except:
+                                        continue
+                                if found:
+                                    break
+                            if not found:
+                                results["not_found"] += 1
+                                missing_teams.append(team)
+                                st.warning(f"❌ {team} – لم يتم العثور على شعار")
+                            progress_bar.progress((i+1)/total)
+
+                        status_text.text("اكتمل البحث!")
+                        st.success(f"النتائج: تم العثور على {results['found']} شعار، لم يتم العثور على {results['not_found']}")
+
+                        if missing_teams:
+                            missing_text = "\n".join(missing_teams)
+                            st.download_button(
+                                label="📥 تنزيل قائمة الفرق بدون شعار",
+                                data=missing_text,
+                                file_name="missing_logos.txt",
+                                mime="text/plain"
+                            )
+
             with st.expander("ربط شعارات البطولات"):
-                # (keep your existing league logo scanner code – unchanged)
-                pass
+                if st.button("🔍 تحديث شعارات البطولات", key="search_league_logos"):
+                    leagues_resp = supabase.table("matches").select("league").execute()
+                    leagues = list(set([m["league"] for m in leagues_resp.data if m.get("league")]))
+                    if not leagues:
+                        st.warning("لا توجد بطولات لعرضها.")
+                    else:
+                        with st.spinner("جاري البحث عن شعارات البطولات..."):
+                            found = 0
+                            not_found = 0
+                            for league in leagues:
+                                name = league.replace(' ', '_')
+                                url = f"{SUPABASE_URL}/storage/v1/object/public/logos/leagues/{name}.png"
+                                try:
+                                    resp = requests.head(url, timeout=3)
+                                    if resp.status_code == 200:
+                                        supabase.table("league_logos").upsert(
+                                            {"league_name": league, "logo_url": url},
+                                            on_conflict="league_name"
+                                        ).execute()
+                                        st.success(f"✅ {league}")
+                                        found += 1
+                                    else:
+                                        st.warning(f"❌ {league}")
+                                        not_found += 1
+                                except:
+                                    st.warning(f"❌ {league} (فشل الاتصال)")
+                                    not_found += 1
+                            st.info(f"النتائج: {found} تم العثور عليها، {not_found} لم يتم العثور عليها.")
 
 # -------------------- Data Fetching --------------------
 @st.cache_data(ttl=30)
@@ -807,7 +919,6 @@ with tab4:
 with tab5:
     st.header("📰 آخر الأخبار")
 
-    # (Your news display code – unchanged from your original)
     @st.cache_data(ttl=3600)
     def get_news():
         cutoff = (datetime.now() - timedelta(days=14)).isoformat()
