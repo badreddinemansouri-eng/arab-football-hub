@@ -18,7 +18,6 @@ if not team_id:
         st.switch_page("app.py")
     st.stop()
 
-# Convert to integer for safety
 try:
     team_id = int(team_id)
 except ValueError:
@@ -29,7 +28,6 @@ except ValueError:
 # Helper: fetch team details from TheSportsDB and cache in Supabase
 # -------------------------------------------------------------------
 def fetch_and_update_team_details(team_name, team_id):
-    """Try to get additional team info from TheSportsDB and update the teams table."""
     try:
         url = f"https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t={requests.utils.quote(team_name)}"
         resp = requests.get(url, timeout=5)
@@ -68,12 +66,11 @@ if not team:
         st.switch_page("app.py")
     st.stop()
 
-# If the team is missing details, try to fetch them from TheSportsDB
+# If missing details, fetch from TheSportsDB
 if not team.get("country") or not team.get("founded") or not team.get("venue_name"):
     fetched = fetch_and_update_team_details(team["name"], team_id)
     team.update(fetched)
 
-# Display team info
 col1, col2 = st.columns([1, 3])
 with col1:
     st.image(team.get('logo') or 'https://via.placeholder.com/200', width=200)
@@ -87,16 +84,25 @@ st.markdown("---")
 tab1, tab2, tab3 = st.tabs(["المباريات القادمة", "النتائج", "اللاعبون"])
 
 with tab1:
-    # Correct Supabase OR query: conditions separated by comma
-    or_condition = f"home_team_id.eq.{team_id},away_team_id.eq.{team_id}"
-    fixtures = supabase.table("matches")\
+    # Two separate queries (since .or_ is not available)
+    home_fixtures = supabase.table("matches")\
         .select("*")\
-        .or_(or_condition)\
+        .eq("home_team_id", team_id)\
         .eq("status", "UPCOMING")\
         .order("match_time")\
         .execute()
-    if fixtures.data:
-        for f in fixtures.data:
+    away_fixtures = supabase.table("matches")\
+        .select("*")\
+        .eq("away_team_id", team_id)\
+        .eq("status", "UPCOMING")\
+        .order("match_time")\
+        .execute()
+    fixtures = home_fixtures.data + away_fixtures.data
+    # Sort combined list by match_time
+    fixtures.sort(key=lambda x: x['match_time'])
+    
+    if fixtures:
+        for f in fixtures:
             try:
                 utc_time = datetime.fromisoformat(f["match_time"].replace('Z', '+00:00'))
                 local_time = utc_time.astimezone(tz_tunis)
@@ -108,16 +114,26 @@ with tab1:
         st.info("لا توجد مباريات قادمة")
 
 with tab2:
-    or_condition = f"home_team_id.eq.{team_id},away_team_id.eq.{team_id}"
-    results = supabase.table("matches")\
+    home_results = supabase.table("matches")\
         .select("*")\
-        .or_(or_condition)\
+        .eq("home_team_id", team_id)\
         .eq("status", "FINISHED")\
         .order("match_time", desc=True)\
         .limit(20)\
         .execute()
-    if results.data:
-        for r in results.data:
+    away_results = supabase.table("matches")\
+        .select("*")\
+        .eq("away_team_id", team_id)\
+        .eq("status", "FINISHED")\
+        .order("match_time", desc=True)\
+        .limit(20)\
+        .execute()
+    results = home_results.data + away_results.data
+    # Sort descending by match_time (already done per query, but combine then sort again to ensure)
+    results.sort(key=lambda x: x['match_time'], reverse=True)
+    
+    if results:
+        for r in results[:20]:  # limit combined
             try:
                 utc_time = datetime.fromisoformat(r["match_time"].replace('Z', '+00:00'))
                 local_time = utc_time.astimezone(tz_tunis)
