@@ -389,81 +389,113 @@ def enrich_match_with_af_details(fixture_id):
 # Populate teams and players (bulk update)
 # -------------------------------------------------------------------
 def update_teams_and_players():
-    """Fetch teams and players for all allowed competitions (once per season)."""
-    # We need a mapping of FD competition codes to API-Football league IDs.
-    # This is a simplified mapping; you may want to extend.
+    """Fetch teams and top scorers for leagues, respecting rate limits and last fetch times."""
+    # Full league map (you can add/remove as needed)
     league_map = {
-        # European top leagues (already present)
-        "PL": 39,      # Premier League
-        "PD": 140,     # La Liga
-        "BL1": 78,     # Bundesliga
-        "SA": 135,     # Serie A
-        "FL1": 61,     # Ligue 1
-        "CL": 2,       # UEFA Champions League
-        "EC": 4,       # European Championship
-        "WC": 1,       # World Cup
-
-        # African competitions
-        "CAF_CL": 207,    # CAF Champions League
-        "CAF_CC": 208,    # CAF Confederation Cup
-        "AFCON": 21,      # Africa Cup of Nations
-
-    # North African leagues
-        "EGY": 233,       # Egyptian Premier League
-        "TUN": 253,       # Tunisian Ligue 1
-        "ALG": 187,       # Algerian Ligue 1
-        "MAR": 242,       # Moroccan Botola Pro
-        "LBY": 386,       # Libyan Premier League
-    
-
-    # Middle Eastern leagues
-        "KSA": 307,       # Saudi Pro League
-        "UAE": 344,       # UAE Pro League
-        "QAT": 305,       # Qatar Stars League
-        "KUW": 384,       # Kuwaiti Premier League
-        "IRN": 292,       # Persian Gulf Pro League (Iran)
-        "IRQ": 294,       # Iraqi Premier League
-        "JOR": 299,       # Jordanian Pro League
-        "SYR": 379,       # Syrian Premier League
- 
-
-    # Add more as needed – verify IDs from API-Football
+        "PL": 39, "PD": 140, "BL1": 78, "SA": 135, "FL1": 61,
+        "CL": 2, "EL": 3, "EC": 4, "WC": 1,
+        "CAF_CL": 207, "CAF_CC": 208, "AFCON": 21,
+        "EGY": 233, "TUN": 253, "ALG": 187, "MAR": 242,
+        "LBY": 386, "MTN": 322,
+        "KSA": 307, "UAE": 344, "QAT": 305, "KUW": 384,
+        "IRN": 292, "IRQ": 294, "JOR": 299, "SYR": 379,
+        "LIB": 382, "PLE": 383, "OMN": 381, "BHR": 378, "YEM": 380,
     }
-    season = 2026  # adjust to current season
-    for fd_code, af_league_id in league_map.items():
-        print(f"Fetching teams for league {fd_code} (AF ID {af_league_id})...")
-        teams_data = fetch_teams_by_league(af_league_id, season)
-        if not teams_data:
-            continue
-        for t in teams_data:
-            team = t["team"]
-            supabase.table("teams").upsert({
-                "id": team["id"],
-                "name": team["name"],
-                "logo": team["logo"],
-                "country": team["country"]
-            }, on_conflict="id").execute()
-            # Fetch players for this team (optional – can be heavy)
-            # players = fetch_players_by_team(team["id"], season)
-            # if players:
-            #     for p in players:
-            #         # Insert into players table
-            #         ...
+    
+    season = datetime.now().year
+    max_requests_per_run = 40  # Safe limit (half of daily quota)
+    requests_made = 0
+    interval_days = 7  # Fetch each league once per week
 
-        # Fetch top scorers
-        scorers = fetch_top_scorers(af_league_id, season)
-        if scorers:
-            for s in scorers:
-                supabase.table("top_scorers").upsert({
-                    "league_id": af_league_id,
-                    "league_name": fd_code,  # you can store name
-                    "season": str(season),
-                    "player_id": s["player"]["id"],
-                    "team_id": s["statistics"][0]["team"]["id"],
-                    "goals": s["statistics"][0]["goals"]["total"],
-                    "assists": s["statistics"][0]["goals"]["assists"],
-                    "penalties": s["statistics"][0]["penalty"]["scored"]
-                }, on_conflict=["league_id", "season", "player_id"]).execute()
+    # Ensure league_fetch_status table has entries for all leagues
+    for code, af_id in league_map.items():
+        supabase.table("league_fetch_status").upsert({
+            "league_code": code,
+            "af_league_id": af_id
+        }, on_conflict="league_code").execute()
+
+    # Get current statuses
+    status_res = supabase.table("league_fetch_status").select("*").execute()
+    status_dict = {s["league_code"]: s for s in status_res.data}
+
+    for code, af_id in league_map.items():
+        if requests_made >= max_requests_per_run:
+            print(f"Reached max requests ({max_requests_per_run}) for this run. Stopping.")
+            break
+
+        status = status_dict.get(code, {})
+        last_teams = status.get("last_teams_fetch")
+        last_ts = status.get("last_topscorers_fetch")
+
+        # Check if we need to fetch teams
+        fetch_teams = False
+        if not last_teams or (datetime.now() - datetime.fromisoformat(last_teams)) > timedelta(days=interval_days):
+            fetch_teams = True
+
+        # Check if we need to fetch top scorers
+        fetch_topscorers = False
+        if not last_ts or (datetime.now() - datetime.fromisoformat(last_ts)) > timedelta(days=interval_days):
+            fetch_topscorers = True
+
+        if not fetch_teams and not fetch_topscorers:
+            continue
+
+        print(f"Processing league {code} (AF ID {af_id})...")
+
+        # Fetch teams (if needed)
+        if fetch_teams:
+            if requests_made >= max_requests_per_run:
+                print("Request limit reached, stopping before teams fetch.")
+                break
+            teams_data = fetch_teams_by_league(af_id, season)
+            requests_made += 1
+            if teams_data:
+                for t in teams_data:
+                    team = t["team"]
+                    supabase.table("teams").upsert({
+                        "id": team["id"],
+                        "name": team["name"],
+                        "logo": team["logo"],
+                        "country": team["country"]
+                    }, on_conflict="id").execute()
+                # Update last fetch time
+                supabase.table("league_fetch_status").update({
+                    "last_teams_fetch": datetime.now().isoformat()
+                }).eq("league_code", code).execute()
+                print(f"  Updated teams for {code}")
+            else:
+                print(f"  No teams data for {code}")
+
+        # Fetch top scorers (if needed)
+        if fetch_topscorers:
+            if requests_made >= max_requests_per_run:
+                print("Request limit reached, stopping before top scorers fetch.")
+                break
+            scorers = fetch_top_scorers(af_id, season)
+            requests_made += 1
+            if scorers:
+                for s in scorers:
+                    supabase.table("top_scorers").upsert({
+                        "league_id": af_id,
+                        "league_name": code,
+                        "season": str(season),
+                        "player_id": s["player"]["id"],
+                        "team_id": s["statistics"][0]["team"]["id"],
+                        "goals": s["statistics"][0]["goals"]["total"],
+                        "assists": s["statistics"][0]["goals"]["assists"],
+                        "penalties": s["statistics"][0]["penalty"]["scored"]
+                    }, on_conflict=["league_id", "season", "player_id"]).execute()
+                supabase.table("league_fetch_status").update({
+                    "last_topscorers_fetch": datetime.now().isoformat()
+                }).eq("league_code", code).execute()
+                print(f"  Updated top scorers for {code}")
+            else:
+                print(f"  No top scorers data for {code}")
+
+        # Small delay to avoid hitting rate limits too hard
+        time.sleep(1)
+
+    print(f"Total requests made this run: {requests_made}")
 
 # -------------------------------------------------------------------
 # News fetching (unchanged)
