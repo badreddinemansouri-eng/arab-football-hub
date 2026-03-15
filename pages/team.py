@@ -26,32 +26,50 @@ except ValueError:
     st.error("معرف الفريق غير صالح")
     st.stop()
 
-# -------------------- Ultra logo resolver --------------------
-def get_team_logo(team_name, stored_logo=None):
-    """Return a logo URL: 1) stored, 2) TheSportsDB, 3) initials placeholder."""
-    if stored_logo and stored_logo != "None":
-        return stored_logo
-    # Try TheSportsDB
-    try:
-        url = f"https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t={requests.utils.quote(team_name)}"
-        resp = requests.get(url, timeout=3)
-        if resp.status_code == 200:
-            data = resp.json()
-            if data.get("teams"):
-                logo = data["teams"][0].get("strTeamBadge")
-                if logo:
-                    # Store in DB for future use (optional, but we'll just return)
-                    return logo
-    except:
-        pass
-    # Fallback to initials
+# -------------------- Ultra logo resolver (with Clearbit) --------------------
+def get_team_logo(team_name, team_website=None):
+    # 1. Check local DB
+    res = supabase.table("team_logos").select("logo_url").eq("team_name", team_name).execute()
+    if res.data:
+        return res.data[0]["logo_url"]
+
+    # 2. Try TheSportsDB with multiple name variations
+    variations = [team_name, team_name.replace(" FC", ""), team_name.replace(" CF", ""), team_name.replace(" United", "")]
+    for name in variations:
+        url = f"https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t={requests.utils.quote(name)}"
+        try:
+            resp = requests.get(url, timeout=3)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("teams"):
+                    logo = data["teams"][0].get("strTeamBadge")
+                    if logo:
+                        supabase.table("team_logos").upsert({"team_name": team_name, "logo_url": logo}, on_conflict="team_name").execute()
+                        return logo
+        except:
+            pass
+
+    # 3. Try Clearbit if we have the team's website
+    if team_website:
+        try:
+            domain = team_website.replace("https://", "").replace("http://", "").split("/")[0]
+            clearbit_url = f"https://logo.clearbit.com/{domain}"
+            # Check if it exists
+            if requests.head(clearbit_url, timeout=2).status_code == 200:
+                supabase.table("team_logos").upsert({"team_name": team_name, "logo_url": clearbit_url}, on_conflict="team_name").execute()
+                return clearbit_url
+        except:
+            pass
+
+    # 4. Fallback to initials
     words = team_name.split()
     if len(words) == 1:
         initials = words[0][:2].upper()
     else:
         initials = (words[0][0] + words[-1][0]).upper()
     color = hashlib.md5(team_name.encode()).hexdigest()[:6]
-    return f"https://ui-avatars.com/api/?name={initials}&background={color}&color=fff&size=200&bold=true&length=2"
+    placeholder = f"https://ui-avatars.com/api/?name={initials}&background={color}&color=fff&size=200&bold=true&length=2"
+    return placeholder
 
 # -------------------- TheSportsDB API helpers (cached) --------------------
 @st.cache_data(ttl=3600)
@@ -134,6 +152,9 @@ recent_events = get_recent_events(tsdb_id) if tsdb_id else []
 next_events = get_next_events(tsdb_id) if tsdb_id else []
 honours = get_honours(tsdb_id) if tsdb_id else []
 
+# Extract website for logo resolver
+team_website = tsdb_team.get('strWebsite') if tsdb_team else None
+
 # -------------------- Helper functions --------------------
 def safe_int(val):
     try:
@@ -154,10 +175,11 @@ def form_color(result):
     return "#28a745" if result == "فوز" else "#ffc107" if result == "تعادل" else "#dc3545"
 
 # -------------------- Build the page --------------------
-# ---- Header with logo and basic info ----
+logo = get_team_logo(team['name'], team_website)
+
+# ---- Header ----
 col1, col2 = st.columns([1, 3])
 with col1:
-    logo = get_team_logo(team['name'], team.get('logo'))
     st.image(logo, width=200)
     if tsdb_team and tsdb_team.get('strWebsite'):
         st.markdown(f"[🔗 الموقع الرسمي]({tsdb_team['strWebsite']})")
@@ -217,7 +239,6 @@ with tab1:
                 icon = form_icon(res)
                 color = form_color(res)
                 cols[i].markdown(f"<div style='background:{color}; border-radius:8px; padding:10px; text-align:center; color:white; font-weight:bold;'>{icon}</div>", unsafe_allow_html=True)
-            # Form percentage
             wins = form_list.count("فوز")
             draws = form_list.count("تعادل")
             losses = form_list.count("خسارة")
@@ -229,8 +250,7 @@ with tab1:
 
     with colB:
         st.subheader("⭐ أفضل الهدافين (آخر 10 مباريات)")
-        # Parse events to count goals by player – not directly available from TheSportsDB.
-        # We'll show a placeholder for now.
+        # We could parse events but TheSportsDB doesn't provide player scorers. Placeholder.
         st.info("قريباً – إحصائيات الهدافين")
 
         st.subheader("🔜 المباراة القادمة")
@@ -275,7 +295,14 @@ with tab2:
                         except:
                             age = player['dateBorn'][:4]
                     st.caption(f"{nat} | {age} سنة")
-                    # Optional: link to player page
+                    # Contract and value if available
+                    contract = player.get('strContract', '')
+                    value = player.get('strWage', '')  # actually strWage might be something else; TheSportsDB has strValue for market value
+                    if player.get('strValue'):
+                        value = player.get('strValue')
+                    if contract or value:
+                        st.caption(f"عقد: {contract} | قيمة: {value}")
+                    # Link to player page if you have one
                     # if player.get('idPlayer'):
                     #     st.markdown(f"[🔗 الملف الشخصي](/player?player_id={player['idPlayer']})")
 
@@ -397,7 +424,6 @@ with tab4:
     else:
         st.info("لا توجد إحصائيات كافية")
 
-    # Top scorers (if we had player stats)
     st.subheader("⭐ الهدافون")
     st.info("قريباً – قائمة الهدافين")
 
@@ -406,7 +432,6 @@ with tab5:
     st.subheader("🏆 البطولات والألقاب")
 
     if honours:
-        # Group by competition
         honour_dict = {}
         for h in honours:
             comp = h.get('strHonour', 'أخرى')
@@ -422,13 +447,12 @@ with tab5:
 # ==================== TAB 6: Full History ====================
 with tab6:
     st.subheader("📜 السجل الكامل للمباريات")
-    # Fetch all matches involving the team from Supabase (limit to 100)
-    home_all = supabase.table("matches").select("*").eq("home_team_id", team_id).order("match_time", desc=True).limit(50).execute()
-    away_all = supabase.table("matches").select("*").eq("away_team_id", team_id).order("match_time", desc=True).limit(50).execute()
+    home_all = supabase.table("matches").select("*").eq("home_team_id", team_id).order("match_time", desc=True).limit(100).execute()
+    away_all = supabase.table("matches").select("*").eq("away_team_id", team_id).order("match_time", desc=True).limit(100).execute()
     all_matches = home_all.data + away_all.data
     all_matches.sort(key=lambda x: x['match_time'], reverse=True)
     if all_matches:
-        for m in all_matches[:20]:
+        for m in all_matches[:30]:
             try:
                 dt = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00')).astimezone(tz_tunis)
                 date_str = dt.strftime("%Y-%m-%d")
