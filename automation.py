@@ -7,13 +7,13 @@ import json
 import time
 import unicodedata
 import re
-import feedparser  # <-- added
+import feedparser
 
 # Environment variables
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_SERVICE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
-# SUPABASE_ANON_KEY = os.environ["SUPABASE_ANON_KEY"]
 FOOTBALL_DATA_TOKEN = os.environ["FOOTBALL_DATA_TOKEN"]
+RAPIDAPI_KEY = os.environ.get("RAPIDAPI_KEY", "")          # <-- new: for API-Football
 YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY", "")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
@@ -21,8 +21,17 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 # -------------------------------------------------------------------
 # football-data.org API configuration
 # -------------------------------------------------------------------
-API_BASE_URL = "https://api.football-data.org/v4"
-HEADERS = { "X-Auth-Token": FOOTBALL_DATA_TOKEN }
+FD_API_BASE = "https://api.football-data.org/v4"
+FD_HEADERS = { "X-Auth-Token": FOOTBALL_DATA_TOKEN }
+
+# -------------------------------------------------------------------
+# API-Football (RapidAPI) configuration
+# -------------------------------------------------------------------
+AF_API_HOST = "api-football-v1.p.rapidapi.com"
+AF_HEADERS = {
+    "X-RapidAPI-Key": RAPIDAPI_KEY,
+    "X-RapidAPI-Host": AF_API_HOST
+}
 
 ALLOWED_COMPETITIONS = [
     "PL", "PD", "BL1", "SA", "FL1", "CL", "EC", "WC",
@@ -150,12 +159,12 @@ def get_country_flag(country_name):
     return f"https://flagpedia.net/data/flags/icon/72x54/{code}.png"
 
 # -------------------------------------------------------------------
-# Match fetching and parsing (unchanged)
+# football-data.org match fetching (unchanged)
 # -------------------------------------------------------------------
-def fetch_all_competitions():
-    url = f"{API_BASE_URL}/competitions"
+def fetch_fd_competitions():
+    url = f"{FD_API_BASE}/competitions"
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=10)
+        resp = requests.get(url, headers=FD_HEADERS, timeout=10)
         if resp.status_code != 200:
             print(f"Error response: {resp.text}")
             return []
@@ -165,11 +174,11 @@ def fetch_all_competitions():
         print(f"Found {len(filtered)} allowed competitions")
         return filtered
     except Exception as e:
-        print(f"Exception in fetch_all_competitions: {e}")
+        print(f"Exception in fetch_fd_competitions: {e}")
         return []
 
-def fetch_matches(competition_code=None, date_from=None, date_to=None, status=None):
-    url = f"{API_BASE_URL}/matches"
+def fetch_fd_matches(competition_code=None, date_from=None, date_to=None, status=None):
+    url = f"{FD_API_BASE}/matches"
     params = {}
     if competition_code:
         params["competitions"] = competition_code
@@ -180,15 +189,15 @@ def fetch_matches(competition_code=None, date_from=None, date_to=None, status=No
     if status:
         params["status"] = status
     try:
-        resp = requests.get(url, headers=HEADERS, params=params, timeout=10)
+        resp = requests.get(url, headers=FD_HEADERS, params=params, timeout=10)
         data = resp.json()
         matches = data.get("matches", [])
         return matches
     except Exception as e:
-        print(f"Error fetching matches: {e}")
+        print(f"Error fetching FD matches: {e}")
         return []
 
-def parse_match(match):
+def parse_fd_match(match):
     competition = match.get("competition", {})
     home_team = match.get("homeTeam", {})
     away_team = match.get("awayTeam", {})
@@ -220,6 +229,7 @@ def parse_match(match):
     match_data = {
         "fixture_id": match["id"],
         "league": competition.get("name", "Unknown"),
+        "league_id": competition.get("id"),          # <-- store league id
         "league_logo": league_logo,
         "home_team": home_team.get("name", "Unknown"),
         "away_team": away_team.get("name", "Unknown"),
@@ -233,6 +243,8 @@ def parse_match(match):
         "away_score": away_score,
         "streams": [],
         "broadcasters": [],
+        "home_team_id": None,   # will be filled later by API-Football
+        "away_team_id": None,
     }
     return match_data
 
@@ -243,7 +255,218 @@ def upsert_match(match_data):
         print(f"Error upserting match {match_data['fixture_id']}: {e}")
 
 # -------------------------------------------------------------------
-# News fetching functions
+# API-Football functions (RapidAPI)
+# -------------------------------------------------------------------
+def af_request(endpoint, params=None):
+    """Make a request to API-Football and return response."""
+    if not RAPIDAPI_KEY:
+        print("RAPIDAPI_KEY not set, skipping API-Football request.")
+        return None
+    url = f"https://{AF_API_HOST}/{endpoint}"
+    try:
+        resp = requests.get(url, headers=AF_HEADERS, params=params, timeout=15)
+        if resp.status_code != 200:
+            print(f"API-Football error {resp.status_code}: {resp.text}")
+            return None
+        data = resp.json()
+        if data.get("errors") and data["errors"]:
+            print(f"API-Football errors: {data['errors']}")
+            return None
+        return data.get("response")
+    except Exception as e:
+        print(f"API-Football request error: {e}")
+        return None
+
+def fetch_teams_by_league(league_id, season):
+    """Fetch all teams in a league for a given season."""
+    params = {"league": league_id, "season": season}
+    return af_request("teams", params)
+
+def fetch_players_by_team(team_id, season):
+    """Fetch players of a team for a given season."""
+    params = {"team": team_id, "season": season}
+    return af_request("players", params)
+
+def fetch_top_scorers(league_id, season):
+    """Fetch top scorers for a league/season."""
+    params = {"league": league_id, "season": season}
+    return af_request("players/topscorers", params)
+
+def fetch_fixture_by_id(fixture_id):
+    """Fetch detailed fixture data (lineups, events, statistics)."""
+    params = {"fixture": fixture_id}
+    return af_request("fixtures", params)
+
+def fetch_fixtures_by_league(league_id, season, status=None):
+    """Fetch all fixtures for a league/season (can filter by status)."""
+    params = {"league": league_id, "season": season}
+    if status:
+        params["status"] = status
+    return af_request("fixtures", params)
+
+# -------------------------------------------------------------------
+# Enrich matches with API-Football IDs
+# -------------------------------------------------------------------
+def update_match_with_af_ids(match_data, af_fixture_data):
+    """
+    Given a match_data dict (from FD) and a fixture response from API-Football,
+    update match_data with home_team_id, away_team_id, and possibly more details.
+    """
+    if not af_fixture_data or len(af_fixture_data) == 0:
+        return match_data
+    fixture = af_fixture_data[0]
+    match_data["home_team_id"] = fixture["teams"]["home"]["id"]
+    match_data["away_team_id"] = fixture["teams"]["away"]["id"]
+    # Also update league_id if needed (API-Football league id might be different)
+    # We'll keep the FD league_id for now, but you could map.
+    return match_data
+
+def enrich_match_with_af_details(fixture_id):
+    """Fetch details (lineups, events, stats) from AF and store in respective tables."""
+    data = fetch_fixture_by_id(fixture_id)
+    if not data:
+        return
+    fixture = data[0]   # should be one fixture
+
+    # Update matches table with additional fields (like elapsed, referee, etc.)
+    match_update = {
+        "elapsed": fixture["fixture"]["status"]["elapsed"],
+        "referee": fixture["fixture"]["referee"],
+        "home_score": fixture["goals"]["home"],
+        "away_score": fixture["goals"]["away"],
+        "halftime_home": fixture["score"]["halftime"]["home"],
+        "halftime_away": fixture["score"]["halftime"]["away"],
+        "fulltime_home": fixture["score"]["fulltime"]["home"],
+        "fulltime_away": fixture["score"]["fulltime"]["away"],
+        "extratime_home": fixture["score"]["extratime"]["home"],
+        "extratime_away": fixture["score"]["extratime"]["away"],
+        "penalty_home": fixture["score"]["penalty"]["home"],
+        "penalty_away": fixture["score"]["penalty"]["away"],
+        "winner": "home" if fixture["teams"]["home"]["winner"] else "away" if fixture["teams"]["away"]["winner"] else "draw"
+    }
+    supabase.table("matches").update(match_update).eq("fixture_id", fixture_id).execute()
+
+    # Statistics
+    stats = fixture.get("statistics", [])
+    for team_stats in stats:
+        team_id = team_stats["team"]["id"]
+        for stat in team_stats["statistics"]:
+            supabase.table("match_statistics").upsert({
+                "fixture_id": fixture_id,
+                "team_id": team_id,
+                "type": stat["type"],
+                "value": stat["value"]
+            }, on_conflict=["fixture_id", "team_id", "type"]).execute()
+
+    # Lineups
+    lineups = fixture.get("lineups", [])
+    for lineup in lineups:
+        supabase.table("lineups").upsert({
+            "fixture_id": fixture_id,
+            "team_id": lineup["team"]["id"],
+            "formation": lineup["formation"],
+            "starting_xi": lineup["startXI"],
+            "substitutes": lineup["substitutes"],
+            "coach_name": lineup["coach"]["name"]
+        }, on_conflict=["fixture_id", "team_id"]).execute()
+
+    # Events
+    events = fixture.get("events", [])
+    for ev in events:
+        supabase.table("match_events").insert({
+            "fixture_id": fixture_id,
+            "elapsed": ev["time"]["elapsed"],
+            "extra_minute": ev["time"]["extra"],
+            "team_id": ev["team"]["id"],
+            "player_id": ev["player"]["id"] if ev.get("player") else None,
+            "assist_player_id": ev["assist"]["id"] if ev.get("assist") else None,
+            "type": ev["type"],
+            "detail": ev["detail"],
+            "comments": ev["comments"]
+        }).execute()
+
+# -------------------------------------------------------------------
+# Populate teams and players (bulk update)
+# -------------------------------------------------------------------
+def update_teams_and_players():
+    """Fetch teams and players for all allowed competitions (once per season)."""
+    # We need a mapping of FD competition codes to API-Football league IDs.
+    # This is a simplified mapping; you may want to extend.
+    league_map = {
+        # European top leagues (already present)
+        "PL": 39,      # Premier League
+        "PD": 140,     # La Liga
+        "BL1": 78,     # Bundesliga
+        "SA": 135,     # Serie A
+        "FL1": 61,     # Ligue 1
+        "CL": 2,       # UEFA Champions League
+        "EC": 4,       # European Championship
+        "WC": 1,       # World Cup
+
+        # African competitions
+        "CAF_CL": 207,    # CAF Champions League
+        "CAF_CC": 208,    # CAF Confederation Cup
+        "AFCON": 21,      # Africa Cup of Nations
+
+    # North African leagues
+        "EGY": 233,       # Egyptian Premier League
+        "TUN": 253,       # Tunisian Ligue 1
+        "ALG": 187,       # Algerian Ligue 1
+        "MAR": 242,       # Moroccan Botola Pro
+        "LBY": 386,       # Libyan Premier League
+    
+
+    # Middle Eastern leagues
+        "KSA": 307,       # Saudi Pro League
+        "UAE": 344,       # UAE Pro League
+        "QAT": 305,       # Qatar Stars League
+        "KUW": 384,       # Kuwaiti Premier League
+        "IRN": 292,       # Persian Gulf Pro League (Iran)
+        "IRQ": 294,       # Iraqi Premier League
+        "JOR": 299,       # Jordanian Pro League
+        "SYR": 379,       # Syrian Premier League
+ 
+
+    # Add more as needed – verify IDs from API-Football
+    }
+    season = 2026  # adjust to current season
+    for fd_code, af_league_id in league_map.items():
+        print(f"Fetching teams for league {fd_code} (AF ID {af_league_id})...")
+        teams_data = fetch_teams_by_league(af_league_id, season)
+        if not teams_data:
+            continue
+        for t in teams_data:
+            team = t["team"]
+            supabase.table("teams").upsert({
+                "id": team["id"],
+                "name": team["name"],
+                "logo": team["logo"],
+                "country": team["country"]
+            }, on_conflict="id").execute()
+            # Fetch players for this team (optional – can be heavy)
+            # players = fetch_players_by_team(team["id"], season)
+            # if players:
+            #     for p in players:
+            #         # Insert into players table
+            #         ...
+
+        # Fetch top scorers
+        scorers = fetch_top_scorers(af_league_id, season)
+        if scorers:
+            for s in scorers:
+                supabase.table("top_scorers").upsert({
+                    "league_id": af_league_id,
+                    "league_name": fd_code,  # you can store name
+                    "season": str(season),
+                    "player_id": s["player"]["id"],
+                    "team_id": s["statistics"][0]["team"]["id"],
+                    "goals": s["statistics"][0]["goals"]["total"],
+                    "assists": s["statistics"][0]["goals"]["assists"],
+                    "penalties": s["statistics"][0]["penalty"]["scored"]
+                }, on_conflict=["league_id", "season", "player_id"]).execute()
+
+# -------------------------------------------------------------------
+# News fetching (unchanged)
 # -------------------------------------------------------------------
 def fetch_news_from_feed(feed_url, language="ar"):
     print(f"[{datetime.now()}] Fetching {language} news from {feed_url}")
@@ -262,9 +485,8 @@ def fetch_news_from_feed(feed_url, language="ar"):
         if not entries:
             print("No entries found.")
             return
-        for i, entry in enumerate(entries[:20]):  # process up to 20
+        for i, entry in enumerate(entries[:20]):
             print(f"Processing entry {i+1}: {entry.get('title', 'No title')}")
-            # Extract image
             image = None
             if hasattr(entry, 'media_content'):
                 image = entry.media_content[0]['url']
@@ -282,7 +504,6 @@ def fetch_news_from_feed(feed_url, language="ar"):
                 if match:
                     image = match.group(1)
 
-            # Prepare data
             data = {
                 "title": entry.get('title', '')[:255],
                 "content": entry.get('summary', entry.get('description', ''))[:1000],
@@ -292,7 +513,6 @@ def fetch_news_from_feed(feed_url, language="ar"):
                 "published_at": entry.get('published', entry.get('updated', datetime.now().isoformat())),
                 "language": language
             }
-            # Ensure URL is present
             if not data["url"]:
                 print("Skipping entry: no URL")
                 continue
@@ -305,41 +525,44 @@ def fetch_news_from_feed(feed_url, language="ar"):
         print(f"Error fetching news from {feed_url}: {e}")
 
 def cleanup_old_news():
-    """Delete news older than 7 days to keep the database clean."""
     cutoff = (datetime.now() - timedelta(days=7)).isoformat()
     try:
         result = supabase.table("news").delete().lt("published_at", cutoff).execute()
         print(f"Deleted {len(result.data)} news items older than 7 days.")
     except Exception as e:
         print(f"Error during news cleanup: {e}")
+
 def update_news():
-    """Fetch from Arabic sports RSS feeds only."""
     arabic_feeds = [
-        "https://www.france24.com/ar/%D8%AA%D8%A7%D8%BA/%D8%AF%D9%88%D8%B1%D9%8A-%D8%A3%D8%A8%D8%B7%D8%A7%D9%84-%D8%A3%D9%81%D8%B1%D9%8A%D9%82%D9%8A%D8%A7/rss",  # CAF Champions League (working)
-        "https://www.france24.com/ar/sports/rss",   
-        "http://feeds.bbci.co.uk/arabic/sport/rss.xml", #General sports (new)
+        "https://www.france24.com/ar/%D8%AA%D8%A7%D8%BA/%D8%AF%D9%88%D8%B1%D9%8A-%D8%A3%D8%A8%D8%B7%D8%A7%D9%84-%D8%A3%D9%81%D8%B1%D9%8A%D9%82%D9%8A%D8%A7/rss",
+        "https://www.france24.com/ar/sports/rss",
+        "http://feeds.bbci.co.uk/arabic/sport/rss.xml",
     ]
     for feed in arabic_feeds:
         fetch_news_from_feed(feed, "ar")
     cleanup_old_news()
+
 # -------------------------------------------------------------------
-# Main update functions
+# Main update functions (modified to use API-Football enrichment)
 # -------------------------------------------------------------------
 def update_live():
     print(f"[{datetime.now()}] Running live update...")
-    # 1. Update currently live matches
-    live_matches = fetch_matches(status="IN_PLAY,PAUSED")
+    live_matches = fetch_fd_matches(status="IN_PLAY,PAUSED")
     for match in live_matches:
-        data = parse_match(match)
+        data = parse_fd_match(match)
+        # If we have RapidAPI key, try to enrich with team IDs
+        if RAPIDAPI_KEY:
+            # We need to get AF fixture data for this match. Since FD uses different fixture IDs,
+            # we may need to match by date and teams. For simplicity, we'll skip live enrichment for now.
+            # Instead, we can rely on the full update to have stored IDs.
+            pass
         upsert_match(data)
         print(f"Updated live: {data['home_team']} vs {data['away_team']}")
 
-    # 2. Fetch today + tomorrow matches
     today = datetime.now().strftime("%Y-%m-%d")
     tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
-    upcoming_matches = fetch_matches(date_from=today, date_to=tomorrow)
+    upcoming_matches = fetch_fd_matches(date_from=today, date_to=tomorrow)
 
-    # 3. Proactively update matches within next 15 minutes
     now_utc = datetime.now(timezone.utc)
     soon_threshold = now_utc + timedelta(minutes=15)
 
@@ -349,9 +572,9 @@ def update_live():
             try:
                 match_time = datetime.fromisoformat(match_time_str.replace('Z', '+00:00'))
                 if match_time <= soon_threshold:
-                    data = parse_match(match)
+                    data = parse_fd_match(match)
                     upsert_match(data)
-                    print(f"Proactively updated: {data['home_team']} vs {data['away_team']} (scheduled at {match_time_str})")
+                    print(f"Proactively updated: {data['home_team']} vs {data['away_team']}")
             except Exception as e:
                 print(f"Error parsing time for match {match.get('id')}: {e}")
 
@@ -359,7 +582,7 @@ def update_live():
 
 def update_all_matches():
     print(f"[{datetime.now()}] Running global match update...")
-    competitions = fetch_all_competitions()
+    competitions = fetch_fd_competitions()
     if not competitions:
         print("No competitions found.")
         return
@@ -371,15 +594,10 @@ def update_all_matches():
         code = comp["code"]
         name = comp["name"]
         print(f"Fetching matches for {name} ({code})...")
-
-        matches = fetch_matches(competition_code=code, date_from=today, date_to=next_3_days)
+        matches = fetch_fd_matches(competition_code=code, date_from=today, date_to=next_3_days)
 
         for match in matches:
-            match_data = parse_match(match)
-
-            if match_data["status"] in ["LIVE", "UPCOMING"]:
-                streams = search_youtube_streams(match_data)  # placeholder
-                match_data["streams"] = json.dumps(streams)
+            match_data = parse_fd_match(match)
 
             # Merge admin streams
             admin_streams = supabase.table("admin_streams")\
@@ -415,6 +633,19 @@ def update_all_matches():
 
     # Fetch news after matches
     update_news()
+
+    # After matches are updated, enrich them with API-Football data (if key available)
+    if RAPIDAPI_KEY:
+        print("Enriching matches with API-Football data...")
+        # For simplicity, we'll fetch all matches from the last 3 days that need team IDs.
+        # But we can also run a separate job. Here we'll do a one‑time bulk update.
+        update_teams_and_players()   # populate teams, players, top scorers
+
+        # Now try to add team IDs to matches we just inserted.
+        # We need to match FD fixtures with AF fixtures. This is non‑trivial.
+        # A simpler approach: fetch fixtures for each league from AF and match by date and teams.
+        # For now, we'll skip; you can run a separate script later.
+        print("Team ID enrichment not implemented in this version.")
 
     print("Global update complete!")
 
