@@ -3,11 +3,12 @@ from supabase import create_client
 from datetime import datetime, timedelta
 import zoneinfo
 import requests
-import html
 import pandas as pd
+import time
 
 st.set_page_config(page_title="فريق", page_icon="🏟️", layout="wide")
 
+# -------------------- Init --------------------
 supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_ANON_KEY"])
 tz_tunis = zoneinfo.ZoneInfo("Africa/Tunis")
 
@@ -24,68 +25,73 @@ except ValueError:
     st.error("معرف الفريق غير صالح")
     st.stop()
 
-# -------------------------------------------------------------------
-# Helper functions for TheSportsDB API
-# -------------------------------------------------------------------
+# -------------------- TheSportsDB API helpers --------------------
 @st.cache_data(ttl=3600)
 def search_team_by_name(name):
-    """Search for team on TheSportsDB and return first result."""
+    url = f"https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t={requests.utils.quote(name)}"
     try:
-        url = f"https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t={requests.utils.quote(name)}"
         resp = requests.get(url, timeout=5)
         if resp.status_code == 200:
             data = resp.json()
-            if data.get("teams"):
-                return data["teams"][0]
-    except Exception as e:
-        print(f"Error searching team: {e}")
-    return None
+            return data["teams"][0] if data.get("teams") else None
+    except:
+        return None
 
 @st.cache_data(ttl=3600)
-def get_players_by_team_id(tsdb_team_id):
-    """Get all players for a TheSportsDB team ID."""
+def get_players(tsdb_id):
+    url = f"https://www.thesportsdb.com/api/v1/json/3/lookup_all_players.php?id={tsdb_id}"
     try:
-        url = f"https://www.thesportsdb.com/api/v1/json/3/lookup_all_players.php?id={tsdb_team_id}"
         resp = requests.get(url, timeout=5)
         if resp.status_code == 200:
             data = resp.json()
-            if data.get("player"):
-                return data["player"]
-    except Exception as e:
-        print(f"Error fetching players: {e}")
+            return data.get("player", [])
+    except:
+        return []
     return []
 
 @st.cache_data(ttl=3600)
-def get_recent_events_by_team_id(tsdb_team_id):
-    """Get last 10 events for a team from TheSportsDB."""
+def get_recent_events(tsdb_id):
+    url = f"https://www.thesportsdb.com/api/v1/json/3/eventslast.php?id={tsdb_id}"
     try:
-        url = f"https://www.thesportsdb.com/api/v1/json/3/eventslast.php?id={tsdb_team_id}"
         resp = requests.get(url, timeout=5)
         if resp.status_code == 200:
             data = resp.json()
-            if data.get("results"):
-                return data["results"]
-    except Exception as e:
-        print(f"Error fetching events: {e}")
+            return data.get("results", [])
+    except:
+        return []
     return []
 
 @st.cache_data(ttl=3600)
-def get_team_honors(tsdb_team_id):
-    """Get team honors (trophies) from TheSportsDB."""
+def get_next_events(tsdb_id):
+    url = f"https://www.thesportsdb.com/api/v1/json/3/eventsnext.php?id={tsdb_id}"
     try:
-        url = f"https://www.thesportsdb.com/api/v1/json/3/searchhonours.php?id={tsdb_team_id}"
         resp = requests.get(url, timeout=5)
         if resp.status_code == 200:
             data = resp.json()
-            if data.get("honours"):
-                return data["honours"]
-    except Exception as e:
-        print(f"Error fetching honors: {e}")
+            return data.get("events", [])
+    except:
+        return []
     return []
 
-# -------------------------------------------------------------------
-# Get team from local DB
-# -------------------------------------------------------------------
+@st.cache_data(ttl=3600)
+def get_honours(tsdb_id):
+    url = f"https://www.thesportsdb.com/api/v1/json/3/searchhonours.php?id={tsdb_id}"
+    try:
+        resp = requests.get(url, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            return data.get("honours", [])
+    except:
+        return []
+    return []
+
+@st.cache_data(ttl=3600)
+def get_league_seasons(league_id):
+    """Get all seasons for a league (to show historical standings). Not directly used here."""
+    # Optional, can be added later.
+    return []
+
+# -------------------- Get team from local DB --------------------
 @st.cache_data(ttl=3600)
 def get_local_team(tid):
     res = supabase.table("teams").select("*").eq("id", tid).execute()
@@ -93,207 +99,306 @@ def get_local_team(tid):
 
 team = get_local_team(team_id)
 if not team:
-    st.warning("الفريق غير موجود في قاعدة البيانات المحلية.")
+    st.error("الفريق غير موجود في قاعدة البيانات المحلية")
     st.stop()
 
-# -------------------------------------------------------------------
-# Fetch extended data from TheSportsDB
-# -------------------------------------------------------------------
+# -------------------- Fetch extended data from TheSportsDB --------------------
 tsdb_team = search_team_by_name(team['name'])
-tsdb_team_id = tsdb_team.get('idTeam') if tsdb_team else None
-players = get_players_by_team_id(tsdb_team_id) if tsdb_team_id else []
-recent_events = get_recent_events_by_team_id(tsdb_team_id) if tsdb_team_id else []
-honors = get_team_honors(tsdb_team_id) if tsdb_team_id else []
+tsdb_id = tsdb_team.get('idTeam') if tsdb_team else None
 
-# -------------------------------------------------------------------
-# Display team header
-# -------------------------------------------------------------------
+players = get_players(tsdb_id) if tsdb_id else []
+recent_events = get_recent_events(tsdb_id) if tsdb_id else []
+next_events = get_next_events(tsdb_id) if tsdb_id else []
+honours = get_honours(tsdb_id) if tsdb_id else []
+
+# -------------------- Helper functions --------------------
+def safe_int(val):
+    try:
+        return int(val)
+    except:
+        return 0
+
+def format_date(tsdb_date_str):
+    # TheSportsDB uses YYYY-MM-DD
+    try:
+        return datetime.strptime(tsdb_date_str, "%Y-%m-%d").strftime("%Y/%m/%d")
+    except:
+        return tsdb_date_str
+
+def form_icon(result):
+    if result == "فوز":
+        return "✅"
+    elif result == "تعادل":
+        return "🤝"
+    else:
+        return "❌"
+
+# -------------------- Build the page --------------------
+st.title(f"🏟️ {team['name']}")
+
+# ---- Top section with logo and basic info ----
 col1, col2 = st.columns([1, 3])
 with col1:
     logo = team.get('logo') or (tsdb_team.get('strTeamBadge') if tsdb_team else None)
-    st.image(logo or 'https://via.placeholder.com/200', width=200)
+    st.image(logo or "https://via.placeholder.com/200", width=200)
+    if tsdb_team and tsdb_team.get('strWebsite'):
+        st.markdown(f"[🔗 الموقع الرسمي]({tsdb_team['strWebsite']})")
+
 with col2:
-    st.title(team['name'])
     if tsdb_team:
-        st.caption(f"**الدوري:** {tsdb_team.get('strLeague')}")
-        st.caption(f"**الملعب:** {tsdb_team.get('strStadium')} (السعة: {tsdb_team.get('intStadiumCapacity', 'غير معروف')})")
-        st.caption(f"**التأسيس:** {tsdb_team.get('intFormedYear', 'غير معروف')}")
-        st.caption(f"**البلد:** {tsdb_team.get('strCountry', 'غير معروف')}")
-        st.caption(f"**الموقع الرسمي:** [{tsdb_team.get('strWebsite')}]({tsdb_team.get('strWebsite')})" if tsdb_team.get('strWebsite') else "")
+        st.markdown(f"**🏆 الدوري:** {tsdb_team.get('strLeague', 'غير معروف')}")
+        st.markdown(f"**🌍 البلد:** {tsdb_team.get('strCountry', 'غير معروف')}")
+        st.markdown(f"**📅 التأسيس:** {tsdb_team.get('intFormedYear', 'غير معروف')}")
+        st.markdown(f"**🏟️ الملعب:** {tsdb_team.get('strStadium', 'غير معروف')} (السعة: {tsdb_team.get('intStadiumCapacity', 'غير معروف')})")
+        if tsdb_team.get('strDescriptionEN'):
+            with st.expander("📝 نبذة عن الفريق"):
+                st.write(tsdb_team['strDescriptionEN'][:500] + "…")
     else:
-        st.caption(f"**البلد:** {team.get('country', 'غير معروف')}")
-        st.caption(f"**التأسيس:** {team.get('founded', 'غير معروف')}")
-        st.caption(f"**الملعب:** {team.get('venue_name', 'غير معروف')}")
+        st.markdown(f"**🌍 البلد:** {team.get('country', 'غير معروف')}")
+        st.markdown(f"**📅 التأسيس:** {team.get('founded', 'غير معروف')}")
+        st.markdown(f"**🏟️ الملعب:** {team.get('venue_name', 'غير معروف')}")
 
-if honors:
-    st.markdown("---")
-    st.subheader("🏆 البطولات")
-    cols = st.columns(4)
-    for i, h in enumerate(honors[:8]):
-        with cols[i % 4]:
-            st.markdown(f"**{h.get('strHonour')}**  \n{h.get('strSeason')}")
+# ---- Tabs ----
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "📊 نظرة عامة", "👥 التشكيلة", "📅 المباريات", "📈 إحصائيات", "🏆 البطولات"
+])
 
-# -------------------------------------------------------------------
-# Tabs: المباريات, التشكيلة, الإحصائيات, السجل
-# -------------------------------------------------------------------
-tab1, tab2, tab3, tab4 = st.tabs(["📅 المباريات", "👥 التشكيلة", "📊 إحصائيات", "📜 السجل"])
-
+# ==================== TAB 1: Overview ====================
 with tab1:
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("المباريات القادمة")
-        home_fixtures = supabase.table("matches")\
-            .select("*")\
-            .eq("home_team_id", team_id)\
-            .eq("status", "UPCOMING")\
-            .order("match_time")\
-            .execute()
-        away_fixtures = supabase.table("matches")\
-            .select("*")\
-            .eq("away_team_id", team_id)\
-            .eq("status", "UPCOMING")\
-            .order("match_time")\
-            .execute()
-        fixtures = home_fixtures.data + away_fixtures.data
-        fixtures.sort(key=lambda x: x['match_time'])
-        if fixtures:
-            for f in fixtures[:5]:
-                try:
-                    utc_time = datetime.fromisoformat(f["match_time"].replace('Z', '+00:00'))
-                    local_time = utc_time.astimezone(tz_tunis)
-                    time_str = local_time.strftime("%H:%M %Y-%m-%d")
-                except:
-                    time_str = f["match_time"][:16]
-                st.write(f"**{f['home_team']} vs {f['away_team']}** – {time_str}")
-        else:
-            st.info("لا توجد مباريات قادمة")
+    colA, colB = st.columns(2)
 
-    with col2:
-        st.subheader("آخر النتائج")
-        home_results = supabase.table("matches")\
-            .select("*")\
-            .eq("home_team_id", team_id)\
-            .eq("status", "FINISHED")\
-            .order("match_time", desc=True)\
-            .limit(5)\
-            .execute()
-        away_results = supabase.table("matches")\
-            .select("*")\
-            .eq("away_team_id", team_id)\
-            .eq("status", "FINISHED")\
-            .order("match_time", desc=True)\
-            .limit(5)\
-            .execute()
-        results = home_results.data + away_results.data
-        results.sort(key=lambda x: x['match_time'], reverse=True)
-        if results:
-            for r in results[:5]:
-                try:
-                    utc_time = datetime.fromisoformat(r["match_time"].replace('Z', '+00:00'))
-                    local_time = utc_time.astimezone(tz_tunis)
-                    date_str = local_time.strftime("%Y-%m-%d")
-                except:
-                    date_str = r["match_time"][:10]
-                score = f"{r['home_score']} - {r['away_score']}"
-                if r['home_team_id'] == team_id:
-                    outcome = "فوز" if r['home_score'] > r['away_score'] else "تعادل" if r['home_score'] == r['away_score'] else "خسارة"
-                else:
-                    outcome = "فوز" if r['away_score'] > r['home_score'] else "تعادل" if r['away_score'] == r['home_score'] else "خسارة"
-                st.write(f"**{r['home_team']} {score} {r['away_team']}** – {date_str} ({outcome})")
+    with colA:
+        st.subheader("⚽ المدرب")
+        if tsdb_team and tsdb_team.get('strManager'):
+            st.write(f"**{tsdb_team['strManager']}**")
         else:
-            st.info("لا توجد نتائج")
+            st.info("لا توجد معلومات عن المدرب")
 
-    # Recent form from TheSportsDB (alternative)
-    if recent_events:
-        st.subheader("آخر المباريات (TheSportsDB)")
-        form = []
-        for ev in recent_events[:5]:
-            home = ev['strHomeTeam']
-            away = ev['strAwayTeam']
-            home_score = ev['intHomeScore']
-            away_score = ev['intAwayScore']
-            if home_score is not None and away_score is not None:
+        st.subheader("📊 آخر 5 مباريات (الشكل)")
+        if recent_events:
+            form_list = []
+            for ev in recent_events[:5]:
+                home = ev['strHomeTeam']
+                away = ev['strAwayTeam']
                 try:
-                    home_score = int(home_score)
-                    away_score = int(away_score)
-                    if ev['idHomeTeam'] == tsdb_team_id:
-                        outcome = "فوز" if home_score > away_score else "تعادل" if home_score == away_score else "خسارة"
+                    hs = int(ev['intHomeScore'])
+                    as_ = int(ev['intAwayScore'])
+                    if ev['idHomeTeam'] == tsdb_id:
+                        result = "فوز" if hs > as_ else "تعادل" if hs == as_ else "خسارة"
                     else:
-                        outcome = "فوز" if away_score > home_score else "تعادل" if away_score == home_score else "خسارة"
-                    st.write(f"**{home} {home_score}-{away_score} {away}** – {outcome}")
+                        result = "فوز" if as_ > hs else "تعادل" if as_ == hs else "خسارة"
                 except:
-                    st.write(f"**{home} vs {away}** – نتيجة غير متوفرة")
+                    result = "غير معروف"
+                form_list.append(result)
+            # Show as colored boxes
+            cols = st.columns(5)
+            for i, res in enumerate(form_list):
+                icon = form_icon(res)
+                color = "#28a745" if res == "فوز" else "#ffc107" if res == "تعادل" else "#dc3545"
+                cols[i].markdown(f"<div style='background:{color}; border-radius:5px; padding:10px; text-align:center; color:white; font-weight:bold;'>{icon}</div>", unsafe_allow_html=True)
+        else:
+            st.info("لا توجد مباريات حديثة")
 
+    with colB:
+        st.subheader("⭐ أفضل الهدافين (آخر موسم)")
+        # We could parse from events, but it's complex. For now, show placeholder.
+        st.info("قريباً – إحصائيات الهدافين")
+
+        st.subheader("🏅 لاعب الشهر (إن وجد)")
+        # TheSportsDB doesn't provide this; we can leave empty.
+
+    # ---- Upcoming match highlight ----
+    if next_events:
+        st.subheader("🔜 المباراة القادمة")
+        nxt = next_events[0]
+        date_str = format_date(nxt.get('dateEvent', ''))
+        home = nxt['strHomeTeam']
+        away = nxt['strAwayTeam']
+        st.info(f"**{home} vs {away}** – {date_str}")
+
+# ==================== TAB 2: Squad ====================
 with tab2:
     st.subheader("التشكيلة الحالية")
-    if players:
+
+    if not players:
+        st.info("لا توجد معلومات عن اللاعبين")
+    else:
+        # Group by position
         positions = {}
         for p in players:
             pos = p.get('strPosition', 'أخرى')
-            if pos not in positions:
-                positions[pos] = []
-            positions[pos].append(p)
+            positions.setdefault(pos, []).append(p)
 
         for pos, plist in positions.items():
-            st.markdown(f"**{pos}**")
+            st.markdown(f"### {pos}")
             cols = st.columns(4)
-            for i, player in enumerate(plist[:12]):
+            for i, player in enumerate(plist):
                 with cols[i % 4]:
+                    # Photo
                     photo = player.get('strThumb') or player.get('strCutout') or 'https://via.placeholder.com/100'
                     st.image(photo, width=100)
-                    st.markdown(f"**{player.get('strPlayer')}**")
+                    # Name and number
+                    name = player.get('strPlayer', 'غير معروف')
+                    number = player.get('strNumber', '')
+                    st.markdown(f"**{name}** {number}")
+                    # Nationality and age
                     nat = player.get('strNationality', '')
                     age = ''
                     if player.get('dateBorn'):
                         try:
-                            birth_year = int(player['dateBorn'][:4])
-                            age = datetime.now().year - birth_year
+                            birth = datetime.strptime(player['dateBorn'], "%Y-%m-%d")
+                            age = datetime.now().year - birth.year
                         except:
                             age = player['dateBorn'][:4]
-                    st.caption(f"{player.get('strPosition', '')} | {nat} | {age} سنة".strip(' |'))
-    else:
-        st.info("لا توجد معلومات عن اللاعبين حالياً")
+                    st.caption(f"{nat} | {age} سنة")
+                    # Link to player page (if you implement one)
+                    # if player.get('idPlayer'):
+                    #     st.markdown(f"[🔗 الملف الشخصي](/player?player_id={player['idPlayer']})")
 
+# ==================== TAB 3: Matches ====================
 with tab3:
-    st.subheader("إحصائيات الفريق")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("🗓️ المباريات القادمة")
+        if next_events:
+            for ev in next_events[:5]:
+                date_str = format_date(ev.get('dateEvent', ''))
+                home = ev['strHomeTeam']
+                away = ev['strAwayTeam']
+                st.write(f"**{home} vs {away}** – {date_str}")
+        else:
+            # Fallback to Supabase
+            home_f = supabase.table("matches").select("*").eq("home_team_id", team_id).eq("status", "UPCOMING").order("match_time").execute()
+            away_f = supabase.table("matches").select("*").eq("away_team_id", team_id).eq("status", "UPCOMING").order("match_time").execute()
+            fixtures = home_f.data + away_f.data
+            fixtures.sort(key=lambda x: x['match_time'])
+            if fixtures:
+                for f in fixtures[:5]:
+                    try:
+                        dt = datetime.fromisoformat(f["match_time"].replace('Z', '+00:00')).astimezone(tz_tunis)
+                        time_str = dt.strftime("%H:%M %Y-%m-%d")
+                    except:
+                        time_str = f["match_time"][:16]
+                    st.write(f"**{f['home_team']} vs {f['away_team']}** – {time_str}")
+            else:
+                st.info("لا توجد مباريات قادمة")
+
+    with col2:
+        st.subheader("📋 آخر النتائج")
+        if recent_events:
+            for ev in recent_events[:5]:
+                date_str = format_date(ev.get('dateEvent', ''))
+                home = ev['strHomeTeam']
+                away = ev['strAwayTeam']
+                try:
+                    hs = int(ev['intHomeScore'])
+                    as_ = int(ev['intAwayScore'])
+                    result = f"{hs} - {as_}"
+                except:
+                    result = "غير متوفرة"
+                st.write(f"**{home} {result} {away}** – {date_str}")
+        else:
+            # Fallback to Supabase
+            home_r = supabase.table("matches").select("*").eq("home_team_id", team_id).eq("status", "FINISHED").order("match_time", desc=True).limit(5).execute()
+            away_r = supabase.table("matches").select("*").eq("away_team_id", team_id).eq("status", "FINISHED").order("match_time", desc=True).limit(5).execute()
+            results = home_r.data + away_r.data
+            results.sort(key=lambda x: x['match_time'], reverse=True)
+            if results:
+                for r in results[:5]:
+                    try:
+                        dt = datetime.fromisoformat(r["match_time"].replace('Z', '+00:00')).astimezone(tz_tunis)
+                        date_str = dt.strftime("%Y-%m-%d")
+                    except:
+                        date_str = r["match_time"][:10]
+                    score = f"{r['home_score']} - {r['away_score']}"
+                    st.write(f"**{r['home_team']} {score} {r['away_team']}** – {date_str}")
+            else:
+                st.info("لا توجد نتائج")
+
+# ==================== TAB 4: Statistics ====================
+with tab4:
+    st.subheader("📊 إحصائيات الفريق")
+
     if recent_events:
         total_goals_for = 0
         total_goals_against = 0
         matches_played = 0
+        wins = 0
+        draws = 0
+        losses = 0
+
         for ev in recent_events:
-            if ev.get('intHomeScore') and ev.get('intAwayScore'):
-                try:
-                    home_score = int(ev['intHomeScore'])
-                    away_score = int(ev['intAwayScore'])
-                    matches_played += 1
-                    if ev['idHomeTeam'] == tsdb_team_id:
-                        total_goals_for += home_score
-                        total_goals_against += away_score
+            try:
+                hs = int(ev['intHomeScore'])
+                as_ = int(ev['intAwayScore'])
+                matches_played += 1
+                if ev['idHomeTeam'] == tsdb_id:
+                    total_goals_for += hs
+                    total_goals_against += as_
+                    if hs > as_:
+                        wins += 1
+                    elif hs == as_:
+                        draws += 1
                     else:
-                        total_goals_for += away_score
-                        total_goals_against += home_score
-                except:
-                    continue
+                        losses += 1
+                else:
+                    total_goals_for += as_
+                    total_goals_against += hs
+                    if as_ > hs:
+                        wins += 1
+                    elif as_ == hs:
+                        draws += 1
+                    else:
+                        losses += 1
+            except:
+                continue
+
         if matches_played > 0:
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("المباريات", matches_played)
+            col2.metric("الأهداف المسجلة", total_goals_for)
+            col3.metric("الأهداف المستقبلة", total_goals_against)
+            col4.metric("الفارق", total_goals_for - total_goals_against)
+
             col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("إجمالي الأهداف المسجلة", total_goals_for)
-            with col2:
-                st.metric("إجمالي الأهداف المستقبلة", total_goals_against)
-            with col3:
-                st.metric("معدل الأهداف لكل مباراة", round(total_goals_for / matches_played, 2))
+            col1.metric("فوز", wins)
+            col2.metric("تعادل", draws)
+            col3.metric("خسارة", losses)
+
+            # Win percentage
+            win_pct = wins / matches_played * 100
+            st.progress(win_pct / 100, text=f"نسبة الفوز: {win_pct:.1f}%")
+        else:
+            st.info("لا توجد إحصائيات كافية")
     else:
         st.info("لا توجد إحصائيات كافية")
 
-with tab4:
-    st.subheader("السجل الكامل")
-    if honors:
-        st.markdown("**البطولات**")
-        for h in honors:
-            st.write(f"- {h.get('strHonour')} ({h.get('strSeason')})")
+    # Top scorers (if we had player stats)
+    st.subheader("⭐ الهدافون")
+    st.info("قريباً – قائمة الهدافين")
+
+# ==================== TAB 5: Honors ====================
+with tab5:
+    st.subheader("🏆 البطولات والألقاب")
+
+    if honours:
+        # Group by competition
+        honour_dict = {}
+        for h in honours:
+            comp = h.get('strHonour', 'أخرى')
+            season = h.get('strSeason', '')
+            honour_dict.setdefault(comp, []).append(season)
+
+        for comp, seasons in honour_dict.items():
+            with st.expander(f"**{comp}** ({len(seasons)})"):
+                st.write("، ".join(seasons))
     else:
         st.info("لا توجد معلومات عن البطولات")
 
-# Optional: Link to TheSportsDB
-if tsdb_team_id:
-    st.markdown(f"[عرض المزيد على TheSportsDB](https://www.thesportsdb.com/team/{tsdb_team_id})")
+    # Also show league history if available from football-data.org (future enhancement)
+
+# -------------------- Footer --------------------
+if tsdb_id:
+    st.markdown("---")
+    st.markdown(f"🔍 [عرض كامل على TheSportsDB](https://www.thesportsdb.com/team/{tsdb_id})")
