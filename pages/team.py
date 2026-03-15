@@ -28,16 +28,30 @@ except ValueError:
     st.stop()
 
 # -------------------- Ultra logo resolver (with caching) --------------------
+
+
 def get_team_logo(team_name, team_website=None):
-    """Return a team logo URL using multiple sources and cache in Supabase."""
+    """
+    Ultimate logo resolver: returns a real logo URL if found, else a stylish placeholder.
+    Tries: local cache, TheSportsDB (with variations), Clearbit, Wikipedia.
+    """
     # 1. Check local cache
     res = supabase.table("team_logos").select("logo_url").eq("team_name", team_name).execute()
     if res.data:
         return res.data[0]["logo_url"]
 
     # 2. Try TheSportsDB with multiple name variations
-    variations = [team_name, team_name.replace(" FC", ""), team_name.replace(" CF", ""), team_name.replace(" United", "")]
-    for name in variations:
+    variations = [
+        team_name,
+        team_name.replace(" FC", ""),
+        team_name.replace(" CF", ""),
+        team_name.replace(" United", ""),
+        team_name.replace(" City", ""),
+        team_name.replace(" Real", ""),
+        team_name.replace(" Club", ""),
+        re.sub(r'[^\w\s]', '', team_name)  # remove punctuation
+    ]
+    for name in set(variations):
         url = f"https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t={requests.utils.quote(name)}"
         try:
             resp = requests.get(url, timeout=3)
@@ -46,7 +60,6 @@ def get_team_logo(team_name, team_website=None):
                 if data.get("teams"):
                     logo = data["teams"][0].get("strTeamBadge")
                     if logo:
-                        # Store in database
                         supabase.table("team_logos").upsert(
                             {"team_name": team_name, "logo_url": logo},
                             on_conflict="team_name"
@@ -55,12 +68,11 @@ def get_team_logo(team_name, team_website=None):
         except:
             pass
 
-    # 3. Try Clearbit if we have the team's website
+    # 3. Try Clearbit if we have the team's official website
     if team_website:
         try:
             domain = team_website.replace("https://", "").replace("http://", "").split("/")[0]
             clearbit_url = f"https://logo.clearbit.com/{domain}"
-            # Check if it exists
             if requests.head(clearbit_url, timeout=2).status_code == 200:
                 supabase.table("team_logos").upsert(
                     {"team_name": team_name, "logo_url": clearbit_url},
@@ -70,7 +82,36 @@ def get_team_logo(team_name, team_website=None):
         except:
             pass
 
-    # 4. Fallback to initials placeholder
+    # 4. Try Wikipedia – fetch the page and extract the logo from the infobox
+    try:
+        # Search for the team on Wikipedia (English)
+        search_url = f"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={requests.utils.quote(team_name + ' football club')}&format=json"
+        search_resp = requests.get(search_url, timeout=3)
+        if search_resp.status_code == 200:
+            search_data = search_resp.json()
+            if search_data.get("query", {}).get("search"):
+                page_title = search_data["query"]["search"][0]["title"]
+                # Get the page content
+                page_url = f"https://en.wikipedia.org/w/api.php?action=parse&page={requests.utils.quote(page_title)}&format=json&prop=text"
+                page_resp = requests.get(page_url, timeout=3)
+                if page_resp.status_code == 200:
+                    page_data = page_resp.json()
+                    html = page_data.get("parse", {}).get("text", {}).get("*", "")
+                    # Look for the logo in the infobox – often in a <td> with class "logo"
+                    match = re.search(r'<td[^>]*class="logo"[^>]*><img[^>]*src="([^"]+)"', html, re.IGNORECASE)
+                    if match:
+                        img_src = match.group(1)
+                        if img_src.startswith("//"):
+                            img_src = "https:" + img_src
+                        supabase.table("team_logos").upsert(
+                            {"team_name": team_name, "logo_url": img_src},
+                            on_conflict="team_name"
+                        ).execute()
+                        return img_src
+    except Exception as e:
+        print(f"Wikipedia logo extraction failed: {e}")
+
+    # 5. If all else fails, return a initials‑based placeholder (not real, but better than nothing)
     words = team_name.split()
     if len(words) == 1:
         initials = words[0][:2].upper()
