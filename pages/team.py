@@ -2,16 +2,20 @@ import streamlit as st
 from supabase import create_client
 import pandas as pd
 from datetime import datetime
+import zoneinfo
 import html
-from utils.logos import get_team_logo  # if you have this helper
+from utils.logos import get_team_logo  # ensure this helper exists
 
 st.set_page_config(page_title="فريق", page_icon="🏟️", layout="wide")
 
 supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_ANON_KEY"])
+tz_tunis = zoneinfo.ZoneInfo("Africa/Tunis")
 
 team_id = st.query_params.get("team_id")
 if not team_id:
     st.error("لم يتم تحديد الفريق")
+    if st.button("🏠 العودة إلى الرئيسية"):
+        st.switch_page("app.py")
     st.stop()
 
 @st.cache_data(ttl=3600)
@@ -21,11 +25,13 @@ def get_team(tid):
 
 team = get_team(team_id)
 if not team:
-    st.error("الفريق غير موجود")
+    st.warning("الفريق غير موجود في قاعدة البيانات")
+    if st.button("🏠 العودة إلى الرئيسية"):
+        st.switch_page("app.py")
     st.stop()
 
-# Logo – use helper if available
-team_logo = team.get('logo') or get_team_logo(team['name'])  # fallback to helper
+# Get logo (use stored or fetch via helper)
+team_logo = team.get('logo') or get_team_logo(team['name'])
 
 col1, col2 = st.columns([1, 3])
 with col1:
@@ -48,10 +54,9 @@ with tab1:
         .execute()
     if fixtures.data:
         for f in fixtures.data:
-            # Convert UTC to local time
             try:
                 utc_time = datetime.fromisoformat(f["match_time"].replace('Z', '+00:00'))
-                local_time = utc_time.astimezone(tz_tunis)  # need tz_tunis imported
+                local_time = utc_time.astimezone(tz_tunis)
                 time_str = local_time.strftime("%H:%M %Y-%m-%d")
             except:
                 time_str = f["match_time"][:16]
@@ -80,18 +85,5 @@ with tab2:
         st.info("لا توجد نتائج")
 
 with tab3:
-    # Show players who have scored for this team (from top_scorers)
-    players = supabase.table("top_scorers")\
-        .select("players(name, position, photo)")\
-        .eq("team_id", team_id)\
-        .execute()
-    if players.data:
-        for p in players.data:
-            player_info = p.get('players', {})
-            name = player_info.get('name', '')
-            pos = player_info.get('position', '')
-            photo = player_info.get('photo') or 'https://via.placeholder.com/50'
-            st.image(photo, width=30)
-            st.markdown(f"**{name}** – {pos}")
-    else:
-        st.info("لا توجد معلومات عن اللاعبين حالياً")
+    # Placeholder for player list – can be extended later
+    st.info("قائمة اللاعبين (ستضاف قريباً)")
