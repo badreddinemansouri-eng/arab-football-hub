@@ -93,8 +93,7 @@ def get_local_team(tid):
 
 team = get_local_team(team_id)
 if not team:
-    st.warning("الفريق غير موجود في قاعدة البيانات المحلية. سيتم البحث عن معلومات من TheSportsDB...")
-    # If not in DB, try to fetch from TheSportsDB by name? We need a name. For now, stop.
+    st.warning("الفريق غير موجود في قاعدة البيانات المحلية.")
     st.stop()
 
 # -------------------------------------------------------------------
@@ -143,7 +142,6 @@ with tab1:
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("المباريات القادمة")
-        # Fetch from Supabase
         home_fixtures = supabase.table("matches")\
             .select("*")\
             .eq("home_team_id", team_id)\
@@ -215,16 +213,20 @@ with tab1:
             home_score = ev['intHomeScore']
             away_score = ev['intAwayScore']
             if home_score is not None and away_score is not None:
-                if ev['idHomeTeam'] == tsdb_team_id:
-                    outcome = "فوز" if home_score > away_score else "تعادل" if home_score == away_score else "خسارة"
-                else:
-                    outcome = "فوز" if away_score > home_score else "تعادل" if away_score == home_score else "خسارة"
-                st.write(f"**{home} {home_score}-{away_score} {away}** – {outcome}")
+                try:
+                    home_score = int(home_score)
+                    away_score = int(away_score)
+                    if ev['idHomeTeam'] == tsdb_team_id:
+                        outcome = "فوز" if home_score > away_score else "تعادل" if home_score == away_score else "خسارة"
+                    else:
+                        outcome = "فوز" if away_score > home_score else "تعادل" if away_score == home_score else "خسارة"
+                    st.write(f"**{home} {home_score}-{away_score} {away}** – {outcome}")
+                except:
+                    st.write(f"**{home} vs {away}** – نتيجة غير متوفرة")
 
 with tab2:
     st.subheader("التشكيلة الحالية")
     if players:
-        # Group by position
         positions = {}
         for p in players:
             pos = p.get('strPosition', 'أخرى')
@@ -249,8 +251,6 @@ with tab2:
                         except:
                             age = player['dateBorn'][:4]
                     st.caption(f"{player.get('strPosition', '')} | {nat} | {age} سنة".strip(' |'))
-                    # Link to player page if you have one
-                    # st.markdown(f"[تفاصيل](/player?player_id={player.get('idPlayer')})")
     else:
         st.info("لا توجد معلومات عن اللاعبين حالياً")
 
@@ -261,14 +261,19 @@ with tab3:
         total_goals_against = 0
         matches_played = 0
         for ev in recent_events:
-            if ev['intHomeScore'] is not None and ev['intAwayScore'] is not None:
-                matches_played += 1
-                if ev['idHomeTeam'] == tsdb_team_id:
-                    total_goals_for += ev['intHomeScore']
-                    total_goals_against += ev['intAwayScore']
-                else:
-                    total_goals_for += ev['intAwayScore']
-                    total_goals_against += ev['intHomeScore']
+            if ev.get('intHomeScore') and ev.get('intAwayScore'):
+                try:
+                    home_score = int(ev['intHomeScore'])
+                    away_score = int(ev['intAwayScore'])
+                    matches_played += 1
+                    if ev['idHomeTeam'] == tsdb_team_id:
+                        total_goals_for += home_score
+                        total_goals_against += away_score
+                    else:
+                        total_goals_for += away_score
+                        total_goals_against += home_score
+                except:
+                    continue
         if matches_played > 0:
             col1, col2, col3 = st.columns(3)
             with col1:
@@ -277,11 +282,8 @@ with tab3:
                 st.metric("إجمالي الأهداف المستقبلة", total_goals_against)
             with col3:
                 st.metric("معدل الأهداف لكل مباراة", round(total_goals_for / matches_played, 2))
-
-        # Top scorers from TheSportsDB? Not directly available, but we could parse events.
-
-    # Alternative: show top scorers from TheSportsDB if available (need to parse events)
-    # For now, just a placeholder.
+    else:
+        st.info("لا توجد إحصائيات كافية")
 
 with tab4:
     st.subheader("السجل الكامل")
@@ -289,5 +291,9 @@ with tab4:
         st.markdown("**البطولات**")
         for h in honors:
             st.write(f"- {h.get('strHonour')} ({h.get('strSeason')})")
+    else:
+        st.info("لا توجد معلومات عن البطولات")
 
-    # Historical matches (could be added later)
+# Optional: Link to TheSportsDB
+if tsdb_team_id:
+    st.markdown(f"[عرض المزيد على TheSportsDB](https://www.thesportsdb.com/team/{tsdb_team_id})")
