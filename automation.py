@@ -24,7 +24,7 @@ FD_API_BASE = "https://api.football-data.org/v4"
 FD_HEADERS = { "X-Auth-Token": FOOTBALL_DATA_TOKEN }
 
 ALLOWED_COMPETITIONS = [
-    "PL", "PD", "BL1", "SA", "FL1", "CL", "EC", "WC", "CAFCL",
+    "PL", "PD", "BL1", "SA", "FL1", "CL", "EC", "WC", "QCAF",
 ]
 
 # -------------------------------------------------------------------
