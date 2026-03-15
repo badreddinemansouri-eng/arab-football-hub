@@ -209,6 +209,13 @@ def parse_fd_match(match):
     score = match.get("score", {})
     status = match.get("status", "SCHEDULED")
 
+    # DEBUG: print team dictionaries for the first few matches
+    if match.get("id") and int(match["id"]) % 1000 < 5:  # limit to avoid spam
+        print(f"Match {match['id']}: home_team dict = {home_team}")
+        print(f"Match {match['id']}: away_team dict = {away_team}")
+
+    # ... rest of the function unchanged ...
+
     # Upsert teams to teams table (ensures team exists)
     upsert_team(home_team.get("id"), home_team.get("name", "Unknown"))
     upsert_team(away_team.get("id"), away_team.get("name", "Unknown"))
