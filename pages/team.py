@@ -27,15 +27,16 @@ except ValueError:
     st.error("معرف الفريق غير صالح")
     st.stop()
 
-# -------------------- Advanced logo resolver --------------------
+# -------------------- Ultra logo resolver (with caching) --------------------
 def get_team_logo(team_name, team_website=None):
-    # Check local DB
+    """Return a team logo URL using multiple sources and cache in Supabase."""
+    # 1. Check local cache
     res = supabase.table("team_logos").select("logo_url").eq("team_name", team_name).execute()
     if res.data:
         return res.data[0]["logo_url"]
 
-    # Try TheSportsDB with variations
-    variations = [team_name, team_name.replace(" FC", ""), team_name.replace(" CF", "")]
+    # 2. Try TheSportsDB with multiple name variations
+    variations = [team_name, team_name.replace(" FC", ""), team_name.replace(" CF", ""), team_name.replace(" United", "")]
     for name in variations:
         url = f"https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t={requests.utils.quote(name)}"
         try:
@@ -45,32 +46,41 @@ def get_team_logo(team_name, team_website=None):
                 if data.get("teams"):
                     logo = data["teams"][0].get("strTeamBadge")
                     if logo:
-                        supabase.table("team_logos").upsert({"team_name": team_name, "logo_url": logo}, on_conflict="team_name").execute()
+                        # Store in database
+                        supabase.table("team_logos").upsert(
+                            {"team_name": team_name, "logo_url": logo},
+                            on_conflict="team_name"
+                        ).execute()
                         return logo
         except:
             pass
 
-    # Try Clearbit
+    # 3. Try Clearbit if we have the team's website
     if team_website:
         try:
             domain = team_website.replace("https://", "").replace("http://", "").split("/")[0]
             clearbit_url = f"https://logo.clearbit.com/{domain}"
+            # Check if it exists
             if requests.head(clearbit_url, timeout=2).status_code == 200:
-                supabase.table("team_logos").upsert({"team_name": team_name, "logo_url": clearbit_url}, on_conflict="team_name").execute()
+                supabase.table("team_logos").upsert(
+                    {"team_name": team_name, "logo_url": clearbit_url},
+                    on_conflict="team_name"
+                ).execute()
                 return clearbit_url
         except:
             pass
 
-    # Fallback to initials
+    # 4. Fallback to initials placeholder
     words = team_name.split()
     if len(words) == 1:
         initials = words[0][:2].upper()
     else:
         initials = (words[0][0] + words[-1][0]).upper()
     color = hashlib.md5(team_name.encode()).hexdigest()[:6]
-    return f"https://ui-avatars.com/api/?name={initials}&background={color}&color=fff&size=200&bold=true&length=2"
+    placeholder = f"https://ui-avatars.com/api/?name={initials}&background={color}&color=fff&size=200&bold=true&length=2"
+    return placeholder
 
-# -------------------- TheSportsDB API --------------------
+# -------------------- TheSportsDB API helpers (cached) --------------------
 @st.cache_data(ttl=3600)
 def search_team_by_name(name):
     url = f"https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t={requests.utils.quote(name)}"
@@ -81,6 +91,7 @@ def search_team_by_name(name):
             return data["teams"][0] if data.get("teams") else None
     except:
         return None
+    return None
 
 @st.cache_data(ttl=3600)
 def get_players(tsdb_id):
@@ -92,6 +103,7 @@ def get_players(tsdb_id):
             return data.get("player", [])
     except:
         return []
+    return []
 
 @st.cache_data(ttl=3600)
 def get_recent_events(tsdb_id):
@@ -103,6 +115,7 @@ def get_recent_events(tsdb_id):
             return data.get("results", [])
     except:
         return []
+    return []
 
 @st.cache_data(ttl=3600)
 def get_next_events(tsdb_id):
@@ -114,6 +127,7 @@ def get_next_events(tsdb_id):
             return data.get("events", [])
     except:
         return []
+    return []
 
 @st.cache_data(ttl=3600)
 def get_honours(tsdb_id):
@@ -125,6 +139,7 @@ def get_honours(tsdb_id):
             return data.get("honours", [])
     except:
         return []
+    return []
 
 # -------------------- Get local team --------------------
 @st.cache_data(ttl=3600)
@@ -183,7 +198,7 @@ with col3:
     if tsdb_id:
         st.image(f"https://www.thesportsdb.com/team/{tsdb_id}/badge", width=80)
 
-# -------------------- Tabs (supercharged) --------------------
+# -------------------- Tabs --------------------
 tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "📊 نظرة عامة",
     "👥 التشكيلة",
@@ -246,7 +261,6 @@ with tab1:
             st.info("لا توجد مباريات قادمة")
 
         st.subheader("⭐ أفضل الهدافين (آخر 10 مباريات)")
-        # Placeholder – we could parse events but TheSportsDB doesn't provide player scorers.
         st.info("قريباً – إحصائيات الهدافين")
 
 # ==================== TAB 2: Squad ====================
@@ -433,8 +447,6 @@ with tab4:
         ).properties(height=400)
         st.altair_chart(cum_chart, use_container_width=True)
 
-        # Form as heatmap? Optional.
-
     else:
         st.info("لا توجد بيانات كافية للإحصائيات المتقدمة")
 
@@ -458,19 +470,18 @@ with tab5:
 # ==================== TAB 6: Transfer History (mock) ====================
 with tab6:
     st.subheader("🔄 تاريخ الانتقالات (آخر 5 صفقات)")
-    # TheSportsDB doesn't provide transfers directly. We'll mock or leave placeholder.
     st.info("قريباً – سيتم إضافة تاريخ الانتقالات")
 
 # ==================== TAB 7: Fan Zone ====================
 with tab7:
     st.subheader("💬 تعليقات الجماهير")
 
-    # Simple chat using Supabase
+    # Simple chat using Supabase (without joining users)
     if "user" in st.session_state and st.session_state.user:
         new_msg = st.text_input("اكتب تعليقاً...")
         if st.button("إرسال") and new_msg:
             supabase.table("comments").insert({
-                "match_id": team_id,  # using team_id as context; you may want separate table
+                "match_id": team_id,  # using team_id as context
                 "user_id": st.session_state.user.id,
                 "content": new_msg
             }).execute()
@@ -479,12 +490,13 @@ with tab7:
     else:
         st.info("سجل الدخول للمشاركة في التعليقات")
 
-    # Display comments
-    comments = supabase.table("comments").select("*, users(email)").eq("match_id", team_id).order("created_at", desc=True).limit(20).execute()
+    # Display comments – removed the problematic join
+    comments = supabase.table("comments").select("*").eq("match_id", team_id).order("created_at", desc=True).limit(20).execute()
     if comments.data:
         for c in comments.data:
-            user_email = c.get('users', {}).get('email', 'مستخدم')
-            st.markdown(f"**{user_email}**: {c['content']}")
+            # Show first 8 chars of user_id as identifier
+            user_short = c['user_id'][:8] if c.get('user_id') else 'مستخدم'
+            st.markdown(f"**{user_short}**: {c['content']}")
     else:
         st.write("لا توجد تعليقات بعد")
 
