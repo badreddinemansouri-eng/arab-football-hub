@@ -7,7 +7,6 @@ import hashlib
 import re
 import pandas as pd
 import altair as alt
-import time
 
 st.set_page_config(page_title="فريق", page_icon="🏟️", layout="wide")
 
@@ -28,14 +27,14 @@ except ValueError:
     st.error("معرف الفريق غير صالح")
     st.stop()
 
-# -------------------- Ultra logo resolver --------------------
+# -------------------- Logo resolver (multiple sources) --------------------
 def get_team_logo(team_name, team_website=None):
-    # 1. Local cache
+    # Check local cache
     res = supabase.table("team_logos").select("logo_url").eq("team_name", team_name).execute()
     if res.data:
         return res.data[0]["logo_url"]
 
-    # 2. TheSportsDB
+    # TheSportsDB
     try:
         url = f"https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t={requests.utils.quote(team_name)}"
         resp = requests.get(url, timeout=3)
@@ -49,7 +48,7 @@ def get_team_logo(team_name, team_website=None):
     except:
         pass
 
-    # 3. Clearbit
+    # Clearbit (from website)
     if team_website:
         try:
             domain = team_website.replace("https://", "").replace("http://", "").split("/")[0]
@@ -60,7 +59,7 @@ def get_team_logo(team_name, team_website=None):
         except:
             pass
 
-    # 4. Wikipedia
+    # Wikipedia
     try:
         search_url = f"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={requests.utils.quote(team_name + ' football club')}&format=json"
         search_resp = requests.get(search_url, timeout=3)
@@ -83,7 +82,7 @@ def get_team_logo(team_name, team_website=None):
     except:
         pass
 
-    # 5. Fallback initials
+    # Fallback initials
     words = team_name.split()
     initials = (words[0][:2].upper()) if len(words)==1 else (words[0][0] + words[-1][0]).upper()
     color = hashlib.md5(team_name.encode()).hexdigest()[:6]
@@ -150,7 +149,7 @@ def get_honours(tsdb_id):
         pass
     return []
 
-# -------------------- Get local team --------------------
+# -------------------- Get local team from Supabase --------------------
 @st.cache_data(ttl=3600)
 def get_local_team(tid):
     res = supabase.table("teams").select("*").eq("id", tid).execute()
@@ -170,6 +169,12 @@ recent_events = get_recent_events(tsdb_id) if tsdb_id else []
 next_events = get_next_events(tsdb_id) if tsdb_id else []
 honours = get_honours(tsdb_id) if tsdb_id else []
 
+# -------------------- Fetch match data from Supabase (as fallback) --------------------
+home_matches = supabase.table("matches").select("*").eq("home_team_id", team_id).execute().data
+away_matches = supabase.table("matches").select("*").eq("away_team_id", team_id).execute().data
+all_matches = home_matches + away_matches
+all_matches.sort(key=lambda x: x['match_time'], reverse=True)
+
 # -------------------- Helper functions --------------------
 def format_date(tsdb_date_str):
     try:
@@ -183,32 +188,18 @@ def form_icon(result):
 def form_color(result):
     return "#28a745" if result == "فوز" else "#ffc107" if result == "تعادل" else "#dc3545"
 
-# -------------------- Modern CSS (glass‑morphism) --------------------
+# -------------------- Modern CSS --------------------
 st.markdown("""
 <style>
-    .hero-section {
+    .team-header {
         background: linear-gradient(135deg, #0b0b1a, #1a1a2e);
-        border-radius: 30px;
-        padding: 30px;
-        margin-bottom: 30px;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-        position: relative;
-        overflow: hidden;
-    }
-    .hero-section::before {
-        content: '';
-        position: absolute;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: url('https://images.unsplash.com/photo-1489944448-9e5f1b9b8b8e?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80') center/cover;
-        opacity: 0.2;
-        z-index: 0;
-    }
-    .hero-content {
-        position: relative;
-        z-index: 1;
+        border-radius: 25px;
+        padding: 2rem;
+        margin-bottom: 2rem;
         display: flex;
         align-items: center;
-        gap: 30px;
+        gap: 2rem;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
     .team-logo {
         width: 120px;
@@ -216,115 +207,151 @@ st.markdown("""
         border-radius: 50%;
         border: 4px solid #1976d2;
         background: white;
-        box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+        object-fit: contain;
     }
     .team-name {
-        font-size: 3rem;
-        font-weight: 800;
         color: white;
-        text-shadow: 2px 2px 8px black;
+        font-size: 2.5rem;
+        font-weight: 700;
         margin: 0;
     }
-    .team-tags {
-        display: flex;
-        gap: 20px;
-        margin-top: 10px;
+    .team-meta {
         color: #ccc;
+        font-size: 1rem;
+        margin-top: 0.5rem;
+        display: flex;
+        gap: 2rem;
+        flex-wrap: wrap;
     }
-    .glass-card {
-        background: rgba(255,255,255,0.1);
-        backdrop-filter: blur(12px);
-        border-radius: 20px;
-        padding: 20px;
-        border: 1px solid rgba(255,255,255,0.2);
-        box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-        transition: transform 0.3s;
-    }
-    .glass-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 12px 48px rgba(0,0,0,0.2);
-    }
-    .metric-card {
-        background: rgba(255,255,255,0.05);
-        border-radius: 20px;
-        padding: 20px;
-        text-align: center;
-        border: 1px solid rgba(255,255,255,0.1);
-        backdrop-filter: blur(8px);
-    }
-    .match-card {
+    .stat-card {
         background: rgba(255,255,255,0.05);
         border-radius: 15px;
-        padding: 15px;
-        margin-bottom: 10px;
-        border: 1px solid #333;
-        transition: all 0.3s;
+        padding: 1rem;
+        text-align: center;
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255,255,255,0.1);
     }
-    .match-card:hover {
-        background: rgba(255,255,255,0.1);
+    .section-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin: 1.5rem 0 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #1976d2;
+    }
+    .match-item {
+        background: rgba(255,255,255,0.03);
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border: 1px solid #333;
+        transition: all 0.2s;
+    }
+    .match-item:hover {
+        background: rgba(255,255,255,0.07);
         transform: translateX(5px);
     }
     .player-card {
-        background: rgba(255,255,255,0.05);
-        border-radius: 15px;
-        padding: 15px;
+        background: rgba(255,255,255,0.03);
+        border-radius: 12px;
+        padding: 1rem;
         text-align: center;
         border: 1px solid #333;
-        transition: transform 0.3s;
-        height: 100%;
+        transition: transform 0.2s;
     }
     .player-card:hover {
-        transform: scale(1.05);
-        background: rgba(255,255,255,0.1);
+        transform: translateY(-5px);
         border-color: #1976d2;
     }
     .player-card img {
-        border-radius: 50%;
-        margin-bottom: 10px;
         width: 100px;
         height: 100px;
+        border-radius: 50%;
         object-fit: cover;
+        margin-bottom: 0.5rem;
     }
-    .badge-icon {
-        width: 24px;
-        height: 24px;
-        margin-right: 5px;
+    .badge-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
     }
-    .honour-item {
+    .badge-item {
+        background: rgba(255,255,255,0.05);
+        border-radius: 20px;
+        padding: 0.25rem 1rem;
+        font-size: 0.9rem;
+        border: 1px solid #333;
+    }
+    .h2h-grid {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        margin: 1rem 0;
+    }
+    .h2h-item {
+        background: rgba(255,255,255,0.05);
+        border-radius: 15px;
+        padding: 1rem;
+        text-align: center;
+        flex: 1;
+    }
+    .h2h-number {
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    .h2h-label {
+        font-size: 0.9rem;
+        color: #aaa;
+    }
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin: 1rem 0;
+    }
+    .info-item {
         background: rgba(255,255,255,0.03);
         border-radius: 10px;
-        padding: 8px 12px;
-        margin: 5px;
-        display: inline-block;
+        padding: 1rem;
+        border: 1px solid #333;
+    }
+    .info-label {
+        color: #aaa;
+        font-size: 0.9rem;
+    }
+    .info-value {
+        font-size: 1.2rem;
+        font-weight: 600;
+    }
+    .missing-data {
+        color: #888;
+        font-style: italic;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# -------------------- Hero Section --------------------
+# -------------------- Header --------------------
 logo = get_team_logo(team['name'], tsdb_team.get('strWebsite') if tsdb_team else None)
 
-if tsdb_team and tsdb_team.get('strStadiumThumb'):
-    stadium_bg = tsdb_team['strStadiumThumb']
-else:
-    stadium_bg = "https://images.unsplash.com/photo-1489944448-9e5f1b9b8b8e?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80"
-
 st.markdown(f"""
-<div class="hero-section" style="background: linear-gradient(135deg, #0b0b1a, #1a1a2e), url('{stadium_bg}'); background-size: cover; background-blend-mode: overlay;">
-    <div class="hero-content">
-        <img src="{logo}" class="team-logo">
-        <div>
-            <h1 class="team-name">{team['name']}</h1>
-            <div class="team-tags">
-                <span>🏆 {tsdb_team.get('strLeague', 'الدوري') if tsdb_team else 'الدوري'}</span>
-                <span>🌍 {tsdb_team.get('strCountry', 'البلد') if tsdb_team else 'البلد'}</span>
-                <span>🏟️ {tsdb_team.get('strStadium', 'الملعب') if tsdb_team else 'الملعب'}</span>
-            </div>
+<div class="team-header">
+    <img src="{logo}" class="team-logo">
+    <div>
+        <h1 class="team-name">{team['name']}</h1>
+        <div class="team-meta">
+            <span>🏆 {tsdb_team.get('strLeague', 'الدوري') if tsdb_team else 'الدوري'}</span>
+            <span>🌍 {tsdb_team.get('strCountry', 'البلد') if tsdb_team else 'البلد'}</span>
+            <span>🏟️ {tsdb_team.get('strStadium', 'الملعب') if tsdb_team else 'الملعب'}</span>
         </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# -------------------- Key Metrics --------------------
+# -------------------- Stats Row --------------------
 if recent_events:
     form_list = []
     for ev in recent_events[:5]:
@@ -341,50 +368,66 @@ if recent_events:
 else:
     form_list = []
 
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-    st.metric("إجمالي المباريات", len(recent_events))
+cols = st.columns(4)
+with cols[0]:
+    st.markdown('<div class="stat-card">', unsafe_allow_html=True)
+    st.metric("إجمالي المباريات", len(all_matches))
     st.markdown('</div>', unsafe_allow_html=True)
-with col2:
-    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+with cols[1]:
+    st.markdown('<div class="stat-card">', unsafe_allow_html=True)
     wins = form_list.count("فوز") if form_list else 0
     st.metric("الفوز", wins)
     st.markdown('</div>', unsafe_allow_html=True)
-with col3:
-    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+with cols[2]:
+    st.markdown('<div class="stat-card">', unsafe_allow_html=True)
     draws = form_list.count("تعادل") if form_list else 0
     st.metric("تعادل", draws)
     st.markdown('</div>', unsafe_allow_html=True)
-with col4:
-    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+with cols[3]:
+    st.markdown('<div class="stat-card">', unsafe_allow_html=True)
     losses = form_list.count("خسارة") if form_list else 0
     st.metric("خسارة", losses)
     st.markdown('</div>', unsafe_allow_html=True)
 
 # -------------------- Tabs --------------------
-tabs = st.tabs(["📊 نظرة عامة", "👥 التشكيلة", "📅 المباريات", "🏆 البطولات", "💬 ركن الجماهير"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 نظرة عامة", "👥 التشكيلة", "📅 المباريات", "🏆 الإنجازات", "💬 التعليقات"])
 
 # ==================== TAB 1: Overview ====================
-with tabs[0]:
+with tab1:
     col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("⚽ معلومات الفريق")
+        st.markdown('<div class="section-title">⚽ معلومات الفريق</div>', unsafe_allow_html=True)
         if tsdb_team:
-            st.write(f"**المدرب:** {tsdb_team.get('strManager', 'غير معروف')}")
-            st.write(f"**الملعب:** {tsdb_team.get('strStadium', 'غير معروف')} (السعة: {tsdb_team.get('intStadiumCapacity', 'غير معروف')})")
-            st.write(f"**التأسيس:** {tsdb_team.get('intFormedYear', 'غير معروف')}")
+            # Build info grid
+            info_items = [
+                ("المدرب", tsdb_team.get('strManager', 'غير معروف')),
+                ("الملعب", tsdb_team.get('strStadium', 'غير معروف')),
+                ("السعة", tsdb_team.get('intStadiumCapacity', 'غير معروف')),
+                ("التأسيس", tsdb_team.get('intFormedYear', 'غير معروف')),
+                ("الدوري", tsdb_team.get('strLeague', 'غير معروف')),
+                ("البلد", tsdb_team.get('strCountry', 'غير معروف')),
+            ]
             if tsdb_team.get('strWebsite'):
-                st.write(f"**الموقع:** [{tsdb_team['strWebsite']}]({tsdb_team['strWebsite']})")
+                info_items.append(("الموقع", f"[رابط]({tsdb_team['strWebsite']})"))
+            html = '<div class="info-grid">'
+            for label, value in info_items:
+                html += f'<div class="info-item"><div class="info-label">{label}</div><div class="info-value">{value}</div></div>'
+            html += '</div>'
+            st.markdown(html, unsafe_allow_html=True)
+
             if tsdb_team.get('strDescriptionEN'):
-                with st.expander("📝 نبذة"):
-                    st.write(tsdb_team['strDescriptionEN'][:500] + "…")
+                with st.expander("📝 نبذة عن الفريق"):
+                    st.write(tsdb_team['strDescriptionEN'][:800] + "…")
         else:
-            st.info("لا توجد معلومات إضافية")
+            st.info("لا توجد معلومات إضافية من TheSportsDB")
+
+        # Transfermarkt link (manual, not scraped)
+        transfermarkt_url = f"https://www.transfermarkt.com/-/startseite/verein/{(team_id)}"  # This ID may not match
+        st.markdown(f"🔗 [عرض على Transfermarkt]({transfermarkt_url}) – قد لا يكون المعرف صحيحاً")
 
     with col2:
-        st.subheader("📊 آخر 5 مباريات")
+        st.markdown('<div class="section-title">📊 آخر 5 مباريات</div>', unsafe_allow_html=True)
         if form_list:
             cols = st.columns(5)
             for i, res in enumerate(form_list):
@@ -394,7 +437,7 @@ with tabs[0]:
         else:
             st.info("لا توجد مباريات حديثة")
 
-        st.subheader("🔜 المباراة القادمة")
+        st.markdown('<div class="section-title">🔜 المباراة القادمة</div>', unsafe_allow_html=True)
         if next_events:
             nxt = next_events[0]
             date_str = format_date(nxt.get('dateEvent', ''))
@@ -402,13 +445,13 @@ with tabs[0]:
             away = nxt['strAwayTeam']
             st.info(f"**{home} vs {away}** – {date_str}")
         else:
-            st.info("لا توجد مباريات قادمة")
+            st.info("لا توجد مباريات قادمة (حسب TheSportsDB)")
 
 # ==================== TAB 2: Squad ====================
-with tabs[1]:
-    st.subheader("التشكيلة الحالية")
+with tab2:
+    st.markdown('<div class="section-title">👥 التشكيلة الحالية</div>', unsafe_allow_html=True)
     if not players:
-        st.info("لا توجد معلومات عن اللاعبين")
+        st.info("لا توجد معلومات عن اللاعبين من TheSportsDB")
     else:
         # Group by position
         positions = {}
@@ -424,7 +467,8 @@ with tabs[1]:
                     st.markdown('<div class="player-card">', unsafe_allow_html=True)
                     photo = player.get('strThumb') or player.get('strCutout') or 'https://via.placeholder.com/100'
                     st.image(photo, width=100)
-                    st.markdown(f"**{player.get('strPlayer', '')}**")
+                    name = player.get('strPlayer', '')
+                    st.markdown(f"**{name}**")
                     st.caption(f"{player.get('strNumber', '')} | {player.get('strNationality', '')[:3]}")
                     if player.get('strValue'):
                         st.caption(f"💰 {player['strValue']}")
@@ -433,36 +477,34 @@ with tabs[1]:
                     st.markdown('</div>', unsafe_allow_html=True)
 
 # ==================== TAB 3: Matches ====================
-with tabs[2]:
+with tab3:
     col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("🗓️ المباريات القادمة")
+        st.markdown('<div class="section-title">🗓️ المباريات القادمة</div>', unsafe_allow_html=True)
         if next_events:
             for ev in next_events[:5]:
                 date_str = format_date(ev.get('dateEvent', ''))
                 home = ev['strHomeTeam']
                 away = ev['strAwayTeam']
-                st.markdown(f'<div class="match-card">**{home} vs {away}** – {date_str}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="match-item"><span><strong>{home}</strong> vs <strong>{away}</strong></span> <span>{date_str}</span></div>', unsafe_allow_html=True)
         else:
             # Fallback to Supabase
-            home_f = supabase.table("matches").select("*").eq("home_team_id", team_id).eq("status", "UPCOMING").order("match_time").execute()
-            away_f = supabase.table("matches").select("*").eq("away_team_id", team_id).eq("status", "UPCOMING").order("match_time").execute()
-            fixtures = home_f.data + away_f.data
-            fixtures.sort(key=lambda x: x['match_time'])
-            if fixtures:
-                for f in fixtures[:5]:
+            upcoming = [m for m in all_matches if m['status'] == 'UPCOMING']
+            upcoming.sort(key=lambda x: x['match_time'])
+            if upcoming:
+                for f in upcoming[:5]:
                     try:
                         dt = datetime.fromisoformat(f["match_time"].replace('Z', '+00:00')).astimezone(tz_tunis)
-                        time_str = dt.strftime("%H:%M %Y-%m-%d")
+                        time_str = dt.strftime("%Y/%m/%d %H:%M")
                     except:
                         time_str = f["match_time"][:16]
-                    st.markdown(f'<div class="match-card">**{f["home_team"]} vs {f["away_team"]}** – {time_str}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="match-item"><span><strong>{f["home_team"]}</strong> vs <strong>{f["away_team"]}</strong></span> <span>{time_str}</span></div>', unsafe_allow_html=True)
             else:
                 st.info("لا توجد مباريات قادمة")
 
     with col2:
-        st.subheader("📋 آخر النتائج")
+        st.markdown('<div class="section-title">📋 آخر النتائج</div>', unsafe_allow_html=True)
         if recent_events:
             for ev in recent_events[:5]:
                 date_str = format_date(ev.get('dateEvent', ''))
@@ -474,75 +516,85 @@ with tabs[2]:
                     result = f"{hs} - {as_}"
                 except:
                     result = "غير متوفرة"
-                st.markdown(f'<div class="match-card">**{home} {result} {away}** – {date_str}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="match-item"><span><strong>{home}</strong> {result} <strong>{away}</strong></span> <span>{date_str}</span></div>', unsafe_allow_html=True)
         else:
             # Fallback to Supabase
-            home_r = supabase.table("matches").select("*").eq("home_team_id", team_id).eq("status", "FINISHED").order("match_time", desc=True).limit(5).execute()
-            away_r = supabase.table("matches").select("*").eq("away_team_id", team_id).eq("status", "FINISHED").order("match_time", desc=True).limit(5).execute()
-            results = home_r.data + away_r.data
-            results.sort(key=lambda x: x['match_time'], reverse=True)
-            if results:
-                for r in results[:5]:
+            finished = [m for m in all_matches if m['status'] == 'FINISHED']
+            finished.sort(key=lambda x: x['match_time'], reverse=True)
+            if finished:
+                for r in finished[:5]:
                     try:
                         dt = datetime.fromisoformat(r["match_time"].replace('Z', '+00:00')).astimezone(tz_tunis)
-                        date_str = dt.strftime("%Y-%m-%d")
+                        date_str = dt.strftime("%Y/%m/%d")
                     except:
                         date_str = r["match_time"][:10]
                     score = f"{r['home_score']} - {r['away_score']}"
-                    st.markdown(f'<div class="match-card">**{r["home_team"]} {score} {r["away_team"]}** – {date_str}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="match-item"><span><strong>{r["home_team"]}</strong> {score} <strong>{r["away_team"]}</strong></span> <span>{date_str}</span></div>', unsafe_allow_html=True)
             else:
                 st.info("لا توجد نتائج")
 
-    # Head‑to‑Head vs main rival (if identifiable)
-    st.subheader("⚔️ سجل المواجهات مع الغريم التقليدي")
-    # For demo, use a fixed rival; you could compute most frequent opponent
-    rival_id = 61 if team_id == 57 else None  # Arsenal vs Chelsea
-    if rival_id:
-        h2h_home = supabase.table("matches").select("*").eq("home_team_id", team_id).eq("away_team_id", rival_id).execute()
-        h2h_away = supabase.table("matches").select("*").eq("home_team_id", rival_id).eq("away_team_id", team_id).execute()
-        h2h = h2h_home.data + h2h_away.data
-        if h2h:
-            wins = draws = losses = 0
-            for m in h2h:
-                if m['home_team_id'] == team_id:
-                    if m['home_score'] > m['away_score']:
-                        wins += 1
-                    elif m['home_score'] == m['away_score']:
-                        draws += 1
-                    else:
-                        losses += 1
+    # Head‑to‑Head vs all opponents
+    st.markdown('<div class="section-title">⚔️ سجل المواجهات مع جميع الفرق</div>', unsafe_allow_html=True)
+    if all_matches:
+        # Group by opponent
+        opponents = {}
+        for m in all_matches:
+            if m['home_team_id'] == team_id:
+                opp_id = m['away_team_id']
+                opp_name = m['away_team']
+                if opp_id not in opponents:
+                    opponents[opp_id] = {'name': opp_name, 'wins': 0, 'draws': 0, 'losses': 0}
+                if m['home_score'] > m['away_score']:
+                    opponents[opp_id]['wins'] += 1
+                elif m['home_score'] == m['away_score']:
+                    opponents[opp_id]['draws'] += 1
                 else:
-                    if m['away_score'] > m['home_score']:
-                        wins += 1
-                    elif m['away_score'] == m['home_score']:
-                        draws += 1
-                    else:
-                        losses += 1
-            colw, cold, coll = st.columns(3)
-            colw.metric("فوز", wins)
-            cold.metric("تعادل", draws)
-            coll.metric("خسارة", losses)
-        else:
-            st.info("لا توجد مواجهات مسجلة")
+                    opponents[opp_id]['losses'] += 1
+            else:
+                opp_id = m['home_team_id']
+                opp_name = m['home_team']
+                if opp_id not in opponents:
+                    opponents[opp_id] = {'name': opp_name, 'wins': 0, 'draws': 0, 'losses': 0}
+                if m['away_score'] > m['home_score']:
+                    opponents[opp_id]['wins'] += 1
+                elif m['away_score'] == m['home_score']:
+                    opponents[opp_id]['draws'] += 1
+                else:
+                    opponents[opp_id]['losses'] += 1
+
+        # Display as a table
+        data = []
+        for opp in opponents.values():
+            data.append({
+                "الخصم": opp['name'],
+                "فوز": opp['wins'],
+                "تعادل": opp['draws'],
+                "خسارة": opp['losses']
+            })
+        df = pd.DataFrame(data).sort_values("الخصم")
+        st.dataframe(df, use_container_width=True, hide_index=True)
+    else:
+        st.info("لا توجد مباريات مسجلة")
 
 # ==================== TAB 4: Honours ====================
-with tabs[3]:
-    st.subheader("🏆 البطولات والألقاب")
+with tab4:
+    st.markdown('<div class="section-title">🏆 البطولات والألقاب</div>', unsafe_allow_html=True)
     if honours:
         honour_dict = {}
         for h in honours:
             comp = h.get('strHonour', 'أخرى')
             season = h.get('strSeason', '')
             honour_dict.setdefault(comp, []).append(season)
+
         for comp, seasons in honour_dict.items():
             with st.expander(f"**{comp}** ({len(seasons)})"):
                 st.write("، ".join(seasons))
     else:
-        st.info("لا توجد معلومات عن البطولات")
+        st.info("لا توجد معلومات عن البطولات من TheSportsDB")
 
 # ==================== TAB 5: Fan Chat ====================
-with tabs[4]:
-    st.subheader("💬 تعليقات الجماهير")
+with tab5:
+    st.markdown('<div class="section-title">💬 تعليقات الجماهير</div>', unsafe_allow_html=True)
     if "user" in st.session_state and st.session_state.user:
         new_msg = st.text_input("اكتب تعليقاً...")
         if st.button("إرسال") and new_msg:
@@ -554,7 +606,8 @@ with tabs[4]:
             st.success("تم الإرسال")
             st.rerun()
     else:
-        st.info("سجل الدخول للمشاركة")
+        st.info("سجل الدخول للمشاركة في التعليقات")
+
     comments = supabase.table("comments").select("*").eq("match_id", team_id).order("created_at", desc=True).limit(20).execute()
     if comments.data:
         for c in comments.data:
