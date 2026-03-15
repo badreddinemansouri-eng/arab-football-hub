@@ -18,6 +18,13 @@ if not team_id:
         st.switch_page("app.py")
     st.stop()
 
+# Convert to integer for safety
+try:
+    team_id = int(team_id)
+except ValueError:
+    st.error("معرف الفريق غير صالح")
+    st.stop()
+
 # -------------------------------------------------------------------
 # Helper: fetch team details from TheSportsDB and cache in Supabase
 # -------------------------------------------------------------------
@@ -30,7 +37,6 @@ def fetch_and_update_team_details(team_name, team_id):
             data = resp.json()
             if data.get("teams"):
                 t = data["teams"][0]
-                # Prepare update data
                 update_data = {}
                 if t.get("strTeamBadge"):
                     update_data["logo"] = t["strTeamBadge"]
@@ -65,7 +71,7 @@ if not team:
 # If the team is missing details, try to fetch them from TheSportsDB
 if not team.get("country") or not team.get("founded") or not team.get("venue_name"):
     fetched = fetch_and_update_team_details(team["name"], team_id)
-    team.update(fetched)  # update local dict for display
+    team.update(fetched)
 
 # Display team info
 col1, col2 = st.columns([1, 3])
@@ -81,9 +87,11 @@ st.markdown("---")
 tab1, tab2, tab3 = st.tabs(["المباريات القادمة", "النتائج", "اللاعبون"])
 
 with tab1:
+    # Correct Supabase OR query: conditions separated by comma
+    or_condition = f"home_team_id.eq.{team_id},away_team_id.eq.{team_id}"
     fixtures = supabase.table("matches")\
         .select("*")\
-        .eq("home_team_id", team_id).or_(f"away_team_id.eq.{team_id}")\
+        .or_(or_condition)\
         .eq("status", "UPCOMING")\
         .order("match_time")\
         .execute()
@@ -100,9 +108,10 @@ with tab1:
         st.info("لا توجد مباريات قادمة")
 
 with tab2:
+    or_condition = f"home_team_id.eq.{team_id},away_team_id.eq.{team_id}"
     results = supabase.table("matches")\
         .select("*")\
-        .eq("home_team_id", team_id).or_(f"away_team_id.eq.{team_id}")\
+        .or_(or_condition)\
         .eq("status", "FINISHED")\
         .order("match_time", desc=True)\
         .limit(20)\
@@ -121,7 +130,6 @@ with tab2:
 
 with tab3:
     st.subheader("اللاعبون")
-    # Try to fetch players for this team from TheSportsDB
     players = []
     try:
         url = f"https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?t={requests.utils.quote(team['name'])}"
@@ -134,7 +142,7 @@ with tab3:
         print(f"Error fetching players: {e}")
 
     if players:
-        for p in players[:20]:  # show max 20
+        for p in players[:20]:
             col1, col2 = st.columns([1, 4])
             with col1:
                 st.image(p.get('strThumb') or 'https://via.placeholder.com/50', width=50)
