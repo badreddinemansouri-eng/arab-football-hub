@@ -55,7 +55,7 @@ def find_team_logo_in_storage(team_name):
     folders = [
         "Italy - Serie A", "England - Premier League", "Spain - LaLiga",
         "Germany - Bundesliga", "France - Ligue 1", "Portugal - Liga Portugal",
-        "International - Champions League", "International - World Cup"
+        "International - Champions League", "International - World Cup","CAF-Champions League"
     ]
     base_url = f"{SUPABASE_URL}/storage/v1/object/public/logos"
     candidates = [
