@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import zoneinfo
 import requests
 import hashlib
+import re
 import pandas as pd
 import altair as alt
 import time
@@ -29,6 +30,8 @@ except ValueError:
 
 # -------------------- Ultra logo resolver (with caching) --------------------
 
+
+  
 
 def get_team_logo(team_name, team_website=None):
     """
@@ -84,20 +87,18 @@ def get_team_logo(team_name, team_website=None):
 
     # 4. Try Wikipedia – fetch the page and extract the logo from the infobox
     try:
-        # Search for the team on Wikipedia (English)
         search_url = f"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={requests.utils.quote(team_name + ' football club')}&format=json"
         search_resp = requests.get(search_url, timeout=3)
         if search_resp.status_code == 200:
             search_data = search_resp.json()
             if search_data.get("query", {}).get("search"):
                 page_title = search_data["query"]["search"][0]["title"]
-                # Get the page content
                 page_url = f"https://en.wikipedia.org/w/api.php?action=parse&page={requests.utils.quote(page_title)}&format=json&prop=text"
                 page_resp = requests.get(page_url, timeout=3)
                 if page_resp.status_code == 200:
                     page_data = page_resp.json()
                     html = page_data.get("parse", {}).get("text", {}).get("*", "")
-                    # Look for the logo in the infobox – often in a <td> with class "logo"
+                    # Look for the logo in the infobox
                     match = re.search(r'<td[^>]*class="logo"[^>]*><img[^>]*src="([^"]+)"', html, re.IGNORECASE)
                     if match:
                         img_src = match.group(1)
@@ -111,7 +112,7 @@ def get_team_logo(team_name, team_website=None):
     except Exception as e:
         print(f"Wikipedia logo extraction failed: {e}")
 
-    # 5. If all else fails, return a initials‑based placeholder (not real, but better than nothing)
+    # 5. Fallback to initials placeholder
     words = team_name.split()
     if len(words) == 1:
         initials = words[0][:2].upper()
@@ -120,7 +121,6 @@ def get_team_logo(team_name, team_website=None):
     color = hashlib.md5(team_name.encode()).hexdigest()[:6]
     placeholder = f"https://ui-avatars.com/api/?name={initials}&background={color}&color=fff&size=200&bold=true&length=2"
     return placeholder
-
 # -------------------- TheSportsDB API helpers (cached) --------------------
 @st.cache_data(ttl=3600)
 def search_team_by_name(name):
