@@ -209,7 +209,7 @@ def parse_fd_match(match):
     score = match.get("score", {})
     status = match.get("status", "SCHEDULED")
 
-    # Upsert teams to teams table
+    # Upsert teams to teams table (ensures team exists)
     upsert_team(home_team.get("id"), home_team.get("name", "Unknown"))
     upsert_team(away_team.get("id"), away_team.get("name", "Unknown"))
 
@@ -262,6 +262,29 @@ def upsert_match(match_data):
         supabase.table("matches").upsert(match_data, on_conflict="fixture_id").execute()
     except Exception as e:
         print(f"Error upserting match {match_data['fixture_id']}: {e}")
+
+# -------------------------------------------------------------------
+# Standings fetching (new)
+# -------------------------------------------------------------------
+def update_standings():
+    """Fetch standings for all allowed competitions and store in standings table."""
+    for code in ALLOWED_COMPETITIONS:
+        url = f"{FD_API_BASE}/competitions/{code}/standings"
+        try:
+            resp = requests.get(url, headers=FD_HEADERS, timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                # Upsert into standings table
+                supabase.table("standings").upsert({
+                    "competition_code": code,
+                    "competition_name": data["competition"]["name"],
+                    "data": data
+                }, on_conflict="competition_code").execute()
+                print(f"Standings updated for {code}")
+            else:
+                print(f"Standings fetch failed for {code}: {resp.status_code}")
+        except Exception as e:
+            print(f"Error fetching standings for {code}: {e}")
 
 # -------------------------------------------------------------------
 # News fetching (unchanged)
@@ -422,6 +445,9 @@ def update_all_matches():
         .update({"is_active": False})\
         .lt("expires_at", now)\
         .execute()
+
+    # Update standings
+    update_standings()
 
     # Fetch news after matches
     update_news()
