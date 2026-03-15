@@ -157,7 +157,15 @@ def get_country_flag(country_name):
         return None
     code = country_name.lower().replace(" ", "-")
     return f"https://flagpedia.net/data/flags/icon/72x54/{code}.png"
-
+def upsert_team(team_id, team_name):
+    """Store a team in the teams table (football-data.org ID)."""
+    try:
+        supabase.table("teams").upsert({
+            "id": team_id,
+            "name": team_name
+        }, on_conflict="id").execute()
+    except Exception as e:
+        print(f"Error upserting team {team_id}: {e}")
 # -------------------------------------------------------------------
 # football-data.org match fetching (unchanged)
 # -------------------------------------------------------------------
@@ -201,6 +209,9 @@ def parse_fd_match(match):
     competition = match.get("competition", {})
     home_team = match.get("homeTeam", {})
     away_team = match.get("awayTeam", {})
+      # Upsert teams
+    upsert_team(home_team.get("id"), home_team.get("name", "Unknown"))
+    upsert_team(away_team.get("id"), away_team.get("name", "Unknown"))
     score = match.get("score", {})
     status = match.get("status", "SCHEDULED")
 
@@ -243,8 +254,11 @@ def parse_fd_match(match):
         "away_score": away_score,
         "streams": [],
         "broadcasters": [],
-        "home_team_id": None,   # will be filled later by API-Football
-        "away_team_id": None,
+    
+        "home_team_id": home_team.get("id"),
+        "away_team_id": away_team.get("id"),
+        # will be filled later by API-Football
+    
     }
     return match_data
 
