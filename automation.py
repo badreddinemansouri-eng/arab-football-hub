@@ -433,11 +433,30 @@ def fetch_and_store_african_standings(league_id, league_name, season):
 # Upsert match (uses composite key)
 # -------------------------------------------------------------------
 def upsert_match(match_data):
+    """
+    Manually upsert a match: check if it exists, then update or insert.
+    This avoids relying on a database unique constraint.
+    """
     try:
-        supabase.table("matches").upsert(
-            match_data,
-            on_conflict="source,fixture_id"
-        ).execute()
+        # Check if a record with the same source and fixture_id exists
+        existing = supabase.table("matches")\
+            .select("fixture_id")\
+            .eq("source", match_data["source"])\
+            .eq("fixture_id", match_data["fixture_id"])\
+            .execute()
+        
+        if existing.data:
+            # Update the existing record
+            supabase.table("matches")\
+                .update(match_data)\
+                .eq("source", match_data["source"])\
+                .eq("fixture_id", match_data["fixture_id"])\
+                .execute()
+            print(f"Updated match {match_data['fixture_id']} from {match_data['source']}")
+        else:
+            # Insert new record
+            supabase.table("matches").insert(match_data).execute()
+            print(f"Inserted match {match_data['fixture_id']} from {match_data['source']}")
     except Exception as e:
         print(f"Error upserting match {match_data['fixture_id']} from {match_data['source']}: {e}")
 
