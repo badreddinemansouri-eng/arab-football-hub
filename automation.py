@@ -459,7 +459,6 @@ def upsert_match(match_data):
             print(f"Inserted match {match_data['fixture_id']} from {match_data['source']}")
     except Exception as e:
         print(f"Error upserting match {match_data['fixture_id']} from {match_data['source']}: {e}")
-
 # -------------------------------------------------------------------
 # Standings for football-data.org
 # -------------------------------------------------------------------
