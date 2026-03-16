@@ -20,25 +20,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
-import streamlit as st
-from supabase import create_client
 
-# --- DIRECT DATABASE CHECK (bypasses all caching and filters) ---
-st.write("## 🔍 Direct database check (using anon key)")
-anon = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_ANON_KEY"])
-result = anon.table("matches").select("*").eq("status", "UPCOMING").execute()
-st.write(f"**Number of upcoming matches found:** {len(result.data)}")
-if result.data:
-    st.write("**First match:**")
-    st.json(result.data[0])
-else:
-    st.write("**No upcoming matches found via direct query.**")
-    # Also show a sample of any rows to see what's there
-    any_rows = anon.table("matches").select("status").limit(5).execute()
-    st.write("**Sample statuses from any rows:**")
-    for row in any_rows.data:
-        st.write(row)
-st.write("--- End of direct check ---")
 
 # -------------------- Load Secrets --------------------
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
@@ -342,7 +324,10 @@ with st.sidebar:
     elif theme == "فاتح" and st.session_state.theme != "light":
         st.session_state.theme = "light"
         st.rerun()
-
+    st.markdown("---")
+    if st.button("🔄 تحديث البيانات", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
     st.markdown("---")
     # Professional search bar
     st.markdown('<div class="search-container">', unsafe_allow_html=True)
@@ -656,7 +641,7 @@ with st.sidebar:
                             st.info(f"النتائج: {found} تم العثور عليها، {not_found} لم يتم العثور عليها.")
 
 # -------------------- Data Fetching --------------------
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=10)
 def get_matches():
     resp = supabase.table("matches").select("*").order("match_time", desc=False).execute()
     return resp.data
