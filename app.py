@@ -759,7 +759,7 @@ with tab1:
     else:
         st.info("لا توجد مباريات مباشرة حالياً")
 
-    st.header("📅 المباريات القادمة")
+    
     st.header("📅 المباريات القادمة")
     upcoming = [m for m in matches if m['status'] == 'UPCOMING']
     upcoming.sort(key=lambda x: x['match_time'])
