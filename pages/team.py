@@ -6,7 +6,6 @@ import requests
 import hashlib
 import re
 import pandas as pd
-import time
 
 st.set_page_config(page_title="فريق", page_icon="🏟️", layout="wide")
 
@@ -135,17 +134,16 @@ def query_wikidata(team_name):
         pass
     return {}
 
-# -------------------- Fetch external data with spinners --------------------
-with st.spinner("جاري تحميل بيانات الفريق..."):
-    tsdb_team = search_team_by_name(team['name'])
-    tsdb_id = tsdb_team.get('idTeam') if tsdb_team else None
+# -------------------- Fetch external data --------------------
+tsdb_team = search_team_by_name(team['name'])
+tsdb_id = tsdb_team.get('idTeam') if tsdb_team else None
 
-    players = get_players(tsdb_id) if tsdb_id else []
-    recent_events = get_recent_events(tsdb_id) if tsdb_id else []
-    next_events = get_next_events(tsdb_id) if tsdb_id else []
-    honours = get_honours(tsdb_id) if tsdb_id else []
+players = get_players(tsdb_id) if tsdb_id else []
+recent_events = get_recent_events(tsdb_id) if tsdb_id else []
+next_events = get_next_events(tsdb_id) if tsdb_id else []
+honours = get_honours(tsdb_id) if tsdb_id else []
 
-    wiki = query_wikidata(team['name'])
+wiki = query_wikidata(team['name'])
 
 # -------------------- Helper functions --------------------
 def safe_str(val, default="–"):
@@ -157,28 +155,32 @@ def format_date(tsdb_date_str):
     except:
         return tsdb_date_str
 
-def get_flag_url(country_name):
+# -------------------- Country flag using pycountry + flagcdn (consistent with automation) --------------------
+def get_country_flag(country_name):
     if not country_name:
         return None
-    # Clean country name (keep only letters) and lower case
-    clean = re.sub(r'[^a-zA-Z]', '', country_name).lower()
-    return f"https://flagpedia.net/data/flags/icon/72x54/{clean}.png"
-
-def get_form_icon(result):
-    if result == 'W':
-        return "✅ فوز"
-    elif result == 'D':
-        return "🤝 تعادل"
-    elif result == 'L':
-        return "❌ خسارة"
-    return "–"
+    try:
+        import pycountry
+        country = pycountry.countries.get(name=country_name)
+        if country:
+            code = country.alpha_2.lower()
+            return f"https://flagcdn.com/w320/{code}.png"
+    except ImportError:
+        # pycountry not installed – you may want to add it to requirements.txt
+        print("pycountry not installed. Install it for automatic country flags: pip install pycountry")
+    except:
+        pass
+    return None
 
 # -------------------- Logo resolver (multi‑source) --------------------
 def get_team_logo():
+    # 1. TheSportsDB logo
     if tsdb_team and tsdb_team.get('strTeamBadge'):
         return tsdb_team['strTeamBadge']
+    # 2. Wikidata logo
     if wiki.get('logo'):
         return wiki['logo']
+    # 3. Clearbit from website
     if tsdb_team and tsdb_team.get('strWebsite'):
         domain = tsdb_team['strWebsite'].replace("https://", "").replace("http://", "").split("/")[0]
         clearbit_url = f"https://logo.clearbit.com/{domain}"
@@ -187,6 +189,7 @@ def get_team_logo():
                 return clearbit_url
         except:
             pass
+    # 4. Fallback initials
     name = team['name']
     words = name.split()
     if len(words) == 1:
@@ -475,22 +478,32 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -------------------- Header --------------------
-country_flag = get_flag_url(tsdb_team.get('strCountry') if tsdb_team else team.get('country'))
+# Safely get country flag
+country_flag = None
+if tsdb_team:
+    country_flag = get_country_flag(tsdb_team.get('strCountry'))
+elif team.get('country'):
+    country_flag = get_country_flag(team.get('country'))
 
-st.markdown(f"""
+# Build header HTML safely
+header_html = f"""
 <div class="team-header">
     <img src="{logo}" class="team-logo">
     <div>
         <h1 class="team-name">{team['name']}</h1>
         <div class="team-meta">
-            <span class="team-meta-item">{country_flag and f'<img src="{country_flag}" width="24">' or ''} {tsdb_team.get('strCountry') or wiki.get('country') or team.get('country') or ''}</span>
-            <span class="team-meta-item">🏟️ {tsdb_team.get('strStadium') or team.get('venue_name') or '–'}</span>
-            <span class="team-meta-item">📅 {tsdb_team.get('intFormedYear') or wiki.get('founded') or team.get('founded') or '–'}</span>
-            <span class="team-meta-item">⚽ {tsdb_team.get('strManager') or wiki.get('coach') or '–'}</span>
+            <span class="team-meta-item">
+                {country_flag and f'<img src="{country_flag}" width="24">' or ''} 
+                { (tsdb_team.get('strCountry') if tsdb_team else None) or wiki.get('country') or team.get('country') or '' }
+            </span>
+            <span class="team-meta-item">🏟️ { (tsdb_team.get('strStadium') if tsdb_team else None) or team.get('venue_name') or '–' }</span>
+            <span class="team-meta-item">📅 { (tsdb_team.get('intFormedYear') if tsdb_team else None) or wiki.get('founded') or team.get('founded') or '–' }</span>
+            <span class="team-meta-item">⚽ { (tsdb_team.get('strManager') if tsdb_team else None) or wiki.get('coach') or '–' }</span>
         </div>
     </div>
 </div>
-""", unsafe_allow_html=True)
+"""
+st.markdown(header_html, unsafe_allow_html=True)
 
 # -------------------- Stats Row (enhanced) --------------------
 st.markdown(f"""
@@ -695,13 +708,13 @@ with tab4:
 with tab5:
     st.markdown('<div class="section-title">ℹ️ معلومات الفريق</div>', unsafe_allow_html=True)
     info = [
-        ("الدوري", tsdb_team.get('strLeague') or team.get('league') or '–'),
-        ("البلد", tsdb_team.get('strCountry') or wiki.get('country') or team.get('country') or '–'),
-        ("التأسيس", tsdb_team.get('intFormedYear') or wiki.get('founded') or team.get('founded') or '–'),
-        ("الملعب", tsdb_team.get('strStadium') or team.get('venue_name') or '–'),
-        ("السعة", tsdb_team.get('intStadiumCapacity') or wiki.get('capacity') or '–'),
-        ("المدرب", tsdb_team.get('strManager') or wiki.get('coach') or '–'),
-        ("الموقع", tsdb_team.get('strWebsite') or '–'),
+        ("الدوري", (tsdb_team.get('strLeague') if tsdb_team else None) or team.get('league') or '–'),
+        ("البلد", (tsdb_team.get('strCountry') if tsdb_team else None) or wiki.get('country') or team.get('country') or '–'),
+        ("التأسيس", (tsdb_team.get('intFormedYear') if tsdb_team else None) or wiki.get('founded') or team.get('founded') or '–'),
+        ("الملعب", (tsdb_team.get('strStadium') if tsdb_team else None) or team.get('venue_name') or '–'),
+        ("السعة", (tsdb_team.get('intStadiumCapacity') if tsdb_team else None) or wiki.get('capacity') or '–'),
+        ("المدرب", (tsdb_team.get('strManager') if tsdb_team else None) or wiki.get('coach') or '–'),
+        ("الموقع", (tsdb_team.get('strWebsite') if tsdb_team else None) or '–'),
         ("معرف الفريق", team_id),
     ]
     html = '<div class="info-grid">'
