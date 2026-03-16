@@ -644,6 +644,21 @@ def get_matches():
 
 matches = get_matches()
 
+
+# -------------------- DEBUG START --------------------
+st.write("### 🔍 معلومات التشخيص")
+status_counts = {}
+for m in matches:
+    s = m.get('status', 'UNKNOWN')
+    status_counts[s] = status_counts.get(s, 0) + 1
+st.write("**عدد المباريات حسب الحالة:**", status_counts)
+
+upcoming_samples = [m for m in matches if m.get('status') == 'UPCOMING'][:5]
+st.write("**أول 5 مباريات قادمة (مع الوقت والحالة):**")
+for m in upcoming_samples:
+    st.write(f"- {m['home_team']} vs {m['away_team']} at {m['match_time']} (status: {m['status']})")
+# -------------------- DEBUG END --------------------
+
 # -------------------- Helper Functions --------------------
 def time_until(match_time_str):
     try:
