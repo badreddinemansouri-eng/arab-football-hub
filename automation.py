@@ -13,6 +13,7 @@ import feedparser
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_SERVICE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
 FOOTBALL_DATA_TOKEN = os.environ["FOOTBALL_DATA_TOKEN"]
+API_FOOTBALL_KEY = os.environ.get("API_FOOTBALL_KEY", "")
 YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY", "")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
@@ -28,18 +29,28 @@ ALLOWED_COMPETITIONS = [
 ]
 
 # -------------------------------------------------------------------
-# TheSportsDB API configuration (with verified league IDs)
+# API-Football (direct) for African leagues
 # -------------------------------------------------------------------
-TSDB_API_BASE = "https://www.thesportsdb.com/api/v1/json/3"
+API_FOOTBALL_HOST = "v3.football.api-sports.io"
+API_FOOTBALL_BASE = f"https://{API_FOOTBALL_HOST}"
 
-TSDB_LEAGUES = {
-    "CAF Champions League": 4720,
-    "Tunisian Ligue 1": 4828,
-    "Egyptian Premier League": 4829,
+AFRICAN_LEAGUES = {
+    "Tunisian Ligue 1": 202,
+    "Egyptian Premier League": 233,
+    "CAF Champions League": 203,
 }
 
+def get_current_season():
+    """Return season string (e.g., '2025' for 2025-2026)."""
+    now = datetime.now()
+    year = now.year
+    # If before August, we're still in the previous season? Actually API expects the starting year.
+    # For simplicity, we use current year for seasons starting in that year.
+    # Most leagues start in Aug/Sep, so after July we move to next year's season.
+    return str(year) if now.month < 8 else str(year)
+
 # -------------------------------------------------------------------
-# Helper: check if custom match exists (unchanged)
+# Helper: check if custom match exists
 # -------------------------------------------------------------------
 def custom_match_exists(home_team, away_team, match_date):
     result = supabase.table("matches")\
@@ -53,7 +64,7 @@ def custom_match_exists(home_team, away_team, match_date):
     return len(result.data) > 0
 
 # -------------------------------------------------------------------
-# Logo helpers (enhanced with TheSportsDB fallback)
+# Logo helpers (unchanged)
 # -------------------------------------------------------------------
 def slugify_team_name(name):
     if not name:
@@ -85,25 +96,9 @@ def find_team_logo_in_storage(team_name):
                 continue
     return None
 
-def fetch_team_logo_from_thesportsdb(team_name):
-    """Search TheSportsDB for team by name and return logo URL if found."""
-    try:
-        url = f"{TSDB_API_BASE}/searchteams.php?t={requests.utils.quote(team_name)}"
-        resp = requests.get(url, timeout=5)
-        if resp.status_code == 200:
-            data = resp.json()
-            teams = data.get("teams", [])
-            if teams:
-                # Prefer strTeamBadge, fallback to strTeamLogo
-                return teams[0].get("strTeamBadge") or teams[0].get("strTeamLogo")
-    except:
-        pass
-    return None
-
 def get_team_logo_from_db(team_name):
     if not team_name:
         return None
-    # First check database
     try:
         result = supabase.table("team_logos").select("logo_url").eq("team_name", team_name).execute()
         if result.data and result.data[0].get("logo_url"):
@@ -111,10 +106,8 @@ def get_team_logo_from_db(team_name):
     except Exception as e:
         print(f"Error looking up logo for {team_name}: {e}")
 
-    # Then check storage
     url = find_team_logo_in_storage(team_name)
     if url:
-        # Store in DB for future
         try:
             supabase.table("team_logos").upsert(
                 {"team_name": team_name, "logo_url": url},
@@ -123,19 +116,6 @@ def get_team_logo_from_db(team_name):
         except Exception as e:
             print(f"Error storing logo for {team_name}: {e}")
         return url
-
-    # Finally, try TheSportsDB
-    tsdb_url = fetch_team_logo_from_thesportsdb(team_name)
-    if tsdb_url:
-        try:
-            supabase.table("team_logos").upsert(
-                {"team_name": team_name, "logo_url": tsdb_url},
-                on_conflict="team_name"
-            ).execute()
-        except Exception as e:
-            print(f"Error storing logo from TheSportsDB for {team_name}: {e}")
-        return tsdb_url
-
     return None
 
 def slugify_league_name(name):
@@ -162,24 +142,9 @@ def find_league_logo_in_storage(league_name):
             continue
     return None
 
-def fetch_league_logo_from_thesportsdb(league_name):
-    """Search TheSportsDB for league by name and return logo URL."""
-    try:
-        url = f"{TSDB_API_BASE}/search_leagues.php?l={requests.utils.quote(league_name)}"
-        resp = requests.get(url, timeout=5)
-        if resp.status_code == 200:
-            data = resp.json()
-            leagues = data.get("leagues", [])
-            if leagues:
-                return leagues[0].get("strBadge") or leagues[0].get("strLogo")
-    except:
-        pass
-    return None
-
 def get_league_logo_from_db(league_name):
     if not league_name:
         return None
-    # Check DB
     try:
         result = supabase.table("league_logos").select("logo_url").eq("league_name", league_name).execute()
         if result.data and result.data[0].get("logo_url"):
@@ -187,7 +152,6 @@ def get_league_logo_from_db(league_name):
     except Exception as e:
         print(f"Error looking up league logo for {league_name}: {e}")
 
-    # Check storage
     url = find_league_logo_in_storage(league_name)
     if url:
         try:
@@ -198,23 +162,10 @@ def get_league_logo_from_db(league_name):
         except Exception as e:
             print(f"Error storing league logo for {league_name}: {e}")
         return url
-
-    # Try TheSportsDB
-    tsdb_url = fetch_league_logo_from_thesportsdb(league_name)
-    if tsdb_url:
-        try:
-            supabase.table("league_logos").upsert(
-                {"league_name": league_name, "logo_url": tsdb_url},
-                on_conflict="league_name"
-            ).execute()
-        except Exception as e:
-            print(f"Error storing league logo from TheSportsDB for {league_name}: {e}")
-        return tsdb_url
-
     return None
 
 # -------------------------------------------------------------------
-# Country flags using pycountry + flagcdn (reliable)
+# Country flags using pycountry + flagcdn
 # -------------------------------------------------------------------
 def get_country_flag(country_name):
     if not country_name:
@@ -229,11 +180,10 @@ def get_country_flag(country_name):
         print("pycountry not installed. Install it for automatic country flags: pip install pycountry")
     except:
         pass
-    # Fallback: return None (no flag)
     return None
 
 # -------------------------------------------------------------------
-# Helper: upsert team (unchanged)
+# Helper: upsert team
 # -------------------------------------------------------------------
 def upsert_team(team_id, team_name):
     if not team_id or not team_name:
@@ -248,7 +198,7 @@ def upsert_team(team_id, team_name):
         print(f"Error upserting team {team_id}: {e}")
 
 # -------------------------------------------------------------------
-# football-data.org match fetching (source added)
+# football-data.org match fetching
 # -------------------------------------------------------------------
 def fetch_fd_competitions():
     url = f"{FD_API_BASE}/competitions"
@@ -343,158 +293,144 @@ def parse_fd_match(match):
     return match_data
 
 # -------------------------------------------------------------------
-# TheSportsDB match fetching (for specified leagues)
+# API-Football functions for African leagues
 # -------------------------------------------------------------------
-def fetch_tsdb_league_matches(league_name, league_id, days=7):
-    matches = []
-    seen_ids = set()
 
-    # 1. Upcoming events
-    upcoming_url = f"{TSDB_API_BASE}/eventsnextleague.php?id={league_id}"
+def fetch_african_matches(league_id, season):
+    """Fetch fixtures for a given league ID and season."""
+    url = f"{API_FOOTBALL_BASE}/fixtures"
+    headers = {"x-apisports-key": API_FOOTBALL_KEY}
+    params = {"league": league_id, "season": season}
     try:
-        resp = requests.get(upcoming_url, timeout=10)
+        resp = requests.get(url, headers=headers, params=params, timeout=10)
         if resp.status_code == 200:
             data = resp.json()
-            events = data.get("events", [])
-            for ev in events:
-                if ev.get('idEvent') not in seen_ids:
-                    match = parse_tsdb_event(ev, league_name)
-                    if match:
-                        matches.append(match)
-                        seen_ids.add(ev['idEvent'])
-    except Exception as e:
-        print(f"Error fetching upcoming events for {league_name}: {e}")
-
-    # 2. Live events
-    live_url = f"{TSDB_API_BASE}/eventsliveleague.php?id={league_id}"
-    try:
-        resp = requests.get(live_url, timeout=10)
-        if resp.status_code == 200:
-            data = resp.json()
-            events = data.get("events", [])
-            for ev in events:
-                if ev.get('idEvent') not in seen_ids:
-                    match = parse_tsdb_event(ev, league_name)
-                    if match:
-                        matches.append(match)
-                        seen_ids.add(ev['idEvent'])
-    except Exception as e:
-        print(f"Error fetching live events for {league_name}: {e}")
-
-    # 3. Past events (last 7 days)
-    past_url = f"{TSDB_API_BASE}/eventspastleague.php?id={league_id}"
-    try:
-        resp = requests.get(past_url, timeout=10)
-        if resp.status_code == 200:
-            data = resp.json()
-            events = data.get("events", [])
-            for ev in events:
-                if ev.get('idEvent') not in seen_ids:
-                    match = parse_tsdb_event(ev, league_name)
-                    if match:
-                        matches.append(match)
-                        seen_ids.add(ev['idEvent'])
-    except Exception as e:
-        print(f"Error fetching past events for {league_name}: {e}")
-
-    return matches
-
-def parse_tsdb_event(event, league_name):
-    try:
-        fixture_id = int(event['idEvent'])
-        home_team = event.get('strHomeTeam', 'Unknown')
-        away_team = event.get('strAwayTeam', 'Unknown')
-        match_time = event.get('dateEvent') + 'T' + event.get('strTime', '00:00:00') + 'Z'
-        
-        # Determine status
-        status_str = event.get('strStatus', '').lower()
-        if any(x in status_str for x in ['finished', 'ft', 'match finished']):
-            status = "FINISHED"
-        elif any(x in status_str for x in ['live', 'in progress', 'first half', 'second half']):
-            status = "LIVE"
+            return data.get("response", [])
         else:
-            status = "UPCOMING"
-
-        # Scores (default to 0 if missing)
-        home_score = event.get('intHomeScore')
-        away_score = event.get('intAwayScore')
-        if home_score is None or away_score is None:
-            home_score = 0
-            away_score = 0
-        else:
-            home_score = int(home_score)
-            away_score = int(away_score)
-
-        # Logos (will trigger fetching if not already in DB)
-        home_logo = get_team_logo_from_db(home_team)
-        away_logo = get_team_logo_from_db(away_team)
-        league_logo = get_league_logo_from_db(league_name)
-        country = event.get('strCountry', '')
-        country_flag = get_country_flag(country)
-
-        # Upsert teams using TheSportsDB team IDs
-        if event.get('idHomeTeam'):
-            upsert_team(int(event['idHomeTeam']), home_team)
-        if event.get('idAwayTeam'):
-            upsert_team(int(event['idAwayTeam']), away_team)
-
-        match_data = {
-            "source": "thesportsdb",
-            "fixture_id": fixture_id,
-            "league": league_name,
-            "league_id": int(event['idLeague']) if event.get('idLeague') else None,
-            "league_logo": league_logo,
-            "home_team": home_team,
-            "away_team": away_team,
-            "home_team_id": int(event['idHomeTeam']) if event.get('idHomeTeam') else None,
-            "away_team_id": int(event['idAwayTeam']) if event.get('idAwayTeam') else None,
-            "home_logo": home_logo,
-            "away_logo": away_logo,
-            "country": country,
-            "country_logo": country_flag,
-            "match_time": match_time,
-            "status": status,
-            "home_score": home_score,
-            "away_score": away_score,
-            "streams": [],
-            "broadcasters": [],
-        }
-        return match_data
+            print(f"API-Football fixtures error {resp.status_code}: {resp.text}")
+            return []
     except Exception as e:
-        print(f"Error parsing TheSportsDB event: {e}")
-        return None
+        print(f"Exception fetching API-Football fixtures: {e}")
+        return []
 
-# -------------------------------------------------------------------
-# NEW: Bulk fetch and store team logos for a TheSportsDB league
-# -------------------------------------------------------------------
-def fetch_and_store_team_logos(league_id, league_name):
-    """Get all teams for a league from TheSportsDB and store their logos."""
-    print(f"Fetching team logos for {league_name} (ID: {league_id})...")
-    url = f"{TSDB_API_BASE}/lookup_all_teams.php?id={league_id}"
+def parse_african_fixture(fixture, league_name, league_id):
+    f = fixture["fixture"]
+    teams = fixture["teams"]
+    goals = fixture["goals"]
+    status_short = f["status"]["short"]
+
+    fixture_id = f["id"]
+    home_team = teams["home"]["name"]
+    away_team = teams["away"]["name"]
+    home_team_id = teams["home"]["id"]
+    away_team_id = teams["away"]["id"]
+    match_time = f["date"]
+
+    # Map status to our categories
+    if status_short in ["FT", "AET", "PEN"]:
+        status_cat = "FINISHED"
+    elif status_short in ["LIVE", "1H", "2H", "HT", "ET", "P"]:
+        status_cat = "LIVE"
+    else:
+        status_cat = "UPCOMING"
+
+    home_score = goals["home"] or 0
+    away_score = goals["away"] or 0
+
+    # Get logos (will trigger fetch if missing)
+    home_logo = get_team_logo_from_db(home_team)
+    away_logo = get_team_logo_from_db(away_team)
+    league_logo = get_league_logo_from_db(league_name)
+
+    # Country based on league
+    if "Tunisian" in league_name:
+        country = "Tunisia"
+    elif "Egyptian" in league_name:
+        country = "Egypt"
+    else:
+        country = "Africa"
+    country_flag = get_country_flag(country)
+
+    # Store team IDs
+    upsert_team(home_team_id, home_team)
+    upsert_team(away_team_id, away_team)
+
+    match_data = {
+        "source": "api-football",
+        "fixture_id": fixture_id,
+        "league": league_name,
+        "league_id": league_id,
+        "league_logo": league_logo,
+        "home_team": home_team,
+        "away_team": away_team,
+        "home_team_id": home_team_id,
+        "away_team_id": away_team_id,
+        "home_logo": home_logo,
+        "away_logo": away_logo,
+        "country": country,
+        "country_logo": country_flag,
+        "match_time": match_time,
+        "status": status_cat,
+        "home_score": home_score,
+        "away_score": away_score,
+        "streams": [],
+        "broadcasters": [],
+    }
+    return match_data
+
+def fetch_and_store_african_team_logos(league_id, league_name, season):
+    """Get all teams in the league and store their logos."""
+    print(f"Fetching team logos for {league_name}...")
+    url = f"{API_FOOTBALL_BASE}/teams"
+    headers = {"x-apisports-key": API_FOOTBALL_KEY}
+    params = {"league": league_id, "season": season}
     try:
-        resp = requests.get(url, timeout=10)
+        resp = requests.get(url, headers=headers, params=params, timeout=10)
         if resp.status_code == 200:
             data = resp.json()
-            teams = data.get("teams", [])
-            for team in teams:
-                team_name = team.get("strTeam")
-                logo_url = team.get("strTeamBadge") or team.get("strTeamLogo")
+            teams = data.get("response", [])
+            for item in teams:
+                team = item["team"]
+                team_name = team["name"]
+                logo_url = team["logo"]
                 if team_name and logo_url:
-                    # Upsert into team_logos
-                    try:
-                        supabase.table("team_logos").upsert(
-                            {"team_name": team_name, "logo_url": logo_url},
-                            on_conflict="team_name"
-                        ).execute()
-                        print(f"  Stored logo for {team_name}")
-                    except Exception as e:
-                        print(f"  Error storing logo for {team_name}: {e}")
-                time.sleep(0.2)  # be polite
+                    supabase.table("team_logos").upsert(
+                        {"team_name": team_name, "logo_url": logo_url},
+                        on_conflict="team_name"
+                    ).execute()
+                    print(f"  Stored logo for {team_name}")
+            print(f"Team logos updated for {league_name}")
+        else:
+            print(f"API-Football teams error {resp.status_code}: {resp.text}")
     except Exception as e:
-        print(f"Error fetching teams for {league_name}: {e}")
+        print(f"Exception fetching teams for {league_name}: {e}")
+
+def fetch_and_store_african_standings(league_id, league_name, season):
+    """Get league standings and store in african_standings table."""
+    print(f"Fetching standings for {league_name}...")
+    url = f"{API_FOOTBALL_BASE}/standings"
+    headers = {"x-apisports-key": API_FOOTBALL_KEY}
+    params = {"league": league_id, "season": season}
+    try:
+        resp = requests.get(url, headers=headers, params=params, timeout=10)
+        if resp.status_code == 200:
+            data = resp.json()
+            standings = data.get("response", [])
+            if standings:
+                supabase.table("african_standings").upsert({
+                    "competition_code": str(league_id),
+                    "competition_name": league_name,
+                    "data": data,
+                    "source": "api-football"
+                }, on_conflict="source,competition_code").execute()
+                print(f"Standings stored for {league_name}")
+        else:
+            print(f"API-Football standings error {resp.status_code}: {resp.text}")
+    except Exception as e:
+        print(f"Exception fetching standings for {league_name}: {e}")
 
 # -------------------------------------------------------------------
-# Updated upsert_match (uses composite key)
+# Upsert match (uses composite key)
 # -------------------------------------------------------------------
 def upsert_match(match_data):
     try:
@@ -506,7 +442,7 @@ def upsert_match(match_data):
         print(f"Error upserting match {match_data['fixture_id']} from {match_data['source']}: {e}")
 
 # -------------------------------------------------------------------
-# Standings fetching (unchanged, from football-data.org)
+# Standings for football-data.org
 # -------------------------------------------------------------------
 def update_standings():
     for code in ALLOWED_COMPETITIONS:
@@ -652,7 +588,7 @@ def update_all_matches():
             matches = fetch_fd_matches(competition_code=code, date_from=today, date_to=next_3_days)
             for match in matches:
                 match_data = parse_fd_match(match)
-                # Merge admin streams (if any)
+                # Merge admin streams
                 admin_streams = supabase.table("admin_streams")\
                     .select("*")\
                     .eq("fixture_id", match_data["fixture_id"])\
@@ -675,20 +611,24 @@ def update_all_matches():
                 time.sleep(0.5)
             time.sleep(1)
 
-    # --- TheSportsDB matches for specified leagues ---
-    for league_name, league_id in TSDB_LEAGUES.items():
-        print(f"Fetching TheSportsDB matches for {league_name}...")
-        tsdb_matches = fetch_tsdb_league_matches(league_name, league_id, days=7)
-        for match_data in tsdb_matches:
+    # --- API-Football for African leagues ---
+    season = get_current_season()
+    for league_name, league_id in AFRICAN_LEAGUES.items():
+        print(f"Processing {league_name}...")
+
+        # 1. Fetch fixtures
+        fixtures = fetch_african_matches(league_id, season)
+        for fix in fixtures:
+            match_data = parse_african_fixture(fix, league_name, league_id)
             upsert_match(match_data)
-            print(f"Updated TheSportsDB: {match_data['home_team']} vs {match_data['away_team']} ({match_data['status']})")
+            print(f"Updated API-Football: {match_data['home_team']} vs {match_data['away_team']} ({match_data['status']})")
             time.sleep(0.5)
 
-        # --- NEW: Fetch and store team logos for this league ---
-        # Skip team logo fetching for TheSportsDB leagues due to API inconsistency
-        # fetch_and_store_team_logos(league_id, league_name)   # disabled
-        # Also store league logo if not already present
-        league_logo = get_league_logo_from_db(league_name)  # This will trigger fetch if needed
+        # 2. Fetch and store team logos (once per day)
+        fetch_and_store_african_team_logos(league_id, league_name, season)
+
+        # 3. Fetch and store standings (once per day)
+        fetch_and_store_african_standings(league_id, league_name, season)
 
     # Clean up expired admin streams
     now = datetime.now().isoformat()
@@ -697,7 +637,7 @@ def update_all_matches():
         .lt("expires_at", now)\
         .execute()
 
-    # Update standings (football-data only)
+    # Update football-data.org standings
     update_standings()
 
     # Fetch news
@@ -706,7 +646,7 @@ def update_all_matches():
     print("Global update complete!")
 
 # -------------------------------------------------------------------
-# Placeholder for YouTube search (unchanged)
+# Placeholder for YouTube search
 # -------------------------------------------------------------------
 def search_youtube_streams(match):
     return []
