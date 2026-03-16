@@ -672,32 +672,6 @@ def render_match_card(match, show_favorite=True):
     home_link = f'/team?team_id={home_team_id}' if home_team_id else '#'
     away_link = f'/team?team_id={away_team_id}' if away_team_id else '#'
 
-    # Collect streams from match and admin
-    streams = match.get("streams", [])
-    if isinstance(streams, str):
-        try:
-            streams = json.loads(streams)
-        except:
-            streams = []
-    try:
-        admin_streams = supabase.table("admin_streams")\
-            .select("*")\
-            .eq("fixture_id", match["fixture_id"])\
-            .eq("is_active", True)\
-            .execute()\
-            .data
-        if admin_streams:
-            for admin in admin_streams:
-                streams.append({
-                    "title": admin.get("stream_title", "بث مباشر"),
-                    "url": admin["stream_url"],
-                    "source": admin.get("stream_source", "admin"),
-                    "verified": True,
-                    "admin_added": True
-                })
-    except Exception as e:
-        print(f"Error fetching admin streams: {e}")
-
     # Determine effective status (fallback for stale data)
     effective_status = match['status']
     if effective_status != 'FINISHED':
@@ -742,49 +716,36 @@ def render_match_card(match, show_favorite=True):
             status_display = "<span style='color:#888;'>انتهت</span>"
             center = f"{match['home_score']} - {match['away_score']}"
 
-    # Stream buttons
-    stream_buttons = ""
-    for s in streams[:3]:
-        stream_link = f"/match_details?match_id={match['fixture_id']}"
-        safe_title = html.escape(s["title"][:15])
-        stream_buttons += f'<a href="{stream_link}" style="display:inline-block; background:#1976d2; color:white; padding:4px 10px; border-radius:20px; text-decoration:none; font-size:0.8rem; margin:2px;">📺 {safe_title}</a>'
-    if not stream_buttons:
-        stream_buttons = '<span style="color:#888;">لا توجد روابط</span>'
-
-    details_link = f'<a href="/match_details?match_id={match["fixture_id"]}" target="_self" style="display:inline-block; margin-top:8px; background:#1976d2; color:white; padding:6px 12px; border-radius:20px; text-decoration:none; font-size:0.9rem;">التفاصيل</a>'
-
-    # Build the card with clickable team names
+    # Build the card – whole card links to watch_stream
     return f"""
-    <div class="match-card">
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-            <div style="flex:1; text-align:center;">
-                <img src="{home_logo}" style="width:48px; height:48px; object-fit:contain; margin-bottom:6px;">
-                <a href="{home_link}" style="text-decoration:none; color:inherit;">
-                    <div style="font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px; margin:0 auto;">{home_team}</div>
-                </a>
+    <a href="/watch_stream?match_id={match['fixture_id']}" style="text-decoration:none; color:inherit; display:block;">
+        <div class="match-card">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                <div style="flex:1; text-align:center;">
+                    <img src="{home_logo}" style="width:48px; height:48px; object-fit:contain; margin-bottom:6px;">
+                    <a href="{home_link}" onclick="event.stopPropagation();" style="text-decoration:none; color:inherit;">
+                        <div style="font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px; margin:0 auto;">{home_team}</div>
+                    </a>
+                </div>
+                <div style="flex:1; text-align:center;">
+                    {center}
+                    <div style="margin-top:4px;">{status_display}</div>
+                </div>
+                <div style="flex:1; text-align:center;">
+                    <img src="{away_logo}" style="width:48px; height:48px; object-fit:contain; margin-bottom:6px;">
+                    <a href="{away_link}" onclick="event.stopPropagation();" style="text-decoration:none; color:inherit;">
+                        <div style="font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px; margin:0 auto;">{away_team}</div>
+                    </a>
+                </div>
             </div>
-            <div style="flex:1; text-align:center;">
-                {center}
-                <div style="margin-top:4px;">{status_display}</div>
-            </div>
-            <div style="flex:1; text-align:center;">
-                <img src="{away_logo}" style="width:48px; height:48px; object-fit:contain; margin-bottom:6px;">
-                <a href="{away_link}" style="text-decoration:none; color:inherit;">
-                    <div style="font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px; margin:0 auto;">{away_team}</div>
-                </a>
+            <div style="display: flex; align-items: center; gap:8px; margin-top:12px; padding-top:8px; border-top:1px solid #444;">
+                <img src="{league_logo}" style="width:20px; height:20px; object-fit:contain;">
+                <span style="color:#aaa;">{league_name}</span>
             </div>
         </div>
-        <div style="display: flex; align-items: center; gap:8px; margin-top:12px; padding-top:8px; border-top:1px solid #444;">
-            <img src="{league_logo}" style="width:20px; height:20px; object-fit:contain;">
-            <span style="color:#aaa;">{league_name}</span>
-            <div style="flex:1;"></div>
-            {details_link}
-        </div>
-        <div style="margin-top:8px; display: flex; flex-wrap: wrap; gap:4px; justify-content: center;">
-            {stream_buttons}
-        </div>
-    </div>
+    </a>
     """
+
 
 # -------------------- Tabs --------------------
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 المباريات", "📊 النتائج", "🏆 الترتيب", "⭐ المفضلة", "📰 الأخبار", "🔮 التوقعات"])
@@ -817,14 +778,21 @@ with tab1:
     else:
         st.write("لا توجد مباريات قادمة")
 
+
 with tab2:
     st.header("📊 النتائج")
     finished = [m for m in matches if m['status'] == 'FINISHED']
     finished.sort(key=lambda x: x['match_time'], reverse=True)
     if finished:
         for m in finished:
-            home_logo = m.get('home_logo') or get_team_logo(m['home_team'])
-            away_logo = m.get('away_logo') or get_team_logo(m['away_team'])
+            home_team = html.escape(m['home_team'])
+            away_team = html.escape(m['away_team'])
+            home_logo = m.get('home_logo') or get_team_logo(home_team)
+            away_logo = m.get('away_logo') or get_team_logo(away_team)
+            home_team_id = m.get("home_team_id")
+            away_team_id = m.get("away_team_id")
+            home_link = f'/team?team_id={home_team_id}' if home_team_id else '#'
+            away_link = f'/team?team_id={away_team_id}' if away_team_id else '#'
             try:
                 utc_time = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00'))
                 local_time = utc_time.astimezone(tz_tunis)
@@ -832,26 +800,31 @@ with tab2:
             except:
                 date_str = "---"
             st.markdown(f"""
-            <div class="match-card">
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <div style="flex:1; text-align:center;">
-                        <img src="{home_logo}" style="width:32px; height:32px; object-fit:contain;">
-                        <span>{html.escape(m['home_team'])}</span>
+            <a href="/match_details?match_id={m['fixture_id']}" style="text-decoration:none; color:inherit; display:block;">
+                <div class="match-card">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div style="flex:1; text-align:center;">
+                            <img src="{home_logo}" style="width:32px; height:32px; object-fit:contain;">
+                            <a href="{home_link}" onclick="event.stopPropagation();" style="text-decoration:none; color:inherit;">
+                                <span>{home_team}</span>
+                            </a>
+                        </div>
+                        <div><strong style="font-size:1.2rem;">{m['home_score']} - {m['away_score']}</strong></div>
+                        <div style="flex:1; text-align:center;">
+                            <img src="{away_logo}" style="width:32px; height:32px; object-fit:contain;">
+                            <a href="{away_link}" onclick="event.stopPropagation();" style="text-decoration:none; color:inherit;">
+                                <span>{away_team}</span>
+                            </a>
+                        </div>
                     </div>
-                    <div><strong style="font-size:1.2rem;">{m['home_score']} - {m['away_score']}</strong></div>
-                    <div style="flex:1; text-align:center;">
-                        <img src="{away_logo}" style="width:32px; height:32px; object-fit:contain;">
-                        <span>{html.escape(m['away_team'])}</span>
+                    <div style="text-align:center; color:#aaa; margin-top:8px;">
+                        {html.escape(m.get('league',''))} • {date_str}
                     </div>
                 </div>
-                <div style="text-align:center; color:#aaa; margin-top:8px;">
-                    {html.escape(m.get('league',''))} • {date_str}
-                </div>
-            </div>
+            </a>
             """, unsafe_allow_html=True)
     else:
         st.info("لا توجد نتائج بعد")
-
 with tab3:
     st.header("🏆 جدول الترتيب")
     try:
