@@ -582,7 +582,7 @@ def update_all_matches():
     competitions = fetch_fd_competitions()
     if competitions:
         today = datetime.now().strftime("%Y-%m-%d")
-        next_3_days = (datetime.now() + timedelta(days=3)).strftime("%Y-%m-%d")
+        next_3_days = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
         for comp in competitions:
             code = comp["code"]
             name = comp["name"]
