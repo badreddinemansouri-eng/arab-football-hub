@@ -383,7 +383,6 @@ def parse_african_fixture(fixture, league_name, league_id):
     return match_data
 
 def fetch_and_store_african_team_logos(league_id, league_name, season):
-    """Get all teams in the league and store their logos."""
     print(f"Fetching team logos for {league_name}...")
     url = f"{API_FOOTBALL_BASE}/teams"
     headers = {"x-apisports-key": API_FOOTBALL_KEY}
@@ -393,22 +392,26 @@ def fetch_and_store_african_team_logos(league_id, league_name, season):
         if resp.status_code == 200:
             data = resp.json()
             teams = data.get("response", [])
-            for item in teams:
-                team = item["team"]
-                team_name = team["name"]
-                logo_url = team["logo"]
-                if team_name and logo_url:
-                    supabase.table("team_logos").upsert(
-                        {"team_name": team_name, "logo_url": logo_url},
-                        on_conflict="team_name"
-                    ).execute()
-                    print(f"  Stored logo for {team_name}")
-            print(f"Team logos updated for {league_name}")
+            print(f"Received {len(teams)} teams from API.")
+            if teams:
+                for item in teams:
+                    team = item["team"]
+                    team_name = team["name"]
+                    logo_url = team["logo"]
+                    print(f"  Processing team: {team_name}")
+                    if team_name and logo_url:
+                        supabase.table("team_logos").upsert(
+                            {"team_name": team_name, "logo_url": logo_url},
+                            on_conflict="team_name"
+                        ).execute()
+                        print(f"  Stored logo for {team_name}")
+                print(f"Team logos updated for {league_name}")
+            else:
+                print("No teams received from API – check season or API limits.")
         else:
             print(f"API-Football teams error {resp.status_code}: {resp.text}")
     except Exception as e:
         print(f"Exception fetching teams for {league_name}: {e}")
-
 def fetch_and_store_african_standings(league_id, league_name, season):
     """Get league standings and store in african_standings table."""
     print(f"Fetching standings for {league_name}...")
