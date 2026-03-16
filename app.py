@@ -793,7 +793,17 @@ with tab1:
     else:
         st.info("لا توجد مباريات مباشرة حالياً")
 
-    
+    st.write(f"Total matches in cache: {len(matches)}")
+    upcoming = []
+    for m in matches:
+        if m['status'] == 'UPCOMING':
+            try:
+                match_time = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00'))
+                if match_time <= three_days_later:
+                    upcoming.append(m)
+            except:
+                upcoming.append(m)
+    st.write(f"Upcoming after filter: {len(upcoming)}")
     st.header("📅 المباريات القادمة")
     upcoming = [m for m in matches if m['status'] == 'UPCOMING']
     upcoming.sort(key=lambda x: x['match_time'])
