@@ -41,9 +41,13 @@ AFRICAN_LEAGUES = {
 }
 
 def get_current_season():
-    """Return season string (e.g., '2025' for 2025-2026)."""
     now = datetime.now()
     year = now.year
+    # If before August, the ongoing season started last year
+    if now.month < 8:
+        return str(year - 1)
+    else:
+        return str(year)
     # If before August, we're still in the previous season? Actually API expects the starting year.
     # For simplicity, we use current year for seasons starting in that year.
     # Most leagues start in Aug/Sep, so after July we move to next year's season.
