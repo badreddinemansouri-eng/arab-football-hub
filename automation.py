@@ -41,7 +41,12 @@ AFRICAN_LEAGUES = {
 }
 
 def get_current_season():
-    return "2024"
+    now = datetime.now()
+    year = now.year
+    if now.month < 8:
+        return str(year - 1)
+    else:
+        return str(year)
 
 # -------------------------------------------------------------------
 # Helper: check if custom match exists
