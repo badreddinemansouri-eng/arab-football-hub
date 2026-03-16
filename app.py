@@ -641,7 +641,7 @@ with st.sidebar:
                             st.info(f"النتائج: {found} تم العثور عليها، {not_found} لم يتم العثور عليها.")
 
 # -------------------- Data Fetching --------------------
-@st.cache_data(ttl=10)
+
 def get_matches():
     resp = supabase.table("matches").select("*").order("match_time", desc=False).execute()
     return resp.data
@@ -790,8 +790,12 @@ with tab1:
                 upcoming.append(m)
     st.write(f"Upcoming after filter: {len(upcoming)}")
     st.header("📅 المباريات القادمة")
-    upcoming = [m for m in matches if m['status'] == 'UPCOMING']
-    upcoming.sort(key=lambda x: x['match_time'])
+    upcoming_result = supabase.table("matches")\
+        .select("*")\
+        .eq("status", "UPCOMING")\
+        .order("match_time")\
+        .execute()
+    upcoming = upcoming_result.data
     if upcoming:
         for m in upcoming:
             st.markdown(render_match_card(m), unsafe_allow_html=True)
