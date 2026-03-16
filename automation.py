@@ -685,8 +685,8 @@ def update_all_matches():
             time.sleep(0.5)
 
         # --- NEW: Fetch and store team logos for this league ---
-        fetch_and_store_team_logos(league_id, league_name)
-
+        # Skip team logo fetching for TheSportsDB leagues due to API inconsistency
+        # fetch_and_store_team_logos(league_id, league_name)   # disabled
         # Also store league logo if not already present
         league_logo = get_league_logo_from_db(league_name)  # This will trigger fetch if needed
 
