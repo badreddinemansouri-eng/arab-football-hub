@@ -20,6 +20,25 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+import streamlit as st
+from supabase import create_client
+
+# --- DIRECT DATABASE CHECK (bypasses all caching and filters) ---
+st.write("## 🔍 Direct database check (using anon key)")
+anon = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_ANON_KEY"])
+result = anon.table("matches").select("*").eq("status", "UPCOMING").execute()
+st.write(f"**Number of upcoming matches found:** {len(result.data)}")
+if result.data:
+    st.write("**First match:**")
+    st.json(result.data[0])
+else:
+    st.write("**No upcoming matches found via direct query.**")
+    # Also show a sample of any rows to see what's there
+    any_rows = anon.table("matches").select("status").limit(5).execute()
+    st.write("**Sample statuses from any rows:**")
+    for row in any_rows.data:
+        st.write(row)
+st.write("--- End of direct check ---")
 
 # -------------------- Load Secrets --------------------
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
