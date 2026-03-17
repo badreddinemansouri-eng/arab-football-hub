@@ -669,12 +669,6 @@ def render_match_card(match, show_favorite=True):
     league_logo = match.get('league_logo') or get_league_logo(match.get('league', ''))
     league_name = html.escape(match.get('league', ''))
 
-    # Get team IDs for links
-    home_team_id = match.get("home_team_id")
-    away_team_id = match.get("away_team_id")
-    home_link = f'/team?team_id={home_team_id}' if home_team_id else '#'
-    away_link = f'/team?team_id={away_team_id}' if away_team_id else '#'
-
     # Determine effective status (fallback for stale data)
     effective_status = match['status']
     if effective_status != 'FINISHED':
@@ -719,16 +713,14 @@ def render_match_card(match, show_favorite=True):
             status_display = "<span style='color:#888;'>انتهت</span>"
             center = f"{match['home_score']} - {match['away_score']}"
 
-    # Build the card – whole card links to watch_stream
+    # Build the card – whole card links to watch_stream, team names are plain text
     return f"""
     <a href="/watch_stream?match_id={match['fixture_id']}" style="text-decoration:none; color:inherit; display:block;">
         <div class="match-card">
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                 <div style="flex:1; text-align:center;">
                     <img src="{home_logo}" style="width:48px; height:48px; object-fit:contain; margin-bottom:6px;">
-                    <a href="{home_link}" onclick="event.stopPropagation();" style="text-decoration:none; color:inherit;">
-                        <div style="font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px; margin:0 auto;">{home_team}</div>
-                    </a>
+                    <div style="font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px; margin:0 auto;">{home_team}</div>
                 </div>
                 <div style="flex:1; text-align:center;">
                     {center}
@@ -736,9 +728,7 @@ def render_match_card(match, show_favorite=True):
                 </div>
                 <div style="flex:1; text-align:center;">
                     <img src="{away_logo}" style="width:48px; height:48px; object-fit:contain; margin-bottom:6px;">
-                    <a href="{away_link}" onclick="event.stopPropagation();" style="text-decoration:none; color:inherit;">
-                        <div style="font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px; margin:0 auto;">{away_team}</div>
-                    </a>
+                    <div style="font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px; margin:0 auto;">{away_team}</div>
                 </div>
             </div>
             <div style="display: flex; align-items: center; gap:8px; margin-top:12px; padding-top:8px; border-top:1px solid #444;">
@@ -748,6 +738,7 @@ def render_match_card(match, show_favorite=True):
         </div>
     </a>
     """
+
 
 
 # -------------------- Tabs --------------------
@@ -787,10 +778,6 @@ with tab2:
             away_team = html.escape(m['away_team'])
             home_logo = m.get('home_logo') or get_team_logo(home_team)
             away_logo = m.get('away_logo') or get_team_logo(away_team)
-            home_team_id = m.get("home_team_id")
-            away_team_id = m.get("away_team_id")
-            home_link = f'/team?team_id={home_team_id}' if home_team_id else '#'
-            away_link = f'/team?team_id={away_team_id}' if away_team_id else '#'
             try:
                 utc_time = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00'))
                 local_time = utc_time.astimezone(tz_tunis)
@@ -803,16 +790,12 @@ with tab2:
                     <div style="display:flex; align-items:center; gap:8px;">
                         <div style="flex:1; text-align:center;">
                             <img src="{home_logo}" style="width:32px; height:32px; object-fit:contain;">
-                            <a href="{home_link}" onclick="event.stopPropagation();" style="text-decoration:none; color:inherit;">
-                                <span>{home_team}</span>
-                            </a>
+                            <div>{home_team}</div>
                         </div>
                         <div><strong style="font-size:1.2rem;">{m['home_score']} - {m['away_score']}</strong></div>
                         <div style="flex:1; text-align:center;">
                             <img src="{away_logo}" style="width:32px; height:32px; object-fit:contain;">
-                            <a href="{away_link}" onclick="event.stopPropagation();" style="text-decoration:none; color:inherit;">
-                                <span>{away_team}</span>
-                            </a>
+                            <div>{away_team}</div>
                         </div>
                     </div>
                     <div style="text-align:center; color:#aaa; margin-top:8px;">
