@@ -310,37 +310,57 @@ def parse_and_insert_tsdb_statistics(event_id, fixture_id, stats_data):
         pass  # TODO: implement based on your schema
  # ... (your existing TheSportsDB functions) ...
 
-def process_finished_matches():
-    """Fetch details for matches that finished recently and don't have tsdb_event_id yet."""
-    recent_cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+def process_finished_matches(limit=5):  # smaller limit for testing
+    recent_cutoff = (datetime.now(timezone.utc) - timedelta(hours=48)).isoformat()
     res = supabase.table("matches")\
         .select("fixture_id, home_team, away_team, match_time")\
         .eq("status", "FINISHED")\
         .is_("tsdb_event_id", "null")\
         .gte("match_time", recent_cutoff)\
-        .limit(10)\
+        .limit(limit)\
         .execute()
     matches = res.data
     if not matches:
+        print("No matches to process.")
         return
 
     for m in matches:
-        print(f"Fetching details for finished match: {m['home_team']} vs {m['away_team']}")
-        event_id = search_thesportsdb_event(m['home_team'], m['away_team'], m['match_time'])
-        if event_id:
-            supabase.table("matches").update({"tsdb_event_id": event_id}).eq("fixture_id", m['fixture_id']).execute()
-            lineups = fetch_tsdb_lineups(event_id)
-            if lineups:
-                parse_and_insert_tsdb_lineups(event_id, m['fixture_id'], lineups)
-            events = fetch_tsdb_events(event_id)
-            if events:
-                parse_and_insert_tsdb_events(event_id, m['fixture_id'], events)
-            stats = fetch_tsdb_statistics(event_id)
-            if stats:
-                parse_and_insert_tsdb_statistics(event_id, m['fixture_id'], stats)
-            time.sleep(1)
-        else:
-            print("No event found in TheSportsDB")
+        print(f"\nProcessing: {m['home_team']} vs {m['away_team']} on {m['match_time']}")
+        date_str = m['match_time'][:10]  # YYYY-MM-DD
+        # Try multiple name formats
+        home = m['home_team']
+        away = m['away_team']
+        variants = [
+            f"{home} vs {away}",
+            f"{home} v {away}",
+            f"{home} - {away}",
+            f"{home.replace(' ', '_')}_vs_{away.replace(' ', '_')}",
+        ]
+        found = False
+        for name in variants:
+            name_enc = name.replace(" ", "_")
+            url = f"https://www.thesportsdb.com/api/v1/json/3/searchevents.php?e={name_enc}&d={date_str}"
+            print(f"  Trying: {url}")
+            try:
+                resp = requests.get(url, timeout=5)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    events = data.get("event", [])
+                    if events:
+                        event_id = events[0].get("idEvent")
+                        print(f"  ✅ Found event ID: {event_id}")
+                        supabase.table("matches").update({"tsdb_event_id": event_id}).eq("fixture_id", m['fixture_id']).execute()
+                        found = True
+                        break
+                    else:
+                        print("  No events in response")
+                else:
+                    print(f"  HTTP {resp.status_code}")
+            except Exception as e:
+                print(f"  Error: {e}")
+        if not found:
+            print("  ❌ No event found after all attempts")
+        time.sleep(1)
             
 # -------------------------------------------------------------------
 # Automated video highlights from TheSportsDB
