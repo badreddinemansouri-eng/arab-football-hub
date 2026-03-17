@@ -33,8 +33,6 @@ tz_tunis = zoneinfo.ZoneInfo("Africa/Tunis")
 # -------------------------------------------------------------------
 # Session state
 # -------------------------------------------------------------------
-if "dark_mode" not in st.session_state:
-    st.session_state.dark_mode = True
 if "extraction_attempted" not in st.session_state:
     st.session_state.extraction_attempted = False
 if "extracted_url" not in st.session_state:
@@ -120,7 +118,6 @@ def _clean_embed_url(video_url):
         yt_match = re.search(r'(?:v=|/)([a-zA-Z0-9_-]{11})', video_url)
         if yt_match:
             return f"https://www.youtube.com/embed/{yt_match.group(1)}?autoplay=1"
-    # Add more conversions if needed
     return video_url
 
 def _extract_from_json_ld(obj):
@@ -402,34 +399,39 @@ def detect_source(url):
     return {"type": "unknown", "can_embed": False, "name": "رابط خارجي"}
 
 # -------------------------------------------------------------------
-# Ultra‑modern CSS
+# Modern light‑mode CSS with Font Awesome
 # -------------------------------------------------------------------
 st.markdown("""
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap');
     * { font-family: 'Cairo', sans-serif; margin: 0; padding: 0; box-sizing: border-box; }
-    .main, .block-container { direction: rtl; text-align: right; padding: 1rem !important; background: linear-gradient(145deg, #0b0b15, #141425); }
-    /* Glass card with animated border */
-    .glass-card {
-        background: rgba(20, 20, 40, 0.5);
-        backdrop-filter: blur(15px) saturate(180%);
-        -webkit-backdrop-filter: blur(15px) saturate(180%);
-        border: 1px solid transparent;
-        border-radius: 40px;
-        padding: 30px;
-        box-shadow: 0 30px 60px -15px rgba(0,0,0,0.8), inset 0 1px 2px rgba(255,255,255,0.1);
-        transition: border-color 0.3s;
-        margin-bottom: 30px;
+    .main, .block-container { 
+        direction: rtl; 
+        text-align: right; 
+        padding: 1.5rem !important; 
+        background: #f8fafc; 
+        color: #1e293b;
     }
-    .glass-card:hover {
-        border-color: rgba(255, 75, 75, 0.5);
+    /* Clean card design */
+    .card {
+        background: white;
+        border-radius: 28px;
+        padding: 1.8rem;
+        box-shadow: 0 15px 35px -10px rgba(0,0,0,0.1);
+        border: 1px solid rgba(0,0,0,0.03);
+        margin-bottom: 2rem;
+        transition: all 0.2s ease;
+    }
+    .card:hover {
+        box-shadow: 0 20px 40px -12px rgba(0,0,0,0.15);
     }
     /* Match header */
     .match-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 20px;
+        gap: 1.5rem;
         flex-wrap: wrap;
     }
     .team-block {
@@ -437,225 +439,245 @@ st.markdown("""
         text-align: center;
     }
     .team-logo {
-        width: 120px;
-        height: 120px;
+        width: 100px;
+        height: 100px;
         object-fit: contain;
-        margin-bottom: 15px;
-        filter: drop-shadow(0 15px 20px rgba(0,0,0,0.6));
+        margin-bottom: 0.8rem;
+        filter: drop-shadow(0 5px 10px rgba(0,0,0,0.1));
     }
     .team-name {
-        font-size: 2rem;
-        font-weight: 800;
-        background: linear-gradient(135deg, #fff, #aaa);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin: 0;
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #0f172a;
     }
     .vs-divider {
-        font-size: 4rem;
-        font-weight: 900;
-        background: linear-gradient(45deg, #ff416c, #ff4b2b);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        padding: 0 20px;
+        font-size: 2.8rem;
+        font-weight: 800;
+        color: #ef4444;
+        padding: 0 1rem;
     }
     .match-meta {
         text-align: center;
-        margin-top: 20px;
-        color: rgba(255,255,255,0.7);
-        font-size: 1.2rem;
+        margin-top: 1rem;
+        color: #64748b;
+        font-size: 1.1rem;
     }
+    .match-meta i { margin: 0 0.3rem; color: #ef4444; }
     /* Stream grid */
     .stream-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 20px;
-        margin: 40px 0;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 1.2rem;
+        margin: 2rem 0;
     }
     .stream-card {
-        background: rgba(255,255,255,0.05);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 30px;
-        padding: 25px;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 24px;
+        padding: 1.5rem 1rem;
+        text-align: center;
         text-decoration: none;
-        color: white;
+        color: #1e293b;
+        transition: 0.2s;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.02);
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 12px;
-        transition: all 0.25s cubic-bezier(0.2,0.9,0.3,1.2);
+        gap: 0.5rem;
     }
     .stream-card:hover {
-        transform: translateY(-10px) scale(1.02);
-        background: rgba(255, 75, 75, 0.15);
-        border-color: #ff4d4d;
-        box-shadow: 0 25px 40px -10px #ff4d4d;
+        transform: translateY(-5px);
+        border-color: #ef4444;
+        box-shadow: 0 15px 25px -10px rgba(239,68,68,0.3);
     }
-    .stream-icon { font-size: 3rem; }
-    .stream-title { font-weight: 700; font-size: 1.3rem; }
-    .stream-source { font-size: 0.95rem; opacity: 0.8; }
-    .stream-verified {
-        background: #00c853;
+    .stream-icon {
+        font-size: 2.8rem;
+        color: #ef4444;
+    }
+    .stream-title {
+        font-weight: 700;
+        font-size: 1.2rem;
+        color: #0f172a;
+    }
+    .stream-source {
+        font-size: 0.9rem;
+        color: #64748b;
+    }
+    .verified-badge {
+        background: #10b981;
         color: white;
-        padding: 4px 12px;
+        padding: 0.25rem 1rem;
         border-radius: 30px;
         font-size: 0.75rem;
         font-weight: 600;
-        margin-top: 5px;
+        display: inline-block;
+        margin-top: 0.3rem;
     }
-    /* Video container with shimmer */
+    /* Video container */
     .video-container {
         position: relative;
         padding-bottom: 56.25%;
         height: 0;
         overflow: hidden;
-        max-width: 100%;
-        background: #0a0a0a;
-        border-radius: 40px;
-        box-shadow: 0 30px 60px -15px black;
-        margin: 40px 0;
-        border: 1px solid rgba(255,255,255,0.1);
+        background: #0b1120;
+        border-radius: 28px;
+        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3);
+        margin: 2rem 0;
+        border: 1px solid #e2e8f0;
     }
-    .video-container.loading::before {
-        content: "";
-        position: absolute;
-        top: 0; left: 0; width: 100%; height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
-        animation: shimmer 1.8s infinite;
-        z-index: 2;
-    }
-    @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
     .video-container iframe, .video-container video, .video-container .hls-player {
         position: absolute;
         top: 0; left: 0; width: 100%; height: 100%;
         border: 0;
-        border-radius: 40px;
+        border-radius: 28px;
     }
-    /* Section titles */
+    /* Loading shimmer */
+    .video-container.loading::after {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        animation: shimmer 1.5s infinite;
+        z-index: 2;
+    }
+    @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+    /* Section title */
     .section-title {
-        font-size: 2.2rem;
-        font-weight: 800;
-        margin: 50px 0 25px;
-        background: linear-gradient(135deg, #ff416c, #ff4b2b, #ff9a44);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        display: inline-block;
-        border-bottom: 3px solid #ff4d4d;
-        padding-bottom: 10px;
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin: 2.5rem 0 1.5rem;
+        color: #0f172a;
+        position: relative;
+        padding-bottom: 0.5rem;
     }
-    /* News cards */
+    .section-title::after {
+        content: "";
+        position: absolute;
+        bottom: 0; right: 0;
+        width: 80px;
+        height: 4px;
+        background: #ef4444;
+        border-radius: 4px;
+    }
+    /* News grid */
     .news-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 20px;
-        margin: 30px 0;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1.5rem;
+        margin: 2rem 0;
     }
     .news-card {
-        background: rgba(20,20,35,0.8);
-        backdrop-filter: blur(10px);
-        border-radius: 30px;
-        padding: 25px;
-        border: 1px solid rgba(255,255,255,0.05);
-        transition: 0.3s;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 24px;
+        padding: 1.5rem;
+        transition: 0.2s;
     }
     .news-card:hover {
-        background: rgba(40,40,60,0.9);
-        transform: translateY(-5px);
-        border-color: #ff4d4d;
+        box-shadow: 0 10px 25px -8px rgba(0,0,0,0.1);
+        border-color: #ef4444;
     }
     .news-title {
-        font-size: 1.3rem;
+        font-size: 1.2rem;
         font-weight: 700;
-        margin-bottom: 10px;
+        margin-bottom: 0.8rem;
         line-height: 1.5;
+        color: #0f172a;
     }
     .news-title a {
-        color: white;
+        color: #0f172a;
         text-decoration: none;
-        background: linear-gradient(135deg, #fff, #ddd);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+    }
+    .news-title a:hover {
+        color: #ef4444;
     }
     .news-meta {
         display: flex;
-        gap: 15px;
-        color: rgba(255,255,255,0.5);
+        gap: 1rem;
+        color: #64748b;
         font-size: 0.9rem;
     }
+    .news-meta i { margin-left: 0.3rem; }
     /* Buttons */
-    .back-btn, .share-btn {
-        background: rgba(255,255,255,0.05);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255,255,255,0.15);
-        border-radius: 60px;
-        padding: 10px 25px;
-        color: white;
-        text-decoration: none;
+    .btn {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        transition: 0.2s;
-        font-weight: 600;
-    }
-    .back-btn:hover, .share-btn:hover {
-        background: #ff4d4d;
-        border-color: #ff4d4d;
-        transform: translateY(-2px);
-        box-shadow: 0 10px 20px -5px #ff4d4d;
-    }
-    .ad-container {
-        background: rgba(0,0,0,0.3);
-        backdrop-filter: blur(8px);
-        border-radius: 30px;
-        padding: 20px;
-        margin: 30px 0;
-        text-align: center;
-        border: 1px dashed rgba(255,255,255,0.2);
-        color: rgba(255,255,255,0.5);
-    }
-    /* Theme toggle */
-    .theme-toggle {
-        position: fixed;
-        top: 20px;
-        left: 20px;
-        background: rgba(0,0,0,0.3);
-        backdrop-filter: blur(15px);
+        gap: 0.5rem;
+        background: white;
+        border: 1px solid #e2e8f0;
         border-radius: 60px;
-        padding: 12px 24px;
-        cursor: pointer;
-        border: 1px solid rgba(255,255,255,0.2);
-        z-index: 999;
-        color: white;
+        padding: 0.7rem 1.8rem;
+        color: #1e293b;
+        text-decoration: none;
         font-weight: 600;
+        transition: 0.2s;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.02);
     }
-    .theme-toggle:hover {
-        background: #ff4d4d;
+    .btn:hover {
+        border-color: #ef4444;
+        background: #fef2f2;
+        transform: translateY(-2px);
     }
+    .btn-primary {
+        background: #ef4444;
+        border-color: #ef4444;
+        color: white;
+    }
+    .btn-primary:hover {
+        background: #dc2626;
+    }
+    .btn-wa { background: #25D366; border-color: #25D366; color: white; }
+    .btn-tw { background: #1DA1F2; border-color: #1DA1F2; color: white; }
+    .btn-fb { background: #4267B2; border-color: #4267B2; color: white; }
+    .btn-wa:hover, .btn-tw:hover, .btn-fb:hover { filter: brightness(0.9); }
+    /* Ad container */
+    .ad-container {
+        background: #f1f5f9;
+        border-radius: 20px;
+        padding: 1.5rem;
+        margin: 2rem 0;
+        text-align: center;
+        border: 1px dashed #cbd5e1;
+        color: #64748b;
+    }
+    /* Back button */
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #64748b;
+        text-decoration: none;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+    .back-link:hover { color: #ef4444; }
+    /* QR code button */
+    .qr-btn {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 60px;
+        padding: 0.7rem 1.8rem;
+        cursor: pointer;
+        font-weight: 600;
+        color: #1e293b;
+        transition: 0.2s;
+    }
+    .qr-btn:hover { border-color: #ef4444; background: #fef2f2; }
 </style>
-""", unsafe_allow_html=True)
-
-# -------------------------------------------------------------------
-# Theme toggle (simple)
-# -------------------------------------------------------------------
-st.markdown("""
-<div class="theme-toggle" onclick="document.body.classList.toggle('light')">
-    <span>🌓</span> تبديل المظهر
-</div>
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
 # Back to home link
 # -------------------------------------------------------------------
-st.markdown(f'<a href="/" class="back-btn">← العودة إلى الرئيسية</a>', unsafe_allow_html=True)
+st.markdown(f'<a href="/" class="back-link"><i class="fas fa-arrow-right"></i> العودة إلى الرئيسية</a>', unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
-# Match header (glass card)
+# Match header (card)
 # -------------------------------------------------------------------
 home_team = match_data['home_team']
 away_team = match_data['away_team']
-home_logo = match_data.get('home_logo') or "https://via.placeholder.com/120?text=Home"
-away_logo = match_data.get('away_logo') or "https://via.placeholder.com/120?text=Away"
+home_logo = match_data.get('home_logo') or "https://via.placeholder.com/100?text=Home"
+away_logo = match_data.get('away_logo') or "https://via.placeholder.com/100?text=Away"
 league = match_data.get('league', '')
 try:
     utc_time = datetime.fromisoformat(match_data["match_time"].replace('Z', '+00:00'))
@@ -667,7 +689,7 @@ status = match_data.get('status', '')
 score = f"{match_data.get('home_score','')} - {match_data.get('away_score','')}" if match_data.get('home_score') is not None else "VS"
 
 st.markdown(f"""
-<div class="glass-card">
+<div class="card">
     <div class="match-header">
         <div class="team-block">
             <img src="{home_logo}" class="team-logo">
@@ -680,43 +702,44 @@ st.markdown(f"""
         </div>
     </div>
     <div class="match-meta">
-        <i>🏆 {league}</i> • <i>⏱️ {time_str}</i> • <i>⚽ {status}</i>
+        <i class="fas fa-trophy"></i> {league} • <i class="far fa-clock"></i> {time_str} • <i class="fas fa-futbol"></i> {status}
     </div>
 </div>
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
-# Ad space (top)
+# Top ad container
 # -------------------------------------------------------------------
 st.markdown("<div class='ad-container'>", unsafe_allow_html=True)
 st.components.v1.html("""
-    <!-- Place your top ad code here -->
-    <div style="color: white;">إعلان</div>
+    <!-- ضع كود الإعلان هنا -->
+    <i class="fas fa-ad" style="color: #94a3b8;"></i> مساحة إعلانية
 """, height=80)
 st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
-# Streams section – modern channel grid
+# Streams section
 # -------------------------------------------------------------------
-st.markdown("<h2 class='section-title'>📺 قائمة البث المتاحة</h2>", unsafe_allow_html=True)
+st.markdown("<h2 class='section-title'><i class='fas fa-tv'></i> قائمة البث المتاحة</h2>", unsafe_allow_html=True)
 
 if not all_streams:
     st.warning("لا توجد روابط بث متاحة لهذه المباراة.")
 else:
     st.markdown('<div class="stream-grid">', unsafe_allow_html=True)
     for stream in all_streams:
+        # Choose icon based on source
         src = stream.get("source", "custom").lower()
         if "youtube" in src:
-            icon = "📺"
+            icon = '<i class="fab fa-youtube"></i>'
         elif "facebook" in src:
-            icon = "📘"
+            icon = '<i class="fab fa-facebook"></i>'
         elif "twitch" in src:
-            icon = "🎮"
+            icon = '<i class="fab fa-twitch"></i>'
         elif "admin" in src:
-            icon = "🔴"
+            icon = '<i class="fas fa-circle" style="color:#ef4444;"></i>'
         else:
-            icon = "🔗"
-        verified_badge = '<span class="stream-verified">✔ رسمي</span>' if stream.get("verified") else ''
+            icon = '<i class="fas fa-link"></i>'
+        verified_badge = '<span class="verified-badge"><i class="fas fa-check-circle"></i> رسمي</span>' if stream.get("verified") else ''
         base = f"/watch_stream?match_id={match_id}"
         stream_url_enc = quote(stream['url'], safe='')
         btn_link = f"{base}&stream_url={stream_url_enc}"
@@ -739,8 +762,7 @@ if isinstance(selected_stream_url, list):
 
 if selected_stream_url:
     selected_stream_url = unquote(selected_stream_url)
-    st.markdown("---")
-    st.markdown("<h2 class='section-title'>📺 البث المحدد</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 class='section-title'><i class='fas fa-play-circle'></i> البث المحدد</h2>", unsafe_allow_html=True)
 
     source_info = detect_source(selected_stream_url)
 
@@ -817,21 +839,21 @@ if selected_stream_url:
             """, unsafe_allow_html=True)
     else:
         st.warning("⚠️ لا يمكن عرض البث داخل الصفحة. سيتم فتحه في نافذة جديدة.")
-        st.markdown(f'<a href="{selected_stream_url}" target="_blank" style="display:block; background:#ff4d4d; color:white; padding:18px; border-radius:60px; text-align:center; text-decoration:none; font-weight:bold; margin:30px 0;">🔗 فتح البث في نافذة جديدة</a>', unsafe_allow_html=True)
+        st.markdown(f'<a href="{selected_stream_url}" target="_blank" class="btn btn-primary" style="display:block; text-align:center;"><i class="fas fa-external-link-alt"></i> فتح البث في نافذة جديدة</a>', unsafe_allow_html=True)
 
     # Mid‑video ad
     st.markdown("<div class='ad-container'>", unsafe_allow_html=True)
     st.components.v1.html("""
-        <!-- Mid‑video ad code here -->
-        <div style="color: white;">إعلان</div>
+        <!-- ضع كود الإعلان هنا -->
+        <i class="fas fa-ad" style="color: #94a3b8;"></i> مساحة إعلانية
     """, height=80)
     st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
-# Recent news section (grid)
+# Recent news section
 # -------------------------------------------------------------------
 if recent_news:
-    st.markdown("<h2 class='section-title'>📰 آخر الأخبار</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 class='section-title'><i class='far fa-newspaper'></i> آخر الأخبار</h2>", unsafe_allow_html=True)
     st.markdown('<div class="news-grid">', unsafe_allow_html=True)
     for item in recent_news:
         title = item.get('title', '')
@@ -849,18 +871,17 @@ if recent_news:
         <div class="news-card">
             <div class="news-title"><a href="{item.get('url','#')}" target="_blank">{title}</a></div>
             <div class="news-meta">
-                <span>📰 {source}</span>
-                <span>🕒 {date_str}</span>
+                <span><i class="fas fa-newspaper"></i> {source}</span>
+                <span><i class="far fa-clock"></i> {date_str}</span>
             </div>
         </div>
         ''', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
-# Share buttons (modern)
+# Share buttons
 # -------------------------------------------------------------------
-st.markdown("---")
-st.markdown("<h2 class='section-title'>📤 شارك هذه المباراة</h2>", unsafe_allow_html=True)
+st.markdown("<h2 class='section-title'><i class='fas fa-share-alt'></i> شارك هذه المباراة</h2>", unsafe_allow_html=True)
 cols = st.columns(4)
 try:
     host = st.context.headers.get('host', '')
@@ -871,11 +892,11 @@ except:
 page_url = f"{base_url}/watch_stream?match_id={match_id}"
 share_text = f"شاهد {home_team} vs {away_team} بث مباشر على Badr TV"
 with cols[0]:
-    st.markdown(f'<a href="https://wa.me/?text={quote(share_text+" "+page_url)}" target="_blank" class="share-btn" style="background:#25D366;">📱 واتساب</a>', unsafe_allow_html=True)
+    st.markdown(f'<a href="https://wa.me/?text={quote(share_text+" "+page_url)}" target="_blank" class="btn btn-wa" style="display:flex; justify-content:center;"><i class="fab fa-whatsapp"></i> واتساب</a>', unsafe_allow_html=True)
 with cols[1]:
-    st.markdown(f'<a href="https://twitter.com/intent/tweet?text={quote(share_text+" "+page_url)}" target="_blank" class="share-btn" style="background:#1DA1F2;">🐦 تويتر</a>', unsafe_allow_html=True)
+    st.markdown(f'<a href="https://twitter.com/intent/tweet?text={quote(share_text+" "+page_url)}" target="_blank" class="btn btn-tw" style="display:flex; justify-content:center;"><i class="fab fa-twitter"></i> تويتر</a>', unsafe_allow_html=True)
 with cols[2]:
-    st.markdown(f'<a href="https://www.facebook.com/sharer/sharer.php?u={quote(page_url)}" target="_blank" class="share-btn" style="background:#4267B2;">📘 فيسبوك</a>', unsafe_allow_html=True)
+    st.markdown(f'<a href="https://www.facebook.com/sharer/sharer.php?u={quote(page_url)}" target="_blank" class="btn btn-fb" style="display:flex; justify-content:center;"><i class="fab fa-facebook-f"></i> فيسبوك</a>', unsafe_allow_html=True)
 with cols[3]:
     if st.button("📱 رمز QR", key="qr_btn"):
         qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={quote(page_url)}"
@@ -887,7 +908,7 @@ with cols[3]:
 st.markdown("---")
 st.markdown("<div class='ad-container'>", unsafe_allow_html=True)
 st.components.v1.html("""
-    <!-- Footer ad code here -->
-    <div style="color: white;">إعلان</div>
+    <!-- ضع كود الإعلان هنا -->
+    <i class="fas fa-ad" style="color: #94a3b8;"></i> مساحة إعلانية
 """, height=80)
 st.markdown("</div>", unsafe_allow_html=True)
