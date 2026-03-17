@@ -183,7 +183,7 @@ def get_country_flag(country_name):
 # -------------------------------------------------------------------
 # TheSportsDB detail fetching for finished matches
 # -------------------------------------------------------------------
-@st.cache_data(ttl=86400)  # cache search results for a day
+ # cache search results for a day
 def search_thesportsdb_event(home_team, away_team, match_date):
     """
     Search TheSportsDB for an event by team names and date.
