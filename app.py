@@ -96,8 +96,8 @@ def get_css():
             gap: 15px;
         }
         .custom-header img {
-            width: 60px;
-            height: 60px;
+            width: 70px;
+            height: 70px;
             border-radius: 50%;
             object-fit: cover;
         }
@@ -324,10 +324,7 @@ with st.sidebar:
     elif theme == "فاتح" and st.session_state.theme != "light":
         st.session_state.theme = "light"
         st.rerun()
-    st.markdown("---")
-    if st.button("🔄 تحديث البيانات", use_container_width=True):
-        st.cache_data.clear()
-        st.rerun()
+    
     st.markdown("---")
     # Professional search bar
     st.markdown('<div class="search-container">', unsafe_allow_html=True)
@@ -651,17 +648,7 @@ matches = get_matches()
 
 # -------------------- DEBUG START --------------------
 st.write("### 🔍 معلومات التشخيص")
-status_counts = {}
-for m in matches:
-    s = m.get('status', 'UNKNOWN')
-    status_counts[s] = status_counts.get(s, 0) + 1
-st.write("**عدد المباريات حسب الحالة:**", status_counts)
-
-upcoming_samples = [m for m in matches if m.get('status') == 'UPCOMING'][:5]
-st.write("**أول 5 مباريات قادمة (مع الوقت والحالة):**")
-for m in upcoming_samples:
-    st.write(f"- {m['home_team']} vs {m['away_team']} at {m['match_time']} (status: {m['status']})")
-# -------------------- DEBUG END --------------------
+ --------------------
 
 # -------------------- Helper Functions --------------------
 def time_until(match_time_str):
@@ -778,17 +765,7 @@ with tab1:
     else:
         st.info("لا توجد مباريات مباشرة حالياً")
 
-    st.write(f"Total matches in cache: {len(matches)}")
-    upcoming = []
-    for m in matches:
-        if m['status'] == 'UPCOMING':
-            try:
-                match_time = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00'))
-                if match_time <= three_days_later:
-                    upcoming.append(m)
-            except:
-                upcoming.append(m)
-    st.write(f"Upcoming after filter: {len(upcoming)}")
+
     st.header("📅 المباريات القادمة")
     upcoming_result = supabase.table("matches")\
         .select("*")\
