@@ -9,7 +9,9 @@ import unicodedata
 import re
 import feedparser
 
+# -------------------------------------------------------------------
 # Environment variables
+# -------------------------------------------------------------------
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_SERVICE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
 FOOTBALL_DATA_TOKEN = os.environ["FOOTBALL_DATA_TOKEN"]
@@ -180,255 +182,7 @@ def get_country_flag(country_name):
     except:
         pass
     return None
-# -------------------------------------------------------------------
-# TheSportsDB detail fetching for finished matches
-# -------------------------------------------------------------------
- # cache search results for a day
-def search_thesportsdb_event(home_team, away_team, match_date):
-    date_str = match_date[:10]
-    # Try different name formats
-    variants = [
-        f"{home_team} vs {away_team}",
-        f"{home_team} v {away_team}",
-        f"{home_team} - {away_team}",
-    ]
-    for name in variants:
-        name_enc = name.replace(" ", "_")
-        url = f"https://www.thesportsdb.com/api/v1/json/3/searchevents.php?e={name_enc}&d={date_str}"
-        try:
-            resp = requests.get(url, timeout=5)
-            if resp.status_code == 200 and resp.json().get("event"):
-                return resp.json()["event"][0]["idEvent"]
-        except:
-            continue
-    return None
 
-def fetch_tsdb_lineups(event_id):
-    url = f"https://www.thesportsdb.com/api/v1/json/3/lookuplineup.php?id={event_id}"
-    try:
-        resp = requests.get(url, timeout=5)
-        if resp.status_code == 200:
-            data = resp.json()
-            return data.get("lineup", [])
-    except:
-        pass
-    return []
-
-def fetch_tsdb_events(event_id):
-    url = f"https://www.thesportsdb.com/api/v1/json/3/lookuptimeline.php?id={event_id}"
-    try:
-        resp = requests.get(url, timeout=5)
-        if resp.status_code == 200:
-            data = resp.json()
-            return data.get("timeline", [])
-    except:
-        pass
-    return []
-
-def fetch_tsdb_statistics(event_id):
-    url = f"https://www.thesportsdb.com/api/v1/json/3/lookupeventstats.php?id={event_id}"
-    try:
-        resp = requests.get(url, timeout=5)
-        if resp.status_code == 200:
-            data = resp.json()
-            return data.get("eventstats", [])
-    except:
-        pass
-    return []
-
-def parse_and_insert_tsdb_lineups(event_id, fixture_id, lineups_data):
-    """Parse TheSportsDB lineup data and insert into lineups table."""
-    # lineups_data is a list of teams (usually two)
-    for team_data in lineups_data:
-        team_id = team_data.get("idTeam")
-        if not team_id:
-            continue
-        formation = team_data.get("strFormation")
-        # Starting XI is in team_data.get("players")? Actually TheSportsDB returns a list of players.
-        # We need to extract starting XI and substitutes.
-        # The structure might be: team_data["players"] is a list of dicts with "strPlayer", "strPosition", "strSubstitute" etc.
-        players = team_data.get("players", [])
-        starting_xi = []
-        substitutes = []
-        for p in players:
-            if p.get("strSubstitute") == "Yes":
-                substitutes.append({"name": p.get("strPlayer"), "number": p.get("intNumber")})
-            else:
-                starting_xi.append({"name": p.get("strPlayer"), "number": p.get("intNumber"), "pos": p.get("strPosition")})
-        # Upsert into lineups table
-        supabase.table("lineups").upsert({
-            "fixture_id": fixture_id,
-            "team_id": team_id,
-            "formation": formation,
-            "starting_xi": starting_xi,
-            "substitutes": substitutes
-        }, on_conflict="fixture_id,team_id").execute()
-
-def parse_and_insert_tsdb_events(event_id, fixture_id, events_data):
-    """Parse TheSportsDB timeline and insert into match_events."""
-    for ev in events_data:
-        # ev has fields like idEvent, strEvent, strTimeline, strTime, etc.
-        elapsed = ev.get("intTime") or ev.get("strTime")
-        if elapsed:
-            try:
-                elapsed = int(elapsed)
-            except:
-                elapsed = 0
-        event_type = "Goal" if "Goal" in ev.get("strTimeline", "") else "Card" if "Card" in ev.get("strTimeline", "") else "substitution" if "sub" in ev.get("strTimeline", "").lower() else "other"
-        detail = ev.get("strTimeline")
-        player = ev.get("strPlayer")
-        team_id = ev.get("idTeam")
-        supabase.table("match_events").insert({
-            "fixture_id": fixture_id,
-            "elapsed": elapsed,
-            "type": event_type,
-            "detail": detail,
-            "player": player,
-            "team_id": team_id
-        }).execute()
-
-def parse_and_insert_tsdb_statistics(event_id, fixture_id, stats_data):
-    """Parse TheSportsDB eventstats and insert into match_statistics."""
-    # stats_data is a list of team statistics
-    for stat in stats_data:
-        team_id = stat.get("idTeam")
-        if not team_id:
-            continue
-        # Map common stats; TheSportsDB uses fields like "strStat1", "strStat2", etc.
-        # We'll attempt to extract possession, shots, etc. based on known patterns.
-        # This is fragile; you may need to adjust based on actual data.
-        # For simplicity, we'll just store raw JSON for now, or you can map specific stats.
-        # Better: store the whole JSON in a JSONB column.
-        # For now, we'll just print and not insert, but you can expand.
-        print(f"Stats for team {team_id}: {stat}")
-        # Example: if you have a stats table with JSONB column:
-        # supabase.table("match_statistics").upsert({
-        #     "fixture_id": fixture_id,
-        #     "team_id": team_id,
-        #     "data": stat
-        # }, on_conflict="fixture_id,team_id").execute()
-        pass  # TODO: implement based on your schema
- # ... (your existing TheSportsDB functions) ...
-
-def process_finished_matches(limit=5):  # smaller limit for testing
-    recent_cutoff = (datetime.now(timezone.utc) - timedelta(hours=48)).isoformat()
-    res = supabase.table("matches")\
-        .select("fixture_id, home_team, away_team, match_time")\
-        .eq("status", "FINISHED")\
-        .is_("tsdb_event_id", "null")\
-        .gte("match_time", recent_cutoff)\
-        .limit(limit)\
-        .execute()
-    matches = res.data
-    if not matches:
-        print("No matches to process.")
-        return
-
-    for m in matches:
-        print(f"\nProcessing: {m['home_team']} vs {m['away_team']} on {m['match_time']}")
-        date_str = m['match_time'][:10]  # YYYY-MM-DD
-        # Try multiple name formats
-        home = m['home_team']
-        away = m['away_team']
-        variants = [
-            f"{home} vs {away}",
-            f"{home} v {away}",
-            f"{home} - {away}",
-            f"{home.replace(' ', '_')}_vs_{away.replace(' ', '_')}",
-        ]
-        found = False
-        for name in variants:
-            name_enc = name.replace(" ", "_")
-            url = f"https://www.thesportsdb.com/api/v1/json/3/searchevents.php?e={name_enc}&d={date_str}"
-            print(f"  Trying: {url}")
-            try:
-                resp = requests.get(url, timeout=5)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    events = data.get("event", [])
-                    if events:
-                        event_id = events[0].get("idEvent")
-                        print(f"  ✅ Found event ID: {event_id}")
-                        supabase.table("matches").update({"tsdb_event_id": event_id}).eq("fixture_id", m['fixture_id']).execute()
-                        found = True
-                        break
-                    else:
-                        print("  No events in response")
-                else:
-                    print(f"  HTTP {resp.status_code}")
-            except Exception as e:
-                print(f"  Error: {e}")
-        if not found:
-            print("  ❌ No event found after all attempts")
-        time.sleep(1)
-            
-# -------------------------------------------------------------------
-# Automated video highlights from TheSportsDB
-# -------------------------------------------------------------------
-def fetch_thesportsdb_highlights(event_id):
-    """Get YouTube highlights from TheSportsDB for an event."""
-    url = f"https://www.thesportsdb.com/api/v1/json/3/eventshighlights.php?id={event_id}"
-    try:
-        resp = requests.get(url, timeout=5)
-        if resp.status_code == 200:
-            data = resp.json()
-            return data.get("tvhighlights", [])
-    except Exception as e:
-        print(f"Error fetching highlights for event {event_id}: {e}")
-    return []
-
-def update_match_highlights(limit=30):
-    """For finished matches with tsdb_event_id, fetch highlights and add to streams."""
-    print(f"[{datetime.now()}] Running highlights update...")
-    # Get matches that have a tsdb_event_id (already processed by details mode)
-    res = supabase.table("matches")\
-        .select("fixture_id, tsdb_event_id, streams")\
-        .not_.is_("tsdb_event_id", "null")\
-        .limit(limit)\
-        .execute()
-    matches = res.data
-    if not matches:
-        print("No matches to process.")
-        return
-
-    for m in matches:
-        if not m.get("tsdb_event_id"):
-            continue
-        print(f"Processing match {m['fixture_id']} (event ID: {m['tsdb_event_id']})")
-        highlights = fetch_thesportsdb_highlights(m["tsdb_event_id"])
-        if highlights:
-            # Parse existing streams
-            streams = m.get("streams", [])
-            if isinstance(streams, str):
-                try:
-                    streams = json.loads(streams)
-                except:
-                    streams = []
-            added = 0
-            for h in highlights:
-                video_url = h.get("strVideo")
-                if not video_url:
-                    continue
-                # Avoid duplicates
-                if not any(s.get("url") == video_url for s in streams):
-                    streams.append({
-                        "title": f"ملخص: {h.get('strEvent', '')}",
-                        "url": video_url,
-                        "source": "thesportsdb_highlight",
-                        "verified": True
-                    })
-                    added += 1
-            if added > 0:
-                # Update the match record
-                supabase.table("matches").update({"streams": json.dumps(streams)}).eq("fixture_id", m["fixture_id"]).execute()
-                print(f"  Added {added} highlight(s) for match {m['fixture_id']}")
-            else:
-                print(f"  No new highlights for match {m['fixture_id']}")
-        else:
-            print(f"  No highlights found for match {m['fixture_id']}")
-        time.sleep(1)  # be polite
-    print("Highlights update complete.")
-# ... (then your existing update_live function) ...       
 # -------------------------------------------------------------------
 # Helper: upsert team
 # -------------------------------------------------------------------
@@ -475,7 +229,7 @@ def fetch_fd_matches(competition_code=None, date_from=None, date_to=None, status
     if status:
         params["status"] = status
     try:
-        resp = requests.get(url, headers=FD_HEADERS, params=params, timeout=10)
+        resp = requests.get(url, headers=FD_HEADERS, params=params, timeout=20)
         data = resp.json()
         matches = data.get("matches", [])
         return matches
@@ -544,7 +298,6 @@ def parse_fd_match(match):
 # -------------------------------------------------------------------
 
 def fetch_african_matches(league_id, season):
-    """Fetch fixtures for a given league ID and season."""
     url = f"{API_FOOTBALL_BASE}/fixtures"
     headers = {"x-apisports-key": API_FOOTBALL_KEY}
     params = {"league": league_id, "season": season}
@@ -573,7 +326,6 @@ def parse_african_fixture(fixture, league_name, league_id):
     away_team_id = teams["away"]["id"]
     match_time = f["date"]
 
-    # Map status to our categories
     if status_short in ["FT", "AET", "PEN"]:
         status_cat = "FINISHED"
     elif status_short in ["LIVE", "1H", "2H", "HT", "ET", "P"]:
@@ -584,12 +336,10 @@ def parse_african_fixture(fixture, league_name, league_id):
     home_score = goals["home"] or 0
     away_score = goals["away"] or 0
 
-    # Get logos (will trigger fetch if missing)
     home_logo = get_team_logo_from_db(home_team)
     away_logo = get_team_logo_from_db(away_team)
     league_logo = get_league_logo_from_db(league_name)
 
-    # Country based on league
     if "Tunisian" in league_name:
         country = "Tunisia"
     elif "Egyptian" in league_name:
@@ -598,7 +348,6 @@ def parse_african_fixture(fixture, league_name, league_id):
         country = "Africa"
     country_flag = get_country_flag(country)
 
-    # Store team IDs
     upsert_team(home_team_id, home_team)
     upsert_team(away_team_id, away_team)
 
@@ -641,7 +390,6 @@ def fetch_and_store_african_team_logos(league_id, league_name, season):
                     team = item["team"]
                     team_name = team["name"]
                     logo_url = team["logo"]
-                    print(f"  Processing team: {team_name}")
                     if team_name and logo_url:
                         supabase.table("team_logos").upsert(
                             {"team_name": team_name, "logo_url": logo_url},
@@ -655,8 +403,8 @@ def fetch_and_store_african_team_logos(league_id, league_name, season):
             print(f"API-Football teams error {resp.status_code}: {resp.text}")
     except Exception as e:
         print(f"Exception fetching teams for {league_name}: {e}")
+
 def fetch_and_store_african_standings(league_id, league_name, season):
-    """Get league standings and store in african_standings table."""
     print(f"Fetching standings for {league_name}...")
     url = f"{API_FOOTBALL_BASE}/standings"
     headers = {"x-apisports-key": API_FOOTBALL_KEY}
@@ -680,7 +428,7 @@ def fetch_and_store_african_standings(league_id, league_name, season):
         print(f"Exception fetching standings for {league_name}: {e}")
 
 # -------------------------------------------------------------------
-# Upsert match (uses composite key)
+# Upsert match (manual, uses composite key)
 # -------------------------------------------------------------------
 def upsert_match(match_data):
     try:
@@ -691,6 +439,7 @@ def upsert_match(match_data):
         print(f"Upserted match {match_data['fixture_id']} from {match_data['source']}")
     except Exception as e:
         print(f"Error upserting match {match_data['fixture_id']} from {match_data['source']}: {e}")
+
 # -------------------------------------------------------------------
 # Standings for football-data.org
 # -------------------------------------------------------------------
@@ -790,18 +539,164 @@ def update_news():
     cleanup_old_news()
 
 # -------------------------------------------------------------------
+# TheSportsDB Team ID fetching
+# -------------------------------------------------------------------
+def fetch_and_store_team_id(team_name, team_id_in_db):
+    """Search TheSportsDB for a team and store its ID in the teams table."""
+    url = f"https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t={requests.utils.quote(team_name)}"
+    try:
+        resp = requests.get(url, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("teams"):
+                tsdb_team = data["teams"][0]
+                tsdb_team_id = tsdb_team.get("idTeam")
+                if tsdb_team_id:
+                    supabase.table("teams").update({"tsdb_team_id": tsdb_team_id}).eq("id", team_id_in_db).execute()
+                    print(f"Stored TheSportsDB ID {tsdb_team_id} for {team_name}")
+                    return tsdb_team_id
+    except Exception as e:
+        print(f"Error fetching team ID for {team_name}: {e}")
+    return None
+
+def fetch_all_team_ids():
+    """Fetch TheSportsDB IDs for all teams in the database."""
+    teams = supabase.table("teams").select("id, name").execute().data
+    for team in teams:
+        if not team.get("tsdb_team_id"):
+            fetch_and_store_team_id(team["name"], team["id"])
+            time.sleep(1)
+
+# -------------------------------------------------------------------
+# Improved match search using team IDs
+# -------------------------------------------------------------------
+def find_match_by_team_and_date(team_id, date, opponent_name):
+    """Search for a match using team ID and date, then verify opponent."""
+    url = f"https://www.thesportsdb.com/api/v1/json/3/eventslast.php?id={team_id}"
+    try:
+        resp = requests.get(url, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            events = data.get("results", [])
+            for ev in events:
+                ev_date = ev.get("dateEvent")
+                if ev_date == date:
+                    # Check if opponent matches (home or away)
+                    if (ev.get("idHomeTeam") == team_id and ev.get("strAwayTeam") == opponent_name) or \
+                       (ev.get("idAwayTeam") == team_id and ev.get("strHomeTeam") == opponent_name):
+                        return ev.get("idEvent")
+    except Exception as e:
+        print(f"Error searching match by team: {e}")
+    return None
+
+def process_finished_matches(limit=10):
+    """Fetch details for finished matches using team IDs for better accuracy."""
+    recent_cutoff = (datetime.now(timezone.utc) - timedelta(hours=48)).isoformat()
+    res = supabase.table("matches")\
+        .select("fixture_id, home_team, away_team, match_time, home_team_id, away_team_id")\
+        .eq("status", "FINISHED")\
+        .is_("tsdb_event_id", "null")\
+        .gte("match_time", recent_cutoff)\
+        .limit(limit)\
+        .execute()
+    matches = res.data
+    if not matches:
+        print("No matches to process.")
+        return
+
+    for m in matches:
+        print(f"\nProcessing: {m['home_team']} vs {m['away_team']} on {m['match_time']}")
+        date_str = m['match_time'][:10]
+        # Get team IDs from teams table
+        home_team_info = supabase.table("teams").select("tsdb_team_id").eq("id", m['home_team_id']).execute().data
+        away_team_info = supabase.table("teams").select("tsdb_team_id").eq("id", m['away_team_id']).execute().data
+        home_tsdb_id = home_team_info[0]["tsdb_team_id"] if home_team_info else None
+        away_tsdb_id = away_team_info[0]["tsdb_team_id"] if away_team_info else None
+
+        event_id = None
+        # Try home team first
+        if home_tsdb_id:
+            event_id = find_match_by_team_and_date(home_tsdb_id, date_str, m['away_team'])
+        # If not found, try away team
+        if not event_id and away_tsdb_id:
+            event_id = find_match_by_team_and_date(away_tsdb_id, date_str, m['home_team'])
+
+        if event_id:
+            print(f"✅ Found event ID: {event_id}")
+            supabase.table("matches").update({"tsdb_event_id": event_id}).eq("fixture_id", m['fixture_id']).execute()
+            # Optionally fetch lineups/events here (reuse existing functions)
+        else:
+            print("❌ No event found after all attempts")
+        time.sleep(1)
+
+# -------------------------------------------------------------------
+# Highlights fetching (unchanged)
+# -------------------------------------------------------------------
+def fetch_thesportsdb_highlights(event_id):
+    url = f"https://www.thesportsdb.com/api/v1/json/3/eventshighlights.php?id={event_id}"
+    try:
+        resp = requests.get(url, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            return data.get("tvhighlights", [])
+    except Exception as e:
+        print(f"Error fetching highlights: {e}")
+    return []
+
+def update_match_highlights(limit=30):
+    """For matches with tsdb_event_id, fetch highlights and add to streams."""
+    print(f"[{datetime.now()}] Running highlights update...")
+    res = supabase.table("matches")\
+        .select("fixture_id, tsdb_event_id, streams")\
+        .not_.is_("tsdb_event_id", "null")\
+        .limit(limit)\
+        .execute()
+    matches = res.data
+    if not matches:
+        print("No matches to process.")
+        return
+
+    for m in matches:
+        if not m.get("tsdb_event_id"):
+            continue
+        highlights = fetch_thesportsdb_highlights(m["tsdb_event_id"])
+        if highlights:
+            streams = m.get("streams", [])
+            if isinstance(streams, str):
+                try:
+                    streams = json.loads(streams)
+                except:
+                    streams = []
+            added = 0
+            for h in highlights:
+                video_url = h.get("strVideo")
+                if not video_url:
+                    continue
+                if not any(s.get("url") == video_url for s in streams):
+                    streams.append({
+                        "title": f"ملخص: {h.get('strEvent', '')}",
+                        "url": video_url,
+                        "source": "thesportsdb_highlight",
+                        "verified": True
+                    })
+                    added += 1
+            if added > 0:
+                supabase.table("matches").update({"streams": json.dumps(streams)}).eq("fixture_id", m["fixture_id"]).execute()
+                print(f"Added {added} highlight(s) for match {m['fixture_id']}")
+        time.sleep(1)
+    print("Highlights update complete.")
+
+# -------------------------------------------------------------------
 # Main update functions
 # -------------------------------------------------------------------
 def update_live():
     print(f"[{datetime.now()}] Running live update...")
-    # football-data.org live matches
     live_matches = fetch_fd_matches(status="IN_PLAY,PAUSED")
     for match in live_matches:
         data = parse_fd_match(match)
         upsert_match(data)
         print(f"Updated live: {data['home_team']} vs {data['away_team']}")
 
-    # Also check for upcoming matches starting soon
     today = datetime.now().strftime("%Y-%m-%d")
     tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
     upcoming_matches = fetch_fd_matches(date_from=today, date_to=tomorrow)
@@ -819,27 +714,26 @@ def update_live():
                     upsert_match(data)
                     print(f"Proactively updated: {data['home_team']} vs {data['away_team']}")
             except Exception as e:
-                print(f"Error parsing time for match {match.get('id')}: {e}")
+                print(f"Error parsing time: {e}")
+
+    # Process recently finished matches for details
+    process_finished_matches(limit=5)
 
     print(f"Processed {len(upcoming_matches)} matches from {today} to {tomorrow}.")
-    process_finished_matches()
-    print(f"Processed {len(upcoming_matches)} matches from {today} to {tomorrow}.")
+
 def update_all_matches():
     print(f"[{datetime.now()}] Running global match update...")
-
-    # --- football-data.org matches ---
     competitions = fetch_fd_competitions()
     if competitions:
         today = datetime.now().strftime("%Y-%m-%d")
-        next_3_days = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
+        next_7_days = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
         for comp in competitions:
             code = comp["code"]
             name = comp["name"]
             print(f"Fetching FD matches for {name} ({code})...")
-            matches = fetch_fd_matches(competition_code=code, date_from=today, date_to=next_3_days)
+            matches = fetch_fd_matches(competition_code=code, date_from=today, date_to=next_7_days)
             for match in matches:
                 match_data = parse_fd_match(match)
-                # Merge admin streams
                 admin_streams = supabase.table("admin_streams")\
                     .select("*")\
                     .eq("fixture_id", match_data["fixture_id"])\
@@ -862,87 +756,27 @@ def update_all_matches():
                 time.sleep(0.5)
             time.sleep(1)
 
-    # --- API-Football for African leagues ---
     season = get_current_season()
     for league_name, league_id in AFRICAN_LEAGUES.items():
         print(f"Processing {league_name}...")
-
-        # 1. Fetch fixtures
         fixtures = fetch_african_matches(league_id, season)
         for fix in fixtures:
             match_data = parse_african_fixture(fix, league_name, league_id)
             upsert_match(match_data)
             print(f"Updated API-Football: {match_data['home_team']} vs {match_data['away_team']} ({match_data['status']})")
             time.sleep(0.5)
-
-        # 2. Fetch and store team logos (once per day)
         fetch_and_store_african_team_logos(league_id, league_name, season)
-
-        # 3. Fetch and store standings (once per day)
         fetch_and_store_african_standings(league_id, league_name, season)
 
-    # Clean up expired admin streams
     now = datetime.now().isoformat()
     supabase.table("admin_streams")\
         .update({"is_active": False})\
         .lt("expires_at", now)\
         .execute()
 
-    # Update football-data.org standings
     update_standings()
-
-    # Fetch news
     update_news()
-
     print("Global update complete!")
-def update_match_details(limit=20):
-    """Fetch detailed data for finished matches that don't have a tsdb_event_id yet."""
-    # Get finished matches without a tsdb_event_id
-    res = supabase.table("matches")\
-        .select("fixture_id, home_team, away_team, match_time")\
-        .eq("status", "FINISHED")\
-        .is_("tsdb_event_id", "null")\
-        .limit(limit)\
-        .execute()
-    matches = res.data
-    if not matches:
-        print("No matches to process.")
-        return
-
-    for m in matches:
-        print(f"Processing {m['home_team']} vs {m['away_team']} on {m['match_time']}")
-        event_id = search_thesportsdb_event(m['home_team'], m['away_team'], m['match_time'])
-        if event_id:
-            # Update the match with the event ID
-            supabase.table("matches").update({"tsdb_event_id": event_id}).eq("fixture_id", m['fixture_id']).execute()
-            print(f"Found event ID: {event_id}")
-
-            # Fetch lineups
-            lineups = fetch_tsdb_lineups(event_id)
-            if lineups:
-                parse_and_insert_tsdb_lineups(event_id, m['fixture_id'], lineups)
-                print(f"Inserted lineups for {m['fixture_id']}")
-
-            # Fetch events (timeline)
-            events = fetch_tsdb_events(event_id)
-            if events:
-                parse_and_insert_tsdb_events(event_id, m['fixture_id'], events)
-                print(f"Inserted events for {m['fixture_id']}")
-
-            # Fetch statistics
-            stats = fetch_tsdb_statistics(event_id)
-            if stats:
-                parse_and_insert_tsdb_statistics(event_id, m['fixture_id'], stats)
-                print(f"Inserted statistics for {m['fixture_id']}")
-
-            time.sleep(1)  # be polite
-        else:
-            print("No event found in TheSportsDB")
-# -------------------------------------------------------------------
-# Placeholder for YouTube search
-# -------------------------------------------------------------------
-def search_youtube_streams(match):
-    return []
 
 # -------------------------------------------------------------------
 # Main entry point
@@ -954,8 +788,10 @@ if __name__ == "__main__":
     elif mode == "full":
         update_all_matches()
     elif mode == "details":
-        update_match_details()   # your existing details mode
+        process_finished_matches(limit=20)
     elif mode == "highlights":
         update_match_highlights()
+    elif mode == "fetch_team_ids":
+        fetch_all_team_ids()
     else:
-        print("Unknown mode. Use 'live', 'full', 'details', or 'highlights'.")
+        print("Unknown mode. Use 'live', 'full', 'details', 'highlights', or 'fetch_team_ids'.")
