@@ -104,15 +104,99 @@ except Exception as e:
 # Fetch recent news (for bottom section)
 # -------------------------------------------------------------------
 @st.cache_data(ttl=3600)
-def get_recent_news(limit=3):
+def get_recent_news(limit=4):
     cutoff = (datetime.now() - timedelta(days=7)).isoformat()
     res = supabase.table("news").select("*").gte("published_at", cutoff).order("published_at", desc=True).limit(limit).execute()
     return res.data
 
-recent_news = get_recent_news(3)
+recent_news = get_recent_news(4)
 
 # -------------------------------------------------------------------
-# Intelligent source detection (copied from your original)
+# Ultra‑aggressive extraction helpers
+# -------------------------------------------------------------------
+def _clean_embed_url(video_url):
+    """Convert various video URLs to embed format."""
+    if 'youtube.com' in video_url or 'youtu.be' in video_url:
+        yt_match = re.search(r'(?:v=|/)([a-zA-Z0-9_-]{11})', video_url)
+        if yt_match:
+            return f"https://www.youtube.com/embed/{yt_match.group(1)}?autoplay=1"
+    # Add more conversions if needed
+    return video_url
+
+def _extract_from_json_ld(obj):
+    """Recursively search JSON‑LD for a video URL."""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k in ('embedUrl', 'contentUrl', 'url') and isinstance(v, str) and ('http' in v):
+                return v
+            if isinstance(v, (dict, list)):
+                result = _extract_from_json_ld(v)
+                if result:
+                    return result
+    elif isinstance(obj, list):
+        for item in obj:
+            result = _extract_from_json_ld(item)
+            if result:
+                return result
+    return None
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def extract_embed_url(url):
+    """Ultra‑aggressive extraction: tries 6 proxies, multiple meta tags, JSON‑LD, and video elements."""
+    proxies = [
+        f"https://api.allorigins.win/raw?url={quote(url)}",
+        f"https://cors-anywhere.herokuapp.com/{url}",
+        f"https://thingproxy.freeboard.io/fetch/{url}",
+        f"https://api.codetabs.com/v1/proxy?quest={quote(url)}",
+        f"https://proxy.cors.sh/{url}",
+        f"https://crossorigin.me/{url}"
+    ]
+    headers_list = [
+        {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'},
+        {'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15'},
+        {'User-Agent': 'Mozilla/5.0 (Linux; Android 10; SM-G975F)'}
+    ]
+    
+    for proxy in proxies:
+        for headers in headers_list:
+            try:
+                resp = requests.get(proxy, headers=headers, timeout=8)
+                if resp.status_code == 200:
+                    html = resp.text
+                    # 1. Standard meta tags
+                    og_video = re.search(r'<meta property="og:video"[^>]+content="([^"]+)"', html)
+                    if og_video:
+                        return _clean_embed_url(og_video.group(1))
+                    twitter_player = re.search(r'<meta property="twitter:player"[^>]+content="([^"]+)"', html)
+                    if twitter_player:
+                        return _clean_embed_url(twitter_player.group(1))
+                    
+                    # 2. JSON‑LD (structured data)
+                    json_ld = re.findall(r'<script type="application/ld\+json">(.*?)</script>', html, re.DOTALL)
+                    for j in json_ld:
+                        try:
+                            data = json.loads(j)
+                            video_url = _extract_from_json_ld(data)
+                            if video_url:
+                                return _clean_embed_url(video_url)
+                        except:
+                            pass
+                    
+                    # 3. First iframe src
+                    iframe_src = re.search(r'<iframe[^>]+src="([^"]+)"', html)
+                    if iframe_src:
+                        return _clean_embed_url(iframe_src.group(1))
+                    
+                    # 4. Direct video tags
+                    video_src = re.search(r'<video[^>]+src="([^"]+)"', html)
+                    if video_src:
+                        return video_src.group(1)
+            except:
+                continue
+    return None
+
+# -------------------------------------------------------------------
+# Intelligent source detection (your original, untouched)
 # -------------------------------------------------------------------
 @st.cache_data(ttl=3600)
 def detect_source(url):
@@ -317,214 +401,236 @@ def detect_source(url):
 
     return {"type": "unknown", "can_embed": False, "name": "رابط خارجي"}
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def extract_embed_url(url):
-    """Try to find an embeddable video URL from a webpage."""
-    proxies = [
-        f"https://api.allorigins.win/raw?url={quote(url)}",
-        f"https://cors-anywhere.herokuapp.com/{url}",
-        f"https://thingproxy.freeboard.io/fetch/{url}"
-    ]
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-    
-    for proxy in proxies:
-        try:
-            resp = requests.get(proxy, headers=headers, timeout=5)
-            if resp.status_code == 200:
-                html = resp.text
-                # Strategy 1: og:video
-                og_video = re.search(r'<meta property="og:video"[^>]+content="([^"]+)"', html)
-                if og_video:
-                    video_url = og_video.group(1)
-                    if 'youtube.com' in video_url or 'youtu.be' in video_url:
-                        yt_match = re.search(r'(?:v=|/)([a-zA-Z0-9_-]{11})', video_url)
-                        if yt_match:
-                            return f"https://www.youtube.com/embed/{yt_match.group(1)}?autoplay=1"
-                    return video_url
-                # Strategy 2: twitter:player
-                twitter_player = re.search(r'<meta property="twitter:player"[^>]+content="([^"]+)"', html)
-                if twitter_player:
-                    return twitter_player.group(1)
-                # Strategy 3: first iframe src
-                iframe_src = re.search(r'<iframe[^>]+src="([^"]+)"', html)
-                if iframe_src:
-                    return iframe_src.group(1)
-        except:
-            continue
-    return None
-
 # -------------------------------------------------------------------
-# Custom CSS – modern channel‑list design
+# Ultra‑modern CSS
 # -------------------------------------------------------------------
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap');
-    * { font-family: 'Cairo', sans-serif; }
-    .main, .block-container { direction: rtl; text-align: right; padding: 1rem !important; background: linear-gradient(135deg, #0f0f1a, #1a1a2e); }
-    .match-header {
-        background: rgba(255,255,255,0.05);
-        backdrop-filter: blur(10px);
-        border-radius: 30px;
-        padding: 25px;
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap');
+    * { font-family: 'Cairo', sans-serif; margin: 0; padding: 0; box-sizing: border-box; }
+    .main, .block-container { direction: rtl; text-align: right; padding: 1rem !important; background: linear-gradient(145deg, #0b0b15, #141425); }
+    /* Glass card with animated border */
+    .glass-card {
+        background: rgba(20, 20, 40, 0.5);
+        backdrop-filter: blur(15px) saturate(180%);
+        -webkit-backdrop-filter: blur(15px) saturate(180%);
+        border: 1px solid transparent;
+        border-radius: 40px;
+        padding: 30px;
+        box-shadow: 0 30px 60px -15px rgba(0,0,0,0.8), inset 0 1px 2px rgba(255,255,255,0.1);
+        transition: border-color 0.3s;
         margin-bottom: 30px;
+    }
+    .glass-card:hover {
+        border-color: rgba(255, 75, 75, 0.5);
+    }
+    /* Match header */
+    .match-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        flex-wrap: wrap;
-        border: 1px solid rgba(255,255,255,0.1);
-    }
-    .team-info {
-        display: flex;
-        align-items: center;
         gap: 20px;
-        flex: 1;
+        flex-wrap: wrap;
     }
-    .team-info img {
-        width: 60px;
-        height: 60px;
+    .team-block {
+        flex: 1;
+        text-align: center;
+    }
+    .team-logo {
+        width: 120px;
+        height: 120px;
         object-fit: contain;
-        filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5));
+        margin-bottom: 15px;
+        filter: drop-shadow(0 15px 20px rgba(0,0,0,0.6));
     }
     .team-name {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: white;
+        font-size: 2rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #fff, #aaa);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin: 0;
+    }
+    .vs-divider {
+        font-size: 4rem;
+        font-weight: 900;
+        background: linear-gradient(45deg, #ff416c, #ff4b2b);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        padding: 0 20px;
     }
     .match-meta {
         text-align: center;
-        color: rgba(255,255,255,0.8);
-        font-size: 1.1rem;
-    }
-    .match-description {
-        background: rgba(255,255,255,0.03);
-        border-radius: 20px;
-        padding: 20px;
-        margin: 20px 0;
+        margin-top: 20px;
         color: rgba(255,255,255,0.7);
-        line-height: 1.8;
-        border: 1px solid rgba(255,255,255,0.05);
+        font-size: 1.2rem;
     }
+    /* Stream grid */
     .stream-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 15px;
-        margin: 30px 0;
+        gap: 20px;
+        margin: 40px 0;
     }
     .stream-card {
         background: rgba(255,255,255,0.05);
         backdrop-filter: blur(10px);
         border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 20px;
-        padding: 20px;
-        transition: 0.3s;
+        border-radius: 30px;
+        padding: 25px;
         text-decoration: none;
         color: white;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 10px;
+        gap: 12px;
+        transition: all 0.25s cubic-bezier(0.2,0.9,0.3,1.2);
     }
     .stream-card:hover {
-        background: rgba(255,255,255,0.15);
-        transform: translateY(-5px);
+        transform: translateY(-10px) scale(1.02);
+        background: rgba(255, 75, 75, 0.15);
         border-color: #ff4d4d;
+        box-shadow: 0 25px 40px -10px #ff4d4d;
     }
-    .stream-icon { font-size: 2.5rem; }
-    .stream-title { font-weight: 700; font-size: 1.2rem; }
-    .stream-source { font-size: 0.9rem; opacity: 0.8; }
+    .stream-icon { font-size: 3rem; }
+    .stream-title { font-weight: 700; font-size: 1.3rem; }
+    .stream-source { font-size: 0.95rem; opacity: 0.8; }
     .stream-verified {
         background: #00c853;
         color: white;
-        padding: 2px 8px;
-        border-radius: 20px;
-        font-size: 0.7rem;
+        padding: 4px 12px;
+        border-radius: 30px;
+        font-size: 0.75rem;
+        font-weight: 600;
         margin-top: 5px;
     }
+    /* Video container with shimmer */
     .video-container {
         position: relative;
         padding-bottom: 56.25%;
         height: 0;
         overflow: hidden;
         max-width: 100%;
-        background: #000;
-        border-radius: 30px;
-        box-shadow: 0 25px 50px -12px black;
-        margin: 30px 0;
+        background: #0a0a0a;
+        border-radius: 40px;
+        box-shadow: 0 30px 60px -15px black;
+        margin: 40px 0;
         border: 1px solid rgba(255,255,255,0.1);
     }
+    .video-container.loading::before {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+        animation: shimmer 1.8s infinite;
+        z-index: 2;
+    }
+    @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
     .video-container iframe, .video-container video, .video-container .hls-player {
         position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
+        top: 0; left: 0; width: 100%; height: 100%;
         border: 0;
-        border-radius: 30px;
+        border-radius: 40px;
     }
+    /* Section titles */
     .section-title {
-        font-size: 1.8rem;
-        font-weight: 700;
-        margin: 40px 0 20px;
-        background: linear-gradient(45deg, #ff416c, #ff4b2b);
+        font-size: 2.2rem;
+        font-weight: 800;
+        margin: 50px 0 25px;
+        background: linear-gradient(135deg, #ff416c, #ff4b2b, #ff9a44);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         display: inline-block;
+        border-bottom: 3px solid #ff4d4d;
+        padding-bottom: 10px;
+    }
+    /* News cards */
+    .news-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+        margin: 30px 0;
     }
     .news-card {
-        background: rgba(255,255,255,0.05);
-        border-radius: 20px;
-        padding: 20px;
-        margin-bottom: 15px;
-        border: 1px solid rgba(255,255,255,0.1);
+        background: rgba(20,20,35,0.8);
+        backdrop-filter: blur(10px);
+        border-radius: 30px;
+        padding: 25px;
+        border: 1px solid rgba(255,255,255,0.05);
         transition: 0.3s;
     }
-    .news-card:hover { background: rgba(255,255,255,0.08); }
-    .news-title {
-        font-size: 1.2rem;
-        font-weight: 700;
-        margin-bottom: 8px;
-        color: white;
+    .news-card:hover {
+        background: rgba(40,40,60,0.9);
+        transform: translateY(-5px);
+        border-color: #ff4d4d;
     }
-    .news-title a { color: white; text-decoration: none; }
+    .news-title {
+        font-size: 1.3rem;
+        font-weight: 700;
+        margin-bottom: 10px;
+        line-height: 1.5;
+    }
+    .news-title a {
+        color: white;
+        text-decoration: none;
+        background: linear-gradient(135deg, #fff, #ddd);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
     .news-meta {
         display: flex;
         gap: 15px;
-        color: rgba(255,255,255,0.6);
+        color: rgba(255,255,255,0.5);
         font-size: 0.9rem;
     }
-    .back-btn {
-        background: rgba(255,255,255,0.1);
-        border: 1px solid rgba(255,255,255,0.2);
-        border-radius: 50px;
-        padding: 8px 20px;
+    /* Buttons */
+    .back-btn, .share-btn {
+        background: rgba(255,255,255,0.05);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 60px;
+        padding: 10px 25px;
         color: white;
         text-decoration: none;
         display: inline-flex;
         align-items: center;
-        gap: 5px;
-        margin-bottom: 20px;
+        gap: 8px;
+        transition: 0.2s;
+        font-weight: 600;
     }
-    .back-btn:hover { background: rgba(255,255,255,0.2); }
+    .back-btn:hover, .share-btn:hover {
+        background: #ff4d4d;
+        border-color: #ff4d4d;
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px -5px #ff4d4d;
+    }
     .ad-container {
-        background: rgba(0,0,0,0.2);
-        border-radius: 20px;
-        padding: 15px;
-        margin: 20px 0;
+        background: rgba(0,0,0,0.3);
+        backdrop-filter: blur(8px);
+        border-radius: 30px;
+        padding: 20px;
+        margin: 30px 0;
         text-align: center;
-        border: 1px solid rgba(255,255,255,0.05);
+        border: 1px dashed rgba(255,255,255,0.2);
+        color: rgba(255,255,255,0.5);
     }
+    /* Theme toggle */
     .theme-toggle {
         position: fixed;
         top: 20px;
         left: 20px;
-        background: rgba(255,255,255,0.1);
-        backdrop-filter: blur(10px);
-        border-radius: 50px;
-        padding: 10px 20px;
+        background: rgba(0,0,0,0.3);
+        backdrop-filter: blur(15px);
+        border-radius: 60px;
+        padding: 12px 24px;
         cursor: pointer;
         border: 1px solid rgba(255,255,255,0.2);
         z-index: 999;
         color: white;
+        font-weight: 600;
+    }
+    .theme-toggle:hover {
+        background: #ff4d4d;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -544,45 +650,40 @@ st.markdown("""
 st.markdown(f'<a href="/" class="back-btn">← العودة إلى الرئيسية</a>', unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
-# Match header with logos and info
+# Match header (glass card)
 # -------------------------------------------------------------------
 home_team = match_data['home_team']
 away_team = match_data['away_team']
-home_logo = match_data.get('home_logo') or "https://via.placeholder.com/60?text=Home"
-away_logo = match_data.get('away_logo') or "https://via.placeholder.com/60?text=Away"
+home_logo = match_data.get('home_logo') or "https://via.placeholder.com/120?text=Home"
+away_logo = match_data.get('away_logo') or "https://via.placeholder.com/120?text=Away"
 league = match_data.get('league', '')
 try:
     utc_time = datetime.fromisoformat(match_data["match_time"].replace('Z', '+00:00'))
     local_time = utc_time.astimezone(tz_tunis)
-    time_str = local_time.strftime("%H:%M %Y-%m-%d")
+    time_str = local_time.strftime('%H:%M %Y-%m-%d')
 except:
     time_str = "الوقت غير معروف"
 status = match_data.get('status', '')
 score = f"{match_data.get('home_score','')} - {match_data.get('away_score','')}" if match_data.get('home_score') is not None else "VS"
 
 st.markdown(f"""
-<div class="match-header">
-    <div class="team-info">
-        <img src="{home_logo}">
-        <span class="team-name">{home_team}</span>
+<div class="glass-card">
+    <div class="match-header">
+        <div class="team-block">
+            <img src="{home_logo}" class="team-logo">
+            <div class="team-name">{home_team}</div>
+        </div>
+        <div class="vs-divider">{score}</div>
+        <div class="team-block">
+            <img src="{away_logo}" class="team-logo">
+            <div class="team-name">{away_team}</div>
+        </div>
     </div>
     <div class="match-meta">
-        <div>{league}</div>
-        <div style="font-size:2rem; font-weight:700; margin:5px 0;">{score}</div>
-        <div>{time_str} • {status}</div>
-    </div>
-    <div class="team-info" style="justify-content:flex-end;">
-        <span class="team-name">{away_team}</span>
-        <img src="{away_logo}">
+        <i>🏆 {league}</i> • <i>⏱️ {time_str}</i> • <i>⚽ {status}</i>
     </div>
 </div>
 """, unsafe_allow_html=True)
-
-# -------------------------------------------------------------------
-# Description (if available)
-# -------------------------------------------------------------------
-if match_data.get('description'):
-    st.markdown(f"<div class='match-description'>{match_data['description']}</div>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
 # Ad space (top)
@@ -616,8 +717,6 @@ else:
         else:
             icon = "🔗"
         verified_badge = '<span class="stream-verified">✔ رسمي</span>' if stream.get("verified") else ''
-        # If we have a selected stream, we might want to embed, but here we just link.
-        # We'll pass the stream URL as a query param to reload the page with embedded player.
         base = f"/watch_stream?match_id={match_id}"
         stream_url_enc = quote(stream['url'], safe='')
         btn_link = f"{base}&stream_url={stream_url_enc}"
@@ -666,9 +765,10 @@ if selected_stream_url:
 
     # Display video
     if can_embed and embed_url:
+        container_class = "video-container loading"
         if source_info.get("type") == "hls" and not st.session_state.extracted_url:
             st.markdown(f"""
-            <div class="video-container">
+            <div class="{container_class}">
                 <div class="hls-player" id="hls-player"></div>
             </div>
             <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
@@ -700,7 +800,7 @@ if selected_stream_url:
             """, unsafe_allow_html=True)
         elif source_info.get("type") == "direct_video" and not st.session_state.extracted_url:
             st.markdown(f"""
-            <div class="video-container">
+            <div class="{container_class}">
                 <video controls autoplay playsinline>
                     <source src="{embed_url}" type="video/mp4">
                 </video>
@@ -708,7 +808,7 @@ if selected_stream_url:
             """, unsafe_allow_html=True)
         else:
             st.markdown(f"""
-            <div class="video-container">
+            <div class="{container_class}">
                 <iframe src="{embed_url}" 
                         allow="autoplay; encrypted-media; fullscreen; picture-in-picture" 
                         allowfullscreen>
@@ -717,7 +817,7 @@ if selected_stream_url:
             """, unsafe_allow_html=True)
     else:
         st.warning("⚠️ لا يمكن عرض البث داخل الصفحة. سيتم فتحه في نافذة جديدة.")
-        st.markdown(f'<a href="{selected_stream_url}" target="_blank" style="display:block; background:#ff4d4d; color:white; padding:15px; border-radius:50px; text-align:center; text-decoration:none; font-weight:bold; margin:20px 0;">🔗 فتح البث في نافذة جديدة</a>', unsafe_allow_html=True)
+        st.markdown(f'<a href="{selected_stream_url}" target="_blank" style="display:block; background:#ff4d4d; color:white; padding:18px; border-radius:60px; text-align:center; text-decoration:none; font-weight:bold; margin:30px 0;">🔗 فتح البث في نافذة جديدة</a>', unsafe_allow_html=True)
 
     # Mid‑video ad
     st.markdown("<div class='ad-container'>", unsafe_allow_html=True)
@@ -728,10 +828,11 @@ if selected_stream_url:
     st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
-# Recent news section
+# Recent news section (grid)
 # -------------------------------------------------------------------
 if recent_news:
     st.markdown("<h2 class='section-title'>📰 آخر الأخبار</h2>", unsafe_allow_html=True)
+    st.markdown('<div class="news-grid">', unsafe_allow_html=True)
     for item in recent_news:
         title = item.get('title', '')
         source = item.get('source', 'مصدر')
@@ -753,9 +854,10 @@ if recent_news:
             </div>
         </div>
         ''', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
-# Share buttons
+# Share buttons (modern)
 # -------------------------------------------------------------------
 st.markdown("---")
 st.markdown("<h2 class='section-title'>📤 شارك هذه المباراة</h2>", unsafe_allow_html=True)
@@ -769,13 +871,13 @@ except:
 page_url = f"{base_url}/watch_stream?match_id={match_id}"
 share_text = f"شاهد {home_team} vs {away_team} بث مباشر على Badr TV"
 with cols[0]:
-    st.markdown(f'<a href="https://wa.me/?text={quote(share_text+" "+page_url)}" target="_blank" class="share-btn" style="display:inline-block; background:#25D366; color:white; padding:10px 20px; border-radius:50px; text-decoration:none;">📱 واتساب</a>', unsafe_allow_html=True)
+    st.markdown(f'<a href="https://wa.me/?text={quote(share_text+" "+page_url)}" target="_blank" class="share-btn" style="background:#25D366;">📱 واتساب</a>', unsafe_allow_html=True)
 with cols[1]:
-    st.markdown(f'<a href="https://twitter.com/intent/tweet?text={quote(share_text+" "+page_url)}" target="_blank" class="share-btn" style="display:inline-block; background:#1DA1F2; color:white; padding:10px 20px; border-radius:50px; text-decoration:none;">🐦 تويتر</a>', unsafe_allow_html=True)
+    st.markdown(f'<a href="https://twitter.com/intent/tweet?text={quote(share_text+" "+page_url)}" target="_blank" class="share-btn" style="background:#1DA1F2;">🐦 تويتر</a>', unsafe_allow_html=True)
 with cols[2]:
-    st.markdown(f'<a href="https://www.facebook.com/sharer/sharer.php?u={quote(page_url)}" target="_blank" class="share-btn" style="display:inline-block; background:#4267B2; color:white; padding:10px 20px; border-radius:50px; text-decoration:none;">📘 فيسبوك</a>', unsafe_allow_html=True)
+    st.markdown(f'<a href="https://www.facebook.com/sharer/sharer.php?u={quote(page_url)}" target="_blank" class="share-btn" style="background:#4267B2;">📘 فيسبوك</a>', unsafe_allow_html=True)
 with cols[3]:
-    if st.button("📱 رمز QR"):
+    if st.button("📱 رمز QR", key="qr_btn"):
         qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={quote(page_url)}"
         st.image(qr_url, width=150)
 
