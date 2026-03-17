@@ -101,272 +101,18 @@ except Exception as e:
     pass
 
 # -------------------------------------------------------------------
-# Custom CSS – modern glass-morphism design
+# Fetch recent news (for bottom section)
 # -------------------------------------------------------------------
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap');
-    * { font-family: 'Cairo', sans-serif; box-sizing: border-box; }
-    .main, .block-container { direction: rtl; text-align: right; padding: 1rem !important; }
-    /* Glass card effect */
-    .glass-card {
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(15px);
-        -webkit-backdrop-filter: blur(15px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 30px;
-        padding: 30px;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        margin-bottom: 30px;
-    }
-    /* Match header */
-    .match-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 20px;
-        flex-wrap: wrap;
-    }
-    .team-block {
-        flex: 1;
-        text-align: center;
-    }
-    .team-logo {
-        width: 100px;
-        height: 100px;
-        object-fit: contain;
-        margin-bottom: 15px;
-        filter: drop-shadow(0 10px 15px rgba(0,0,0,0.3));
-    }
-    .team-name {
-        font-size: 1.8rem;
-        font-weight: 700;
-        margin: 0;
-    }
-    .vs-divider {
-        font-size: 3rem;
-        font-weight: 900;
-        background: linear-gradient(45deg, #ff416c, #ff4b2b);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        padding: 0 20px;
-    }
-    .match-meta {
-        text-align: center;
-        margin-top: 20px;
-        color: rgba(255,255,255,0.8);
-        font-size: 1.1rem;
-    }
-    .match-meta i { margin: 0 5px; }
-    /* Stream buttons */
-    .stream-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 15px;
-        margin: 30px 0;
-    }
-    .stream-btn {
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 20px;
-        padding: 18px;
-        text-align: center;
-        cursor: pointer;
-        transition: 0.3s;
-        color: white;
-        text-decoration: none;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 8px;
-    }
-    .stream-btn:hover {
-        transform: translateY(-5px);
-        background: rgba(255, 255, 255, 0.2);
-        border-color: #ff4d4d;
-        box-shadow: 0 15px 30px rgba(255, 75, 75, 0.3);
-    }
-    .stream-btn.active {
-        border: 2px solid #ff4d4d;
-        background: rgba(255, 75, 75, 0.15);
-    }
-    .stream-icon { font-size: 2.5rem; }
-    .stream-title { font-weight: 700; font-size: 1.2rem; }
-    .stream-source { font-size: 0.9rem; opacity: 0.8; }
-    /* Video container */
-    .video-container {
-        position: relative;
-        padding-bottom: 56.25%;
-        height: 0;
-        overflow: hidden;
-        max-width: 100%;
-        background: #000;
-        border-radius: 30px;
-        box-shadow: 0 25px 50px -12px black;
-        margin: 30px 0;
-        border: 1px solid rgba(255,255,255,0.1);
-    }
-    .video-container iframe, .video-container video, .video-container .hls-player {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        border: 0;
-        border-radius: 30px;
-    }
-    /* Ad container */
-    .ad-container {
-        background: rgba(0, 0, 0, 0.2);
-        backdrop-filter: blur(10px);
-        border-radius: 20px;
-        padding: 20px;
-        margin: 20px 0;
-        text-align: center;
-        border: 1px solid rgba(255,255,255,0.1);
-    }
-    /* Share buttons */
-    .share-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        background: rgba(255,255,255,0.1);
-        color: white;
-        margin: 0 5px;
-        transition: 0.3s;
-        text-decoration: none;
-        font-size: 22px;
-        backdrop-filter: blur(5px);
-        border: 1px solid rgba(255,255,255,0.1);
-    }
-    .share-btn:hover {
-        transform: scale(1.15);
-        background: rgba(255,255,255,0.2);
-    }
-    /* Theme toggle */
-    .theme-toggle {
-        position: fixed;
-        top: 20px;
-        left: 20px;
-        background: rgba(255,255,255,0.1);
-        backdrop-filter: blur(10px);
-        border-radius: 50px;
-        padding: 10px 20px;
-        cursor: pointer;
-        border: 1px solid rgba(255,255,255,0.2);
-        z-index: 999;
-    }
-</style>
-""", unsafe_allow_html=True)
+@st.cache_data(ttl=3600)
+def get_recent_news(limit=3):
+    cutoff = (datetime.now() - timedelta(days=7)).isoformat()
+    res = supabase.table("news").select("*").gte("published_at", cutoff).order("published_at", desc=True).limit(limit).execute()
+    return res.data
+
+recent_news = get_recent_news(3)
 
 # -------------------------------------------------------------------
-# Theme toggle (simple)
-# -------------------------------------------------------------------
-st.markdown("""
-<div class="theme-toggle" onclick="document.body.classList.toggle('light')">
-    <span>🌓</span> تبديل المظهر
-</div>
-""", unsafe_allow_html=True)
-
-# -------------------------------------------------------------------
-# Back to home link
-# -------------------------------------------------------------------
-st.markdown("""
-<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-    <a href="/" style="background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 50px; color: white; text-decoration: none;">
-        ← الرئيسية
-    </a>
-</div>
-""", unsafe_allow_html=True)
-
-# -------------------------------------------------------------------
-# Match header (glass card)
-# -------------------------------------------------------------------
-home_team = match_data['home_team']
-away_team = match_data['away_team']
-home_logo = match_data.get('home_logo') or "https://via.placeholder.com/100?text=Home"
-away_logo = match_data.get('away_logo') or "https://via.placeholder.com/100?text=Away"
-league = match_data.get('league', '')
-try:
-    utc_time = datetime.fromisoformat(match_data["match_time"].replace('Z', '+00:00'))
-    local_time = utc_time.astimezone(tz_tunis)
-    time_str = local_time.strftime('%H:%M %Y-%m-%d')
-except:
-    time_str = "الوقت غير معروف"
-
-st.markdown(f"""
-<div class="glass-card">
-    <div class="match-header">
-        <div class="team-block">
-            <img src="{home_logo}" class="team-logo">
-            <div class="team-name">{home_team}</div>
-        </div>
-        <div class="vs-divider">VS</div>
-        <div class="team-block">
-            <img src="{away_logo}" class="team-logo">
-            <div class="team-name">{away_team}</div>
-        </div>
-    </div>
-    <div class="match-meta">
-        <i>🏆 {league}</i> • <i>⏱️ {time_str}</i> • <i>⚽ {match_data.get('status', '')}</i>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-# -------------------------------------------------------------------
-# Ad space (top) – replace with your own ad code
-# -------------------------------------------------------------------
-st.markdown("<div class='ad-container'>", unsafe_allow_html=True)
-st.components.v1.html("""
-    <!-- Place your top ad code here -->
-    <div style="color: white;">إعلان</div>
-""", height=100)
-st.markdown("</div>", unsafe_allow_html=True)
-
-# -------------------------------------------------------------------
-# Stream selection
-# -------------------------------------------------------------------
-st.markdown("## 🔗 اختر البث")
-
-if not all_streams:
-    st.warning("لا توجد روابط بث متاحة حالياً.")
-else:
-    # Display stream buttons
-    cols = st.columns(3)
-    for idx, stream in enumerate(all_streams):
-        with cols[idx % 3]:
-            # Determine icon based on source
-            src = stream.get("source", "custom").lower()
-            if "youtube" in src:
-                icon = "📺"
-            elif "facebook" in src:
-                icon = "📘"
-            elif "twitch" in src:
-                icon = "🎮"
-            elif "admin" in src:
-                icon = "🔴"
-            else:
-                icon = "🔗"
-            # Build button – links directly to same page with stream_url param
-            current_url = st.query_params
-            base = f"/watch_stream?match_id={match_id}"
-            stream_url_enc = quote(stream['url'], safe='')
-            btn_link = f"{base}&stream_url={stream_url_enc}"
-            st.markdown(f"""
-            <a href="{btn_link}" class="stream-btn">
-                <span class="stream-icon">{icon}</span>
-                <span class="stream-title">{stream.get('title', 'بث مباشر')[:30]}</span>
-                <span class="stream-source">{stream.get('source', 'مباشر')}</span>
-            </a>
-            """, unsafe_allow_html=True)
-
-# -------------------------------------------------------------------
-# Intelligent source detection (copied from original)
+# Intelligent source detection (copied from your original)
 # -------------------------------------------------------------------
 @st.cache_data(ttl=3600)
 def detect_source(url):
@@ -574,7 +320,6 @@ def detect_source(url):
 @st.cache_data(ttl=3600, show_spinner=False)
 def extract_embed_url(url):
     """Try to find an embeddable video URL from a webpage."""
-    # Try multiple proxies
     proxies = [
         f"https://api.allorigins.win/raw?url={quote(url)}",
         f"https://cors-anywhere.herokuapp.com/{url}",
@@ -609,7 +354,285 @@ def extract_embed_url(url):
     return None
 
 # -------------------------------------------------------------------
-# Check if a stream URL is selected
+# Custom CSS – modern channel‑list design
+# -------------------------------------------------------------------
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap');
+    * { font-family: 'Cairo', sans-serif; }
+    .main, .block-container { direction: rtl; text-align: right; padding: 1rem !important; background: linear-gradient(135deg, #0f0f1a, #1a1a2e); }
+    .match-header {
+        background: rgba(255,255,255,0.05);
+        backdrop-filter: blur(10px);
+        border-radius: 30px;
+        padding: 25px;
+        margin-bottom: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+    .team-info {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        flex: 1;
+    }
+    .team-info img {
+        width: 60px;
+        height: 60px;
+        object-fit: contain;
+        filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5));
+    }
+    .team-name {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: white;
+    }
+    .match-meta {
+        text-align: center;
+        color: rgba(255,255,255,0.8);
+        font-size: 1.1rem;
+    }
+    .match-description {
+        background: rgba(255,255,255,0.03);
+        border-radius: 20px;
+        padding: 20px;
+        margin: 20px 0;
+        color: rgba(255,255,255,0.7);
+        line-height: 1.8;
+        border: 1px solid rgba(255,255,255,0.05);
+    }
+    .stream-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 15px;
+        margin: 30px 0;
+    }
+    .stream-card {
+        background: rgba(255,255,255,0.05);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 20px;
+        padding: 20px;
+        transition: 0.3s;
+        text-decoration: none;
+        color: white;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+    .stream-card:hover {
+        background: rgba(255,255,255,0.15);
+        transform: translateY(-5px);
+        border-color: #ff4d4d;
+    }
+    .stream-icon { font-size: 2.5rem; }
+    .stream-title { font-weight: 700; font-size: 1.2rem; }
+    .stream-source { font-size: 0.9rem; opacity: 0.8; }
+    .stream-verified {
+        background: #00c853;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        margin-top: 5px;
+    }
+    .video-container {
+        position: relative;
+        padding-bottom: 56.25%;
+        height: 0;
+        overflow: hidden;
+        max-width: 100%;
+        background: #000;
+        border-radius: 30px;
+        box-shadow: 0 25px 50px -12px black;
+        margin: 30px 0;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+    .video-container iframe, .video-container video, .video-container .hls-player {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border: 0;
+        border-radius: 30px;
+    }
+    .section-title {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin: 40px 0 20px;
+        background: linear-gradient(45deg, #ff416c, #ff4b2b);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        display: inline-block;
+    }
+    .news-card {
+        background: rgba(255,255,255,0.05);
+        border-radius: 20px;
+        padding: 20px;
+        margin-bottom: 15px;
+        border: 1px solid rgba(255,255,255,0.1);
+        transition: 0.3s;
+    }
+    .news-card:hover { background: rgba(255,255,255,0.08); }
+    .news-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        margin-bottom: 8px;
+        color: white;
+    }
+    .news-title a { color: white; text-decoration: none; }
+    .news-meta {
+        display: flex;
+        gap: 15px;
+        color: rgba(255,255,255,0.6);
+        font-size: 0.9rem;
+    }
+    .back-btn {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 50px;
+        padding: 8px 20px;
+        color: white;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        margin-bottom: 20px;
+    }
+    .back-btn:hover { background: rgba(255,255,255,0.2); }
+    .ad-container {
+        background: rgba(0,0,0,0.2);
+        border-radius: 20px;
+        padding: 15px;
+        margin: 20px 0;
+        text-align: center;
+        border: 1px solid rgba(255,255,255,0.05);
+    }
+    .theme-toggle {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        background: rgba(255,255,255,0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 50px;
+        padding: 10px 20px;
+        cursor: pointer;
+        border: 1px solid rgba(255,255,255,0.2);
+        z-index: 999;
+        color: white;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# -------------------------------------------------------------------
+# Theme toggle (simple)
+# -------------------------------------------------------------------
+st.markdown("""
+<div class="theme-toggle" onclick="document.body.classList.toggle('light')">
+    <span>🌓</span> تبديل المظهر
+</div>
+""", unsafe_allow_html=True)
+
+# -------------------------------------------------------------------
+# Back to home link
+# -------------------------------------------------------------------
+st.markdown(f'<a href="/" class="back-btn">← العودة إلى الرئيسية</a>', unsafe_allow_html=True)
+
+# -------------------------------------------------------------------
+# Match header with logos and info
+# -------------------------------------------------------------------
+home_team = match_data['home_team']
+away_team = match_data['away_team']
+home_logo = match_data.get('home_logo') or "https://via.placeholder.com/60?text=Home"
+away_logo = match_data.get('away_logo') or "https://via.placeholder.com/60?text=Away"
+league = match_data.get('league', '')
+try:
+    utc_time = datetime.fromisoformat(match_data["match_time"].replace('Z', '+00:00'))
+    local_time = utc_time.astimezone(tz_tunis)
+    time_str = local_time.strftime("%H:%M %Y-%m-%d")
+except:
+    time_str = "الوقت غير معروف"
+status = match_data.get('status', '')
+score = f"{match_data.get('home_score','')} - {match_data.get('away_score','')}" if match_data.get('home_score') is not None else "VS"
+
+st.markdown(f"""
+<div class="match-header">
+    <div class="team-info">
+        <img src="{home_logo}">
+        <span class="team-name">{home_team}</span>
+    </div>
+    <div class="match-meta">
+        <div>{league}</div>
+        <div style="font-size:2rem; font-weight:700; margin:5px 0;">{score}</div>
+        <div>{time_str} • {status}</div>
+    </div>
+    <div class="team-info" style="justify-content:flex-end;">
+        <span class="team-name">{away_team}</span>
+        <img src="{away_logo}">
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# -------------------------------------------------------------------
+# Description (if available)
+# -------------------------------------------------------------------
+if match_data.get('description'):
+    st.markdown(f"<div class='match-description'>{match_data['description']}</div>", unsafe_allow_html=True)
+
+# -------------------------------------------------------------------
+# Ad space (top)
+# -------------------------------------------------------------------
+st.markdown("<div class='ad-container'>", unsafe_allow_html=True)
+st.components.v1.html("""
+    <!-- Place your top ad code here -->
+    <div style="color: white;">إعلان</div>
+""", height=80)
+st.markdown("</div>", unsafe_allow_html=True)
+
+# -------------------------------------------------------------------
+# Streams section – modern channel grid
+# -------------------------------------------------------------------
+st.markdown("<h2 class='section-title'>📺 قائمة البث المتاحة</h2>", unsafe_allow_html=True)
+
+if not all_streams:
+    st.warning("لا توجد روابط بث متاحة لهذه المباراة.")
+else:
+    st.markdown('<div class="stream-grid">', unsafe_allow_html=True)
+    for stream in all_streams:
+        src = stream.get("source", "custom").lower()
+        if "youtube" in src:
+            icon = "📺"
+        elif "facebook" in src:
+            icon = "📘"
+        elif "twitch" in src:
+            icon = "🎮"
+        elif "admin" in src:
+            icon = "🔴"
+        else:
+            icon = "🔗"
+        verified_badge = '<span class="stream-verified">✔ رسمي</span>' if stream.get("verified") else ''
+        # If we have a selected stream, we might want to embed, but here we just link.
+        # We'll pass the stream URL as a query param to reload the page with embedded player.
+        base = f"/watch_stream?match_id={match_id}"
+        stream_url_enc = quote(stream['url'], safe='')
+        btn_link = f"{base}&stream_url={stream_url_enc}"
+        st.markdown(f'''
+        <a href="{btn_link}" class="stream-card">
+            <span class="stream-icon">{icon}</span>
+            <span class="stream-title">{stream.get("title", "بث مباشر")[:30]}</span>
+            <span class="stream-source">{stream.get("source", "مصدر")}</span>
+            {verified_badge}
+        </a>
+        ''', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# -------------------------------------------------------------------
+# Embedded player if a stream URL is selected
 # -------------------------------------------------------------------
 selected_stream_url = st.query_params.get("stream_url", [None])
 if isinstance(selected_stream_url, list):
@@ -618,7 +641,7 @@ if isinstance(selected_stream_url, list):
 if selected_stream_url:
     selected_stream_url = unquote(selected_stream_url)
     st.markdown("---")
-    st.markdown("## 📺 البث المحدد")
+    st.markdown("<h2 class='section-title'>📺 البث المحدد</h2>", unsafe_allow_html=True)
 
     source_info = detect_source(selected_stream_url)
 
@@ -694,22 +717,48 @@ if selected_stream_url:
             """, unsafe_allow_html=True)
     else:
         st.warning("⚠️ لا يمكن عرض البث داخل الصفحة. سيتم فتحه في نافذة جديدة.")
-        if st.button("🔗 فتح البث في نافذة جديدة", use_container_width=True):
-            st.markdown(f'<script>window.open("{selected_stream_url}", "_blank");</script>', unsafe_allow_html=True)
+        st.markdown(f'<a href="{selected_stream_url}" target="_blank" style="display:block; background:#ff4d4d; color:white; padding:15px; border-radius:50px; text-align:center; text-decoration:none; font-weight:bold; margin:20px 0;">🔗 فتح البث في نافذة جديدة</a>', unsafe_allow_html=True)
 
-    # Mid‑video ad – replace with your own
+    # Mid‑video ad
     st.markdown("<div class='ad-container'>", unsafe_allow_html=True)
     st.components.v1.html("""
         <!-- Mid‑video ad code here -->
         <div style="color: white;">إعلان</div>
-    """, height=100)
+    """, height=80)
     st.markdown("</div>", unsafe_allow_html=True)
+
+# -------------------------------------------------------------------
+# Recent news section
+# -------------------------------------------------------------------
+if recent_news:
+    st.markdown("<h2 class='section-title'>📰 آخر الأخبار</h2>", unsafe_allow_html=True)
+    for item in recent_news:
+        title = item.get('title', '')
+        source = item.get('source', 'مصدر')
+        published = item.get('published_at', '')
+        if published:
+            try:
+                pub_date = datetime.fromisoformat(published.replace('Z', '+00:00')).astimezone(tz_tunis)
+                date_str = pub_date.strftime("%Y-%m-%d %H:%M")
+            except:
+                date_str = ""
+        else:
+            date_str = ""
+        st.markdown(f'''
+        <div class="news-card">
+            <div class="news-title"><a href="{item.get('url','#')}" target="_blank">{title}</a></div>
+            <div class="news-meta">
+                <span>📰 {source}</span>
+                <span>🕒 {date_str}</span>
+            </div>
+        </div>
+        ''', unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
 # Share buttons
 # -------------------------------------------------------------------
 st.markdown("---")
-st.markdown("## 📤 شارك هذه المباراة")
+st.markdown("<h2 class='section-title'>📤 شارك هذه المباراة</h2>", unsafe_allow_html=True)
 cols = st.columns(4)
 try:
     host = st.context.headers.get('host', '')
@@ -720,29 +769,23 @@ except:
 page_url = f"{base_url}/watch_stream?match_id={match_id}"
 share_text = f"شاهد {home_team} vs {away_team} بث مباشر على Badr TV"
 with cols[0]:
-    st.markdown(f'<a href="https://wa.me/?text={quote(share_text+" "+page_url)}" target="_blank" class="share-btn">📱</a>', unsafe_allow_html=True)
+    st.markdown(f'<a href="https://wa.me/?text={quote(share_text+" "+page_url)}" target="_blank" class="share-btn" style="display:inline-block; background:#25D366; color:white; padding:10px 20px; border-radius:50px; text-decoration:none;">📱 واتساب</a>', unsafe_allow_html=True)
 with cols[1]:
-    st.markdown(f'<a href="https://twitter.com/intent/tweet?text={quote(share_text+" "+page_url)}" target="_blank" class="share-btn">🐦</a>', unsafe_allow_html=True)
+    st.markdown(f'<a href="https://twitter.com/intent/tweet?text={quote(share_text+" "+page_url)}" target="_blank" class="share-btn" style="display:inline-block; background:#1DA1F2; color:white; padding:10px 20px; border-radius:50px; text-decoration:none;">🐦 تويتر</a>', unsafe_allow_html=True)
 with cols[2]:
-    st.markdown(f'<a href="https://www.facebook.com/sharer/sharer.php?u={quote(page_url)}" target="_blank" class="share-btn">📘</a>', unsafe_allow_html=True)
+    st.markdown(f'<a href="https://www.facebook.com/sharer/sharer.php?u={quote(page_url)}" target="_blank" class="share-btn" style="display:inline-block; background:#4267B2; color:white; padding:10px 20px; border-radius:50px; text-decoration:none;">📘 فيسبوك</a>', unsafe_allow_html=True)
 with cols[3]:
     if st.button("📱 رمز QR"):
         qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={quote(page_url)}"
         st.image(qr_url, width=150)
 
 # -------------------------------------------------------------------
-# Footer ad – replace with your own
+# Footer ad
 # -------------------------------------------------------------------
 st.markdown("---")
 st.markdown("<div class='ad-container'>", unsafe_allow_html=True)
 st.components.v1.html("""
     <!-- Footer ad code here -->
     <div style="color: white;">إعلان</div>
-""", height=100)
+""", height=80)
 st.markdown("</div>", unsafe_allow_html=True)
-
-# -------------------------------------------------------------------
-# Back to home button
-# -------------------------------------------------------------------
-if st.button("🏠 العودة إلى الرئيسية", use_container_width=True):
-    st.switch_page("app.py")
