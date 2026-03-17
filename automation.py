@@ -311,6 +311,41 @@ def parse_and_insert_tsdb_statistics(event_id, fixture_id, stats_data):
         #     "data": stat
         # }, on_conflict="fixture_id,team_id").execute()
         pass  # TODO: implement based on your schema
+ # ... (your existing TheSportsDB functions) ...
+
+def process_finished_matches():
+    """Fetch details for matches that finished recently and don't have tsdb_event_id yet."""
+    recent_cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    res = supabase.table("matches")\
+        .select("fixture_id, home_team, away_team, match_time")\
+        .eq("status", "FINISHED")\
+        .is_("tsdb_event_id", "null")\
+        .gte("match_time", recent_cutoff)\
+        .limit(10)\
+        .execute()
+    matches = res.data
+    if not matches:
+        return
+
+    for m in matches:
+        print(f"Fetching details for finished match: {m['home_team']} vs {m['away_team']}")
+        event_id = search_thesportsdb_event(m['home_team'], m['away_team'], m['match_time'])
+        if event_id:
+            supabase.table("matches").update({"tsdb_event_id": event_id}).eq("fixture_id", m['fixture_id']).execute()
+            lineups = fetch_tsdb_lineups(event_id)
+            if lineups:
+                parse_and_insert_tsdb_lineups(event_id, m['fixture_id'], lineups)
+            events = fetch_tsdb_events(event_id)
+            if events:
+                parse_and_insert_tsdb_events(event_id, m['fixture_id'], events)
+            stats = fetch_tsdb_statistics(event_id)
+            if stats:
+                parse_and_insert_tsdb_statistics(event_id, m['fixture_id'], stats)
+            time.sleep(1)
+        else:
+            print("No event found in TheSportsDB")
+
+# ... (then your existing update_live function) ...       
 # -------------------------------------------------------------------
 # Helper: upsert team
 # -------------------------------------------------------------------
@@ -704,7 +739,8 @@ def update_live():
                 print(f"Error parsing time for match {match.get('id')}: {e}")
 
     print(f"Processed {len(upcoming_matches)} matches from {today} to {tomorrow}.")
-
+    process_finished_matches()
+    print(f"Processed {len(upcoming_matches)} matches from {today} to {tomorrow}.")
 def update_all_matches():
     print(f"[{datetime.now()}] Running global match update...")
 
