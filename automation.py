@@ -542,21 +542,24 @@ def update_news():
 # TheSportsDB Team ID fetching
 # -------------------------------------------------------------------
 def fetch_and_store_team_id(team_name, team_id_in_db):
-    """Search TheSportsDB for a team and store its ID in the teams table."""
-    url = f"https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t={requests.utils.quote(team_name)}"
-    try:
-        resp = requests.get(url, timeout=5)
-        if resp.status_code == 200:
-            data = resp.json()
-            if data.get("teams"):
-                tsdb_team = data["teams"][0]
-                tsdb_team_id = tsdb_team.get("idTeam")
-                if tsdb_team_id:
-                    supabase.table("teams").update({"tsdb_team_id": tsdb_team_id}).eq("id", team_id_in_db).execute()
-                    print(f"Stored TheSportsDB ID {tsdb_team_id} for {team_name}")
-                    return tsdb_team_id
-    except Exception as e:
-        print(f"Error fetching team ID for {team_name}: {e}")
+    # Try original name and variations
+    variations = [team_name, team_name.replace(' FC', ''), team_name.replace(' United', '')]
+    for name in variations:
+        url = f"https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t={requests.utils.quote(name)}"
+        try:
+            resp = requests.get(url, timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("teams"):
+                    tsdb_team = data["teams"][0]
+                    tsdb_team_id = tsdb_team.get("idTeam")
+                    if tsdb_team_id:
+                        supabase.table("teams").update({"tsdb_team_id": tsdb_team_id}).eq("id", team_id_in_db).execute()
+                        print(f"Stored TheSportsDB ID {tsdb_team_id} for {team_name} (via '{name}')")
+                        return tsdb_team_id
+        except:
+            continue
+    print(f"Failed to find TheSportsDB ID for {team_name}")
     return None
 
 def fetch_all_team_ids():
