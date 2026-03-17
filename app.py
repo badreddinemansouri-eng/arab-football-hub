@@ -745,8 +745,10 @@ def render_match_card(match, show_favorite=True):
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 المباريات", "📊 النتائج", "🏆 الترتيب", "⭐ المفضلة", "📰 الأخبار", "🔮 التوقعات"])
 
 with tab1:
+
     st.header("🔥 المباريات المباشرة الآن")
-    live_matches = [m for m in matches if m['status'] == 'LIVE']
+    live_result = supabase.table("matches").select("*").eq("status", "LIVE").execute()
+    live_matches = live_result.data
     if live_matches:
         for m in live_matches:
             st.markdown(render_match_card(m), unsafe_allow_html=True)
