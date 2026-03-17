@@ -185,25 +185,22 @@ def get_country_flag(country_name):
 # -------------------------------------------------------------------
  # cache search results for a day
 def search_thesportsdb_event(home_team, away_team, match_date):
-    """
-    Search TheSportsDB for an event by team names and date.
-    Returns the event ID if found, else None.
-    """
-    # Format date as YYYY-MM-DD
-    date_str = match_date[:10] if match_date else ""
-    # Option 1: search by event name (home_vs_away) and date
-    event_name = f"{home_team} vs {away_team}".replace(" ", "_")
-    url = f"https://www.thesportsdb.com/api/v1/json/3/searchevents.php?e={event_name}&d={date_str}"
-    try:
-        resp = requests.get(url, timeout=5)
-        if resp.status_code == 200:
-            data = resp.json()
-            events = data.get("event", [])
-            if events:
-                return events[0].get("idEvent")
-    except:
-        pass
-    # Option 2: try with filename pattern (less likely but possible)
+    date_str = match_date[:10]
+    # Try different name formats
+    variants = [
+        f"{home_team} vs {away_team}",
+        f"{home_team} v {away_team}",
+        f"{home_team} - {away_team}",
+    ]
+    for name in variants:
+        name_enc = name.replace(" ", "_")
+        url = f"https://www.thesportsdb.com/api/v1/json/3/searchevents.php?e={name_enc}&d={date_str}"
+        try:
+            resp = requests.get(url, timeout=5)
+            if resp.status_code == 200 and resp.json().get("event"):
+                return resp.json()["event"][0]["idEvent"]
+        except:
+            continue
     return None
 
 def fetch_tsdb_lineups(event_id):
