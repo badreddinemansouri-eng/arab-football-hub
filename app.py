@@ -646,9 +646,6 @@ def get_matches():
 matches = get_matches()
 
 
-# -------------------- DEBUG START --------------------
-st.write("### 🔍 معلومات التشخيص")
- --------------------
 
 # -------------------- Helper Functions --------------------
 def time_until(match_time_str):
