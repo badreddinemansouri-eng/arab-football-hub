@@ -341,7 +341,73 @@ def process_finished_matches():
             time.sleep(1)
         else:
             print("No event found in TheSportsDB")
+            
+# -------------------------------------------------------------------
+# Automated video highlights from TheSportsDB
+# -------------------------------------------------------------------
+def fetch_thesportsdb_highlights(event_id):
+    """Get YouTube highlights from TheSportsDB for an event."""
+    url = f"https://www.thesportsdb.com/api/v1/json/3/eventshighlights.php?id={event_id}"
+    try:
+        resp = requests.get(url, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            return data.get("tvhighlights", [])
+    except Exception as e:
+        print(f"Error fetching highlights for event {event_id}: {e}")
+    return []
 
+def update_match_highlights(limit=30):
+    """For finished matches with tsdb_event_id, fetch highlights and add to streams."""
+    print(f"[{datetime.now()}] Running highlights update...")
+    # Get matches that have a tsdb_event_id (already processed by details mode)
+    res = supabase.table("matches")\
+        .select("fixture_id, tsdb_event_id, streams")\
+        .not_.is_("tsdb_event_id", "null")\
+        .limit(limit)\
+        .execute()
+    matches = res.data
+    if not matches:
+        print("No matches to process.")
+        return
+
+    for m in matches:
+        if not m.get("tsdb_event_id"):
+            continue
+        print(f"Processing match {m['fixture_id']} (event ID: {m['tsdb_event_id']})")
+        highlights = fetch_thesportsdb_highlights(m["tsdb_event_id"])
+        if highlights:
+            # Parse existing streams
+            streams = m.get("streams", [])
+            if isinstance(streams, str):
+                try:
+                    streams = json.loads(streams)
+                except:
+                    streams = []
+            added = 0
+            for h in highlights:
+                video_url = h.get("strVideo")
+                if not video_url:
+                    continue
+                # Avoid duplicates
+                if not any(s.get("url") == video_url for s in streams):
+                    streams.append({
+                        "title": f"ملخص: {h.get('strEvent', '')}",
+                        "url": video_url,
+                        "source": "thesportsdb_highlight",
+                        "verified": True
+                    })
+                    added += 1
+            if added > 0:
+                # Update the match record
+                supabase.table("matches").update({"streams": json.dumps(streams)}).eq("fixture_id", m["fixture_id"]).execute()
+                print(f"  Added {added} highlight(s) for match {m['fixture_id']}")
+            else:
+                print(f"  No new highlights for match {m['fixture_id']}")
+        else:
+            print(f"  No highlights found for match {m['fixture_id']}")
+        time.sleep(1)  # be polite
+    print("Highlights update complete.")
 # ... (then your existing update_live function) ...       
 # -------------------------------------------------------------------
 # Helper: upsert team
@@ -868,6 +934,8 @@ if __name__ == "__main__":
     elif mode == "full":
         update_all_matches()
     elif mode == "details":
-        update_match_details()
+        update_match_details()   # your existing details mode
+    elif mode == "highlights":
+        update_match_highlights()
     else:
-        print("Unknown mode. Use 'live', 'full', or 'details'.")
+        print("Unknown mode. Use 'live', 'full', 'details', or 'highlights'.")
