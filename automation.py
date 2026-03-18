@@ -539,42 +539,52 @@ def update_news():
     cleanup_old_news()
 
 # -------------------------------------------------------------------
-# TheSportsDB Team ID fetching
+# TheSportsDB Team ID fetching with dynamic league lookup
 # -------------------------------------------------------------------
+league_id_cache = {}
 
-def fetch_and_store_team_id(team_name, team_id_in_db):
+def get_tsdb_league_id(league_name):
+    """Search TheSportsDB for a league by name and return its ID."""
+    if league_name in league_id_cache:
+        return league_id_cache[league_name]
+    
+    url = f"https://www.thesportsdb.com/api/v1/json/3/search_leagues.php?l={requests.utils.quote(league_name)}"
+    try:
+        resp = requests.get(url, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            leagues = data.get("leagues", [])
+            if leagues:
+                league_id = leagues[0].get("idLeague")
+                league_id_cache[league_name] = league_id
+                print(f"Found TheSportsDB league ID {league_id} for '{league_name}'")
+                return league_id
+    except Exception as e:
+        print(f"Error searching for league '{league_name}': {e}")
+    return None
+
+def fetch_and_store_team_id(team_name, team_id_in_db, league_name=None):
     """
-    Search TheSportsDB for a team using multiple name variations.
-    Returns True if found and stored, False otherwise.
+    Search TheSportsDB for a team using name variations, and fallback to league lookup.
     """
-    # Clean the name: remove common suffixes and punctuation
     def clean_name(name):
-        # Remove common suffixes
         suffixes = [' FC', ' United', ' City', ' Real', ' CF', ' AC', ' AS', ' SS', ' SC', ' Club', ' Deportivo', ' Futebol', ' Clube']
         name_clean = name
         for suf in suffixes:
             if name_clean.endswith(suf):
                 name_clean = name_clean[:-len(suf)]
                 break
-        # Also try without any suffix at all
-        name_clean = name_clean.strip()
-        return name_clean if name_clean else name
+        return name_clean.strip()
 
-    # Generate a list of candidate names to search
-    candidates = []
-    # Original name
-    candidates.append(team_name)
-    # Cleaned name
+    candidates = [team_name]
     cleaned = clean_name(team_name)
     if cleaned != team_name:
         candidates.append(cleaned)
-    # Even simpler: take first word (for teams like "Juventus")
     first_word = team_name.split()[0]
     if first_word not in candidates:
         candidates.append(first_word)
-    # Also try the name without any spaces (some APIs use underscores, but search expects spaces)
-    # Not needed for searchteams.php, but we keep it.
 
+    # Try name search
     for name in candidates:
         url = f"https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t={requests.utils.quote(name)}"
         try:
@@ -582,37 +592,67 @@ def fetch_and_store_team_id(team_name, team_id_in_db):
             if resp.status_code == 200:
                 data = resp.json()
                 if data.get("teams"):
-                    # Check if the found team is a reasonable match
-                    # (e.g., country might match, or name contains our original)
-                    found_teams = data["teams"]
-                    # Usually the first result is the best, but we can add simple verification
-                    # For famous teams, the first result is almost always correct.
-                    tsdb_team = found_teams[0]
+                    tsdb_team = data["teams"][0]
                     tsdb_team_id = tsdb_team.get("idTeam")
-                    # Optionally verify by country or league? (advanced)
-                    # For now, assume it's correct if the name is close
                     if tsdb_team_id:
                         supabase.table("teams").update({"tsdb_team_id": tsdb_team_id}).eq("id", team_id_in_db).execute()
-                        print(f"✅ Stored TheSportsDB ID {tsdb_team_id} for {team_name} (via '{name}')")
+                        print(f"✅ Stored ID {tsdb_team_id} for {team_name} (via name '{name}')")
                         return True
         except Exception as e:
-            print(f"Error searching for {name}: {e}")
             continue
 
-    # If we reach here, no match found
-    print(f"❌ Failed to find TheSportsDB ID for {team_name}")
+    # Fallback to league lookup
+    if league_name:
+        tsdb_league_id = get_tsdb_league_id(league_name)
+        if tsdb_league_id:
+            url = f"https://www.thesportsdb.com/api/v1/json/3/lookup_all_teams.php?id={tsdb_league_id}"
+            try:
+                resp = requests.get(url, timeout=10)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    teams = data.get("teams", [])
+                    for t in teams:
+                        t_name = t.get("strTeam", "")
+                        if any(cand.lower() in t_name.lower() for cand in candidates):
+                            tsdb_team_id = t.get("idTeam")
+                            if tsdb_team_id:
+                                supabase.table("teams").update({"tsdb_team_id": tsdb_team_id}).eq("id", team_id_in_db).execute()
+                                print(f"✅ Stored ID {tsdb_team_id} for {team_name} (via league '{league_name}')")
+                                return True
+            except Exception as e:
+                print(f"Error fetching teams for league {league_name}: {e}")
+
+    print(f"❌ Failed to find ID for {team_name}")
     return False
 
 def fetch_all_team_ids():
-    """Fetch TheSportsDB IDs for all teams in the database."""
-    teams = supabase.table("teams").select("id, name").execute().data
+    """Fetch TheSportsDB IDs for all teams in the database that are still NULL."""
+    teams = supabase.table("teams").select("id, name").is_("tsdb_team_id", "null").execute().data
+    if not teams:
+        print("All teams already have IDs.")
+        return
+
     for team in teams:
-        if not team.get("tsdb_team_id"):
-            fetch_and_store_team_id(team["name"], team["id"])
-            time.sleep(1)
+        team_id = team["id"]
+        team_name = team["name"]
+        print(f"Processing: {team_name}")
+
+        # Find a recent match to get league name
+        league_name = None
+        match_res = supabase.table("matches")\
+            .select("league")\
+            .or_(f"home_team_id.eq.{team_id},away_team_id.eq.{team_id}")\
+            .order("match_time", desc=True)\
+            .limit(1)\
+            .execute()
+        if match_res.data:
+            league_name = match_res.data[0].get("league")
+
+        fetch_and_store_team_id(team_name, team_id, league_name)
+        time.sleep(1)
 
 # -------------------------------------------------------------------
-# Improved match search using team IDs
+# Match search using team IDs (improved)
 # -------------------------------------------------------------------
 def find_match_by_team_and_date(team_id, date, opponent_name):
     """Search for a match using team ID and date, then verify opponent."""
@@ -625,7 +665,6 @@ def find_match_by_team_and_date(team_id, date, opponent_name):
             for ev in events:
                 ev_date = ev.get("dateEvent")
                 if ev_date == date:
-                    # Check if opponent matches (home or away)
                     if (ev.get("idHomeTeam") == team_id and ev.get("strAwayTeam") == opponent_name) or \
                        (ev.get("idAwayTeam") == team_id and ev.get("strHomeTeam") == opponent_name):
                         return ev.get("idEvent")
@@ -651,30 +690,26 @@ def process_finished_matches(limit=10):
     for m in matches:
         print(f"\nProcessing: {m['home_team']} vs {m['away_team']} on {m['match_time']}")
         date_str = m['match_time'][:10]
-        # Get team IDs from teams table
         home_team_info = supabase.table("teams").select("tsdb_team_id").eq("id", m['home_team_id']).execute().data
         away_team_info = supabase.table("teams").select("tsdb_team_id").eq("id", m['away_team_id']).execute().data
         home_tsdb_id = home_team_info[0]["tsdb_team_id"] if home_team_info else None
         away_tsdb_id = away_team_info[0]["tsdb_team_id"] if away_team_info else None
 
         event_id = None
-        # Try home team first
         if home_tsdb_id:
             event_id = find_match_by_team_and_date(home_tsdb_id, date_str, m['away_team'])
-        # If not found, try away team
         if not event_id and away_tsdb_id:
             event_id = find_match_by_team_and_date(away_tsdb_id, date_str, m['home_team'])
 
         if event_id:
             print(f"✅ Found event ID: {event_id}")
             supabase.table("matches").update({"tsdb_event_id": event_id}).eq("fixture_id", m['fixture_id']).execute()
-            # Optionally fetch lineups/events here (reuse existing functions)
         else:
             print("❌ No event found after all attempts")
         time.sleep(1)
 
 # -------------------------------------------------------------------
-# Highlights fetching (unchanged)
+# Highlights fetching
 # -------------------------------------------------------------------
 def fetch_thesportsdb_highlights(event_id):
     url = f"https://www.thesportsdb.com/api/v1/json/3/eventshighlights.php?id={event_id}"
@@ -760,9 +795,7 @@ def update_live():
             except Exception as e:
                 print(f"Error parsing time: {e}")
 
-    # Process recently finished matches for details
     process_finished_matches(limit=5)
-
     print(f"Processed {len(upcoming_matches)} matches from {today} to {tomorrow}.")
 
 def update_all_matches():
