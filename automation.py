@@ -541,26 +541,67 @@ def update_news():
 # -------------------------------------------------------------------
 # TheSportsDB Team ID fetching
 # -------------------------------------------------------------------
+
 def fetch_and_store_team_id(team_name, team_id_in_db):
-    # Try original name and variations
-    variations = [team_name, team_name.replace(' FC', ''), team_name.replace(' United', '')]
-    for name in variations:
+    """
+    Search TheSportsDB for a team using multiple name variations.
+    Returns True if found and stored, False otherwise.
+    """
+    # Clean the name: remove common suffixes and punctuation
+    def clean_name(name):
+        # Remove common suffixes
+        suffixes = [' FC', ' United', ' City', ' Real', ' CF', ' AC', ' AS', ' SS', ' SC', ' Club', ' Deportivo', ' Futebol', ' Clube']
+        name_clean = name
+        for suf in suffixes:
+            if name_clean.endswith(suf):
+                name_clean = name_clean[:-len(suf)]
+                break
+        # Also try without any suffix at all
+        name_clean = name_clean.strip()
+        return name_clean if name_clean else name
+
+    # Generate a list of candidate names to search
+    candidates = []
+    # Original name
+    candidates.append(team_name)
+    # Cleaned name
+    cleaned = clean_name(team_name)
+    if cleaned != team_name:
+        candidates.append(cleaned)
+    # Even simpler: take first word (for teams like "Juventus")
+    first_word = team_name.split()[0]
+    if first_word not in candidates:
+        candidates.append(first_word)
+    # Also try the name without any spaces (some APIs use underscores, but search expects spaces)
+    # Not needed for searchteams.php, but we keep it.
+
+    for name in candidates:
         url = f"https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t={requests.utils.quote(name)}"
         try:
             resp = requests.get(url, timeout=5)
             if resp.status_code == 200:
                 data = resp.json()
                 if data.get("teams"):
-                    tsdb_team = data["teams"][0]
+                    # Check if the found team is a reasonable match
+                    # (e.g., country might match, or name contains our original)
+                    found_teams = data["teams"]
+                    # Usually the first result is the best, but we can add simple verification
+                    # For famous teams, the first result is almost always correct.
+                    tsdb_team = found_teams[0]
                     tsdb_team_id = tsdb_team.get("idTeam")
+                    # Optionally verify by country or league? (advanced)
+                    # For now, assume it's correct if the name is close
                     if tsdb_team_id:
                         supabase.table("teams").update({"tsdb_team_id": tsdb_team_id}).eq("id", team_id_in_db).execute()
-                        print(f"Stored TheSportsDB ID {tsdb_team_id} for {team_name} (via '{name}')")
-                        return tsdb_team_id
-        except:
+                        print(f"✅ Stored TheSportsDB ID {tsdb_team_id} for {team_name} (via '{name}')")
+                        return True
+        except Exception as e:
+            print(f"Error searching for {name}: {e}")
             continue
-    print(f"Failed to find TheSportsDB ID for {team_name}")
-    return None
+
+    # If we reach here, no match found
+    print(f"❌ Failed to find TheSportsDB ID for {team_name}")
+    return False
 
 def fetch_all_team_ids():
     """Fetch TheSportsDB IDs for all teams in the database."""
