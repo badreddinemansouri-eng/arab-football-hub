@@ -625,42 +625,106 @@ def fetch_and_store_team_id(team_name, team_id_in_db, league_name=None):
     print(f"❌ Failed to find ID for {team_name}")
     return False
 
-def fetch_all_team_ids():
-    """Fetch TheSportsDB IDs for all teams in the database that are still NULL."""
-    teams = supabase.table("teams").select("id, name").is_("tsdb_team_id", "null").execute().data
-    if not teams:
-        print("All teams already have IDs.")
-        return
+def fetch_and_store_team_id(team_name, team_id_in_db, league_name=None):
+    """
+    Aggressively search TheSportsDB for a team ID using name variations and league fallback.
+    """
+    def clean_name(name):
+        # Remove common suffixes
+        suffixes = [' FC', ' United', ' City', ' Real', ' CF', ' AC', ' AS', ' SS', ' SC', ' Club', ' Deportivo', ' Futebol', ' Clube', ' AFC', ' FC 1901', ' Calcio', ' & Hove Albion']
+        name_clean = name
+        for suf in suffixes:
+            if name_clean.endswith(suf):
+                name_clean = name_clean[:-len(suf)]
+                break
+        return name_clean.strip()
 
-    for team in teams:
-        team_id = team["id"]
-        team_name = team["name"]
-        print(f"Processing: {team_name}")
+    # Generate a list of candidate names
+    candidates = [team_name]  # original
+    cleaned = clean_name(team_name)
+    if cleaned and cleaned != team_name:
+        candidates.append(cleaned)
+    # First word (e.g., "Borussia")
+    first_word = team_name.split()[0]
+    if first_word and first_word not in candidates:
+        candidates.append(first_word)
+    # Also try the cleaned name without any suffixes (already added)
+    # For multi-word teams, try a shorter version (e.g., "Borussia Dortmund" -> "Dortmund")
+    words = team_name.split()
+    if len(words) > 1:
+        # Try last word (e.g., "Dortmund")
+        last_word = words[-1]
+        if last_word not in candidates:
+            candidates.append(last_word)
+        # Try combination of first and last word (e.g., "Borussia Dortmund")
+        # (already the original, but after cleaning might be "Borussia")
+        # Also try without any suffix that might be in the middle
+        # For "Paris Saint-Germain FC", cleaned becomes "Paris Saint-Germain" (good)
+        # For "FC Internazionale Milano", cleaned becomes "Internazionale Milano" (maybe still not)
+        # We'll also try removing leading "FC " etc.
+        if team_name.startswith('FC '):
+            candidates.append(team_name[3:])
+        if team_name.startswith('AFC '):
+            candidates.append(team_name[4:])
 
-        # Find a recent match to get league name (home or away)
-        league_name = None
-        # Try home matches
-        home_res = supabase.table("matches")\
-            .select("league")\
-            .eq("home_team_id", team_id)\
-            .order("match_time", desc=True)\
-            .limit(1)\
-            .execute()
-        if home_res.data:
-            league_name = home_res.data[0].get("league")
-        else:
-            # Try away matches
-            away_res = supabase.table("matches")\
-                .select("league")\
-                .eq("away_team_id", team_id)\
-                .order("match_time", desc=True)\
-                .limit(1)\
-                .execute()
-            if away_res.data:
-                league_name = away_res.data[0].get("league")
+    # Remove duplicates and empty strings
+    candidates = list(set([c for c in candidates if c]))
 
-        fetch_and_store_team_id(team_name, team_id, league_name)
-        time.sleep(1)
+    # Try name search with each candidate
+    for name in candidates:
+        url = f"https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t={requests.utils.quote(name)}"
+        try:
+            resp = requests.get(url, timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("teams"):
+                    # Take the first result (usually correct)
+                    tsdb_team = data["teams"][0]
+                    tsdb_team_id = tsdb_team.get("idTeam")
+                    if tsdb_team_id:
+                        supabase.table("teams").update({"tsdb_team_id": tsdb_team_id}).eq("id", team_id_in_db).execute()
+                        print(f"✅ Stored ID {tsdb_team_id} for {team_name} (via name '{name}')")
+                        return True
+        except Exception as e:
+            continue
+
+    # If name search failed and we have a league, try league-based fallback
+    if league_name:
+        # Map common league name variations
+        league_variants = [league_name]
+        if league_name == "UEFA Champions League":
+            league_variants.append("Champions League")
+        elif league_name == "Primera Division":
+            league_variants.append("La Liga")
+        elif "Bundesliga" in league_name:
+            league_variants.append("Bundesliga")
+        # Add more as needed
+
+        for lv in league_variants:
+            tsdb_league_id = get_tsdb_league_id(lv)
+            if tsdb_league_id:
+                url = f"https://www.thesportsdb.com/api/v1/json/3/lookup_all_teams.php?id={tsdb_league_id}"
+                try:
+                    resp = requests.get(url, timeout=10)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        teams = data.get("teams", [])
+                        # Try to find a team whose name matches any candidate (case‑insensitive)
+                        for t in teams:
+                            t_name = t.get("strTeam", "")
+                            # Use simple substring matching (safer than full equality)
+                            for cand in candidates:
+                                if cand.lower() in t_name.lower():
+                                    tsdb_team_id = t.get("idTeam")
+                                    if tsdb_team_id:
+                                        supabase.table("teams").update({"tsdb_team_id": tsdb_team_id}).eq("id", team_id_in_db).execute()
+                                        print(f"✅ Stored ID {tsdb_team_id} for {team_name} (via league '{lv}' match '{t_name}')")
+                                        return True
+                except Exception as e:
+                    continue
+
+    print(f"❌ Failed to find ID for {team_name}")
+    return False
 
 # -------------------------------------------------------------------
 # Match search using team IDs (improved)
