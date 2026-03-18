@@ -563,67 +563,6 @@ def get_tsdb_league_id(league_name):
         print(f"Error searching for league '{league_name}': {e}")
     return None
 
-def fetch_and_store_team_id(team_name, team_id_in_db, league_name=None):
-    """
-    Search TheSportsDB for a team using name variations, and fallback to league lookup.
-    """
-    def clean_name(name):
-        suffixes = [' FC', ' United', ' City', ' Real', ' CF', ' AC', ' AS', ' SS', ' SC', ' Club', ' Deportivo', ' Futebol', ' Clube']
-        name_clean = name
-        for suf in suffixes:
-            if name_clean.endswith(suf):
-                name_clean = name_clean[:-len(suf)]
-                break
-        return name_clean.strip()
-
-    candidates = [team_name]
-    cleaned = clean_name(team_name)
-    if cleaned != team_name:
-        candidates.append(cleaned)
-    first_word = team_name.split()[0]
-    if first_word not in candidates:
-        candidates.append(first_word)
-
-    # Try name search
-    for name in candidates:
-        url = f"https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t={requests.utils.quote(name)}"
-        try:
-            resp = requests.get(url, timeout=5)
-            if resp.status_code == 200:
-                data = resp.json()
-                if data.get("teams"):
-                    tsdb_team = data["teams"][0]
-                    tsdb_team_id = tsdb_team.get("idTeam")
-                    if tsdb_team_id:
-                        supabase.table("teams").update({"tsdb_team_id": tsdb_team_id}).eq("id", team_id_in_db).execute()
-                        print(f"✅ Stored ID {tsdb_team_id} for {team_name} (via name '{name}')")
-                        return True
-        except Exception as e:
-            continue
-
-    # Fallback to league lookup
-    if league_name:
-        tsdb_league_id = get_tsdb_league_id(league_name)
-        if tsdb_league_id:
-            url = f"https://www.thesportsdb.com/api/v1/json/3/lookup_all_teams.php?id={tsdb_league_id}"
-            try:
-                resp = requests.get(url, timeout=10)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    teams = data.get("teams", [])
-                    for t in teams:
-                        t_name = t.get("strTeam", "")
-                        if any(cand.lower() in t_name.lower() for cand in candidates):
-                            tsdb_team_id = t.get("idTeam")
-                            if tsdb_team_id:
-                                supabase.table("teams").update({"tsdb_team_id": tsdb_team_id}).eq("id", team_id_in_db).execute()
-                                print(f"✅ Stored ID {tsdb_team_id} for {team_name} (via league '{league_name}')")
-                                return True
-            except Exception as e:
-                print(f"Error fetching teams for league {league_name}: {e}")
-
-    print(f"❌ Failed to find ID for {team_name}")
-    return False
 
 def fetch_and_store_team_id(team_name, team_id_in_db, league_name=None):
     """
@@ -725,7 +664,42 @@ def fetch_and_store_team_id(team_name, team_id_in_db, league_name=None):
 
     print(f"❌ Failed to find ID for {team_name}")
     return False
+def fetch_all_team_ids():
+    """Fetch TheSportsDB IDs for all teams in the database that are still NULL."""
+    teams = supabase.table("teams").select("id, name").is_("tsdb_team_id", "null").execute().data
+    if not teams:
+        print("All teams already have IDs.")
+        return
 
+    for team in teams:
+        team_id = team["id"]
+        team_name = team["name"]
+        print(f"Processing: {team_name}")
+
+        # Find a recent match to get league name (home or away)
+        league_name = None
+        # Try home matches
+        home_res = supabase.table("matches")\
+            .select("league")\
+            .eq("home_team_id", team_id)\
+            .order("match_time", desc=True)\
+            .limit(1)\
+            .execute()
+        if home_res.data:
+            league_name = home_res.data[0].get("league")
+        else:
+            # Try away matches
+            away_res = supabase.table("matches")\
+                .select("league")\
+                .eq("away_team_id", team_id)\
+                .order("match_time", desc=True)\
+                .limit(1)\
+                .execute()
+            if away_res.data:
+                league_name = away_res.data[0].get("league")
+
+        fetch_and_store_team_id(team_name, team_id, league_name)
+        time.sleep(1)
 # -------------------------------------------------------------------
 # Match search using team IDs (improved)
 # -------------------------------------------------------------------
