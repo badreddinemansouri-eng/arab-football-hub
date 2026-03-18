@@ -637,16 +637,27 @@ def fetch_all_team_ids():
         team_name = team["name"]
         print(f"Processing: {team_name}")
 
-        # Find a recent match to get league name
+        # Find a recent match to get league name (home or away)
         league_name = None
-        match_res = supabase.table("matches")\
+        # Try home matches
+        home_res = supabase.table("matches")\
             .select("league")\
-            .or_(f"home_team_id.eq.{team_id},away_team_id.eq.{team_id}")\
+            .eq("home_team_id", team_id)\
             .order("match_time", desc=True)\
             .limit(1)\
             .execute()
-        if match_res.data:
-            league_name = match_res.data[0].get("league")
+        if home_res.data:
+            league_name = home_res.data[0].get("league")
+        else:
+            # Try away matches
+            away_res = supabase.table("matches")\
+                .select("league")\
+                .eq("away_team_id", team_id)\
+                .order("match_time", desc=True)\
+                .limit(1)\
+                .execute()
+            if away_res.data:
+                league_name = away_res.data[0].get("league")
 
         fetch_and_store_team_id(team_name, team_id, league_name)
         time.sleep(1)
