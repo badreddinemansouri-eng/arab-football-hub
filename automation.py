@@ -948,7 +948,24 @@ def update_match_highlights(limit=30):
                 print(f"Added {added} highlight(s) for match {m['fixture_id']}")
         time.sleep(1)
     print("Highlights update complete.")
-
+def process_custom_matches():
+    """تحديث حالة المباريات المضافة يدوياً (custom) إلى LIVE عند وصول وقتها."""
+    now_utc = datetime.now(timezone.utc)
+    # ابحث عن المباريات custom التي حالتها UPCOMING ووقتها <= الآن
+    res = supabase.table("matches")\
+        .select("fixture_id")\
+        .eq("source", "custom")\
+        .eq("status", "UPCOMING")\
+        .lte("match_time", now_utc.isoformat())\
+        .execute()
+    matches_to_update = res.data
+    if matches_to_update:
+        for m in matches_to_update:
+            supabase.table("matches")\
+                .update({"status": "LIVE"})\
+                .eq("fixture_id", m["fixture_id"])\
+                .execute()
+            print(f"تم تحديث المباراة المخصصة {m['fixture_id']} إلى LIVE")
 # -------------------------------------------------------------------
 # Main update functions
 # -------------------------------------------------------------------
@@ -981,7 +998,8 @@ def update_live():
 
     process_finished_matches(limit=5)
     print(f"Processed {len(upcoming_matches)} matches from {today} to {tomorrow}.")
-
+    process_custom_matches()
+    print(f"Processed {len(upcoming_matches)} matches from {today} to {tomorrow}.")
 def update_all_matches():
     print(f"[{datetime.now()}] Running global match update...")
     competitions = fetch_fd_competitions()
