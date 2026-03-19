@@ -772,8 +772,13 @@ with tab1:
 
 with tab2:
     st.header("📊 النتائج")
-    finished = [m for m in matches if m['status'] == 'FINISHED']
-    finished.sort(key=lambda x: x['match_time'], reverse=True)
+    # Direct query for finished matches (no cache)
+    finished_result = supabase.table("matches")\
+        .select("*")\
+        .eq("status", "FINISHED")\
+        .order("match_time", desc=True)\
+        .execute()
+    finished = finished_result.data
     if finished:
         for m in finished:
             home_team = html.escape(m['home_team'])
