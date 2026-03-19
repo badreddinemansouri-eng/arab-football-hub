@@ -537,6 +537,61 @@ def update_news():
     for feed in arabic_feeds:
         fetch_news_from_feed(feed, "ar")
     cleanup_old_news()
+def export_all_teams_json():
+    """
+    Fetch all teams from all mapped leagues and export them as a single JSON list.
+    """
+    LEAGUE_TO_TSDB_ID = {
+        "Premier League": 4328,
+        "Primera Division": 4335,
+        "Bundesliga": 4331,
+        "Serie A": 4332,
+        "Ligue 1": 4334,
+        "UEFA Champions League": 4480,
+        "Eredivisie": 4337,
+        "Primeira Liga": 4336,
+        "Süper Lig": 4338,
+        "Egyptian Premier League": 4625,
+        "Tunisian Ligue 1": 4857,
+        "Brazilian Serie A": 4340,
+        # Add any other leagues you need
+    }
+
+    all_teams = []
+    seen_ids = set()
+
+    for league_name, league_id in LEAGUE_TO_TSDB_ID.items():
+        print(f"Fetching {league_name} (ID {league_id})...")
+        url = f"https://www.thesportsdb.com/api/v1/json/3/lookup_all_teams.php?id={league_id}"
+        try:
+            resp = requests.get(url, timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                teams = data.get("teams", [])
+                for t in teams:
+                    team_id = t.get("idTeam")
+                    team_name = t.get("strTeam")
+                    if team_id and team_name and team_id not in seen_ids:
+                        all_teams.append({
+                            "id": team_id,
+                            "name": team_name
+                        })
+                        seen_ids.add(team_id)
+                print(f"  Added {len(teams)} teams.")
+            else:
+                print(f"  Error {resp.status_code}")
+        except Exception as e:
+            print(f"  Exception: {e}")
+
+    # Save to a JSON file
+    import json
+    filename = "all_thesportsdb_teams.json"
+    with open(filename, "w", encoding="utf-8") as f:
+        json.dump(all_teams, f, indent=2, ensure_ascii=False)
+
+    print(f"\n✅ Exported {len(all_teams)} teams to {filename}")
+    # Optionally, you can also print the JSON content in the logs (but it's huge)
+    # st.write(all_teams) # only if you're in a Streamlit context    
 def verify_teams_from_json():
     """
     Fetch all teams from TheSportsDB for major leagues,
@@ -1002,5 +1057,7 @@ if __name__ == "__main__":
         fetch_all_team_ids()
     elif mode == "verify_teams":
         verify_teams_from_json()    
+    elif mode == "export_teams":
+        export_all_teams_json()   
     else:
         print("Unknown mode. Use 'live', 'full', 'details', 'highlights', or 'fetch_team_ids'.")
