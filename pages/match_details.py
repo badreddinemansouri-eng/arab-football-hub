@@ -80,7 +80,7 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap');
     * { font-family: 'Cairo', sans-serif; }
-    .main, .block-container { direction: rtl; text-align: right; padding: 1rem !important; }
+    .main, .block-container { direction: rtl; text-align: right; padding: 1rem !important; background: #0f0f1a; }
     .glass-card {
         background: rgba(255, 255, 255, 0.1);
         backdrop-filter: blur(15px);
@@ -113,6 +113,7 @@ st.markdown("""
         font-size: 1.8rem;
         font-weight: 700;
         margin: 0;
+        color: white;
     }
     .score {
         font-size: 3.5rem;
@@ -130,7 +131,7 @@ st.markdown("""
         font-size: 1.1rem;
     }
     .stTabs [data-baseweb="tab-list"] { gap: 8px; }
-    .stTabs [data-baseweb="tab"] { border-radius: 20px; padding: 8px 16px; background: rgba(255,255,255,0.05); }
+    .stTabs [data-baseweb="tab"] { border-radius: 20px; padding: 8px 16px; background: rgba(255,255,255,0.05); color: white; }
     .stTabs [aria-selected="true"] { background: #ff4d4d; }
     .event-card {
         background: rgba(255,255,255,0.05);
@@ -140,6 +141,7 @@ st.markdown("""
         display: flex;
         align-items: center;
         gap: 10px;
+        color: white;
     }
     .progress-bar {
         background: rgba(255,255,255,0.1);
@@ -153,20 +155,24 @@ st.markdown("""
         background: linear-gradient(90deg, #ff416c, #ff4b2b);
         border-radius: 10px;
     }
+    .back-btn {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 50px;
+        padding: 8px 20px;
+        color: white;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        margin-bottom: 20px;
+    }
+    .back-btn:hover { background: rgba(255,255,255,0.2); }
 </style>
 """, unsafe_allow_html=True)
 
 # -------------------- Back button --------------------
-st.markdown("""
-<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-    <a href="/" style="background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 50px; color: white; text-decoration: none;">
-        ← الرئيسية
-    </a>
-    {admin_btn}
-</div>
-""".format(admin_btn="""
-    <button class="admin-fetch-btn" onclick="alert('سيتم جلب البيانات قريباً')">🔄 تحديث البيانات</button>
-""" if is_admin else ""), unsafe_allow_html=True)
+st.markdown(f'<a href="/" class="back-btn">← العودة إلى الرئيسية</a>', unsafe_allow_html=True)
 
 # -------------------- Match header (glass card) --------------------
 home_team = match['home_team']
