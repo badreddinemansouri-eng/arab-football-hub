@@ -5,6 +5,7 @@ import hashlib
 import unicodedata
 import re
 import functools
+
 supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_ANON_KEY"])
 
 def normalize_name(name):
@@ -44,11 +45,19 @@ def generate_name_variations(name):
     return list(variations)
 
 def get_initials(name):
+    """
+    Generate initials from a name, safely handling empty input.
+    """
+    if not name or not isinstance(name, str):
+        return "??"
     words = name.split()
+    if len(words) == 0:
+        return "??"
     if len(words) == 1:
         return words[0][:2].upper()
     else:
         return (words[0][0] + words[-1][0]).upper()
+
 @functools.lru_cache(maxsize=500)
 def get_team_logo(team_name):
     """
@@ -86,9 +95,8 @@ def get_team_logo(team_name):
     initials = get_initials(team_name)
     color = hashlib.md5(team_name.encode()).hexdigest()[:6]
     placeholder = f"https://ui-avatars.com/api/?name={initials}&background={color}&color=fff&size=128&bold=true&length=2"
-    # Optionally store fallback to avoid repeated lookups? We can store it, but it's not a real logo.
-    # For consistency, we'll just return it.
     return placeholder
+
 @functools.lru_cache(maxsize=500)
 def get_league_logo(league_name):
     """
@@ -97,6 +105,10 @@ def get_league_logo(league_name):
       2. TheSportsDB API (searchleagues.php) with name variations
       3. Fallback to UI Avatars with league initials
     """
+    # Handle empty league name immediately to avoid errors
+    if not league_name:
+        return "https://ui-avatars.com/api/?name=League&background=1976d2&color=fff&size=128&bold=true"
+
     # 1. Check database
     res = supabase.table("league_logos").select("logo_url").eq("league_name", league_name).execute()
     if res.data:
