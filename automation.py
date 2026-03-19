@@ -539,36 +539,29 @@ def update_news():
     cleanup_old_news()
 def export_all_teams_json():
     """
-    Fetch all teams from major leagues using dynamic league ID lookup,
-    and export them as a single JSON list.
+    Fetch all teams from all mapped leagues and export them as a single JSON list.
     """
-    # List of league names as they appear in TheSportsDB
-    league_names = [
-        "Premier League",
-        "Primera Division",
-        "Bundesliga",
-        "Serie A",
-        "Ligue 1",
-        "UEFA Champions League",
-        "Eredivisie",
-        "Primeira Liga",
-        "Süper Lig",
-        "Egyptian Premier League",
-        "Tunisian Ligue 1",
-        "Brazilian Serie A",
+    LEAGUE_TO_TSDB_ID = {
+        "Premier League": 4328,
+        "Primera Division": 4335,
+        "Bundesliga": 4331,
+        "Serie A": 4332,
+        "Ligue 1": 4334,
+        "UEFA Champions League": 4480,
+        "Eredivisie": 4337,          # still need to verify
+        "Primeira Liga": 4336,        # still need to verify
+        "Süper Lig": 4338,            # still need to verify
+        "Egyptian Premier League": 4829,
+        "Tunisian Ligue 1": 4828,
+        "Brazilian Serie A": 4340,    # still need to verify
         # Add any other leagues you need
-    ]
+    }
 
     all_teams = []
     seen_ids = set()
 
-    for league_name in league_names:
-        print(f"Looking up league ID for {league_name}...")
-        league_id = get_tsdb_league_id(league_name)
-        if not league_id:
-            print(f"  Could not find ID for {league_name}, skipping.")
-            continue
-        print(f"  Found ID {league_id}. Fetching teams...")
+    for league_name, league_id in LEAGUE_TO_TSDB_ID.items():
+        print(f"Fetching {league_name} (ID {league_id})...")
         url = f"https://www.thesportsdb.com/api/v1/json/3/lookup_all_teams.php?id={league_id}"
         try:
             resp = requests.get(url, timeout=10)
@@ -592,7 +585,6 @@ def export_all_teams_json():
         except Exception as e:
             print(f"  Exception for {league_name}: {e}")
 
-    # Save to JSON file
     import json
     filename = "all_thesportsdb_teams.json"
     with open(filename, "w", encoding="utf-8") as f:
