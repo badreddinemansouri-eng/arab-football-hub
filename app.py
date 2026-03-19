@@ -395,9 +395,10 @@ with st.sidebar:
                     return []
 
             upcoming = get_upcoming_matches()
+            upcoming = get_upcoming_matches()
             if upcoming:
-                # Build options with local time
-                match_options = {}
+      # Build options with local time and store both fixture_id and source
+                match_data = {}  # سنستخدم قاموسًا لتخزين (fixture_id, source) لكل خيار
                 for m in upcoming:
                     try:
                         utc_time = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00'))
@@ -406,9 +407,9 @@ with st.sidebar:
                     except:
                         time_str = "--:--"
                     label = f"{time_str} - {m['home_team']} vs {m['away_team']} ({m['league']})"
-                    match_options[label] = m['fixture_id']
-                selected_match = st.selectbox("اختر المباراة", list(match_options.keys()), key="match_select")
-                fixture_id = match_options[selected_match]
+                    match_data[label] = (m['fixture_id'], m['source'])  # تخزين كـ tuple
+                selected_match = st.selectbox("اختر المباراة", list(match_data.keys()), key="match_select")
+                fixture_id, match_source = match_data[selected_match]  # فك الحزمة
 
                 col1, col2 = st.columns(2)
                 with col1:
@@ -423,6 +424,7 @@ with st.sidebar:
                         expires_at = (datetime.now() + timedelta(hours=expiry_hours)).isoformat()
                         data = {
                             "fixture_id": fixture_id,
+                            "source": match_source,          # ← إضافة المصدر من المباراة
                             "stream_url": stream_url,
                             "stream_title": stream_title or "بث مباشر",
                             "stream_source": stream_source,
@@ -436,7 +438,7 @@ with st.sidebar:
                             time.sleep(2)
                             st.rerun()
                         except Exception as e:
-                            st.error("حدث خطأ أثناء إضافة الرابط.")
+                            st.error(f"حدث خطأ أثناء إضافة الرابط: {str(e)}")  # عرض الخطأ الفعلي للمساعدة في التصحيح
                             print(f"Error inserting admin stream: {e}")
                     else:
                         st.error("الرجاء إدخال رابط البث")
