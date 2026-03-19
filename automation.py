@@ -537,7 +537,88 @@ def update_news():
     for feed in arabic_feeds:
         fetch_news_from_feed(feed, "ar")
     cleanup_old_news()
+def verify_teams_from_json():
+    """
+    Fetch all teams from TheSportsDB for major leagues,
+    compare with local teams missing tsdb_team_id,
+    and generate SQL UPDATE statements.
+    """
+    # Map your league names (as they appear in matches) to TheSportsDB league IDs
+    LEAGUE_TO_TSDB_ID = {
+        "Premier League": 4328,
+        "Primera Division": 4335,   # La Liga
+        "Bundesliga": 4331,
+        "Serie A": 4332,
+        "Ligue 1": 4334,
+        "UEFA Champions League": 4480,
+        # Add more if needed
+    }
 
+    # Get all teams from your database that are missing an ID
+    local_teams = supabase.table("teams").select("id, name").is_("tsdb_team_id", "null").execute().data
+    if not local_teams:
+        print("All teams already have IDs.")
+        return
+
+    # We'll store potential matches
+    matches = []  # list of (local_team_id, local_team_name, tsdb_team_id, tsdb_team_name)
+    not_found = []
+
+    # Fetch teams for each league
+    for league_name, league_id in LEAGUE_TO_TSDB_ID.items():
+        print(f"Fetching teams from {league_name} (ID {league_id})...")
+        url = f"https://www.thesportsdb.com/api/v1/json/3/lookup_all_teams.php?id={league_id}"
+        try:
+            resp = requests.get(url, timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                tsdb_teams = data.get("teams", [])
+                print(f"  Received {len(tsdb_teams)} teams.")
+                # Store them in a dict for quick lookup (key: cleaned name)
+                tsdb_dict = {}
+                for t in tsdb_teams:
+                    tsdb_name = t.get("strTeam", "")
+                    tsdb_id = t.get("idTeam")
+                    if tsdb_name and tsdb_id:
+                        # Clean the name for matching
+                        cleaned = re.sub(r'\s*(FC|United|City|Real|CF|AC|AS|SS|SC|Club|Deportivo|Futebol|Clube)\s*$', '', tsdb_name, flags=re.IGNORECASE).strip()
+                        tsdb_dict[cleaned.lower()] = (tsdb_id, tsdb_name)
+                # Now match local teams
+                for local in local_teams:
+                    local_name = local['name']
+                    local_id = local['id']
+                    # Skip if already matched (we'll remove after matching)
+                    # Clean local name similarly
+                    local_clean = re.sub(r'\s*(FC|United|City|Real|CF|AC|AS|SS|SC|Club|Deportivo|Futebol|Clube)\s*$', '', local_name, flags=re.IGNORECASE).strip()
+                    if local_clean.lower() in tsdb_dict:
+                        tsdb_id, tsdb_name = tsdb_dict[local_clean.lower()]
+                        matches.append((local_id, local_name, tsdb_id, tsdb_name))
+                        # Remove from local_teams list to avoid duplicate processing
+                        # We'll just mark as done by filtering later
+            else:
+                print(f"  Error {resp.status_code} for {league_name}")
+        except Exception as e:
+            print(f"  Exception for {league_name}: {e}")
+
+    # After processing all leagues, generate SQL
+    if matches:
+        print("\n✅ Matches found – SQL UPDATE statements:\n")
+        for local_id, local_name, tsdb_id, tsdb_name in matches:
+            print(f"UPDATE teams SET tsdb_team_id = {tsdb_id} WHERE id = {local_id};  -- matched '{local_name}' with '{tsdb_name}'")
+        print("\n-- Run these statements in your Supabase SQL editor.\n")
+    else:
+        print("No matches found.")
+
+    # Teams still missing
+    matched_ids = {m[0] for m in matches}
+    still_missing = [t for t in local_teams if t['id'] not in matched_ids]
+    if still_missing:
+        print("\n❌ Teams still without an ID (not found in any league list):\n")
+        for t in still_missing:
+            print(f"  {t['name']} (ID {t['id']})")
+        print("\nYou can manually look these up on TheSportsDB and add them with a simple UPDATE.")
+    else:
+        print("\nAll teams now have an ID!")
 # -------------------------------------------------------------------
 # TheSportsDB Team ID fetching with dynamic league lookup
 # -------------------------------------------------------------------
@@ -919,5 +1000,7 @@ if __name__ == "__main__":
         update_match_highlights()
     elif mode == "fetch_team_ids":
         fetch_all_team_ids()
+    elif mode == "verify_teams":
+        verify_teams_from_json()    
     else:
         print("Unknown mode. Use 'live', 'full', 'details', 'highlights', or 'fetch_team_ids'.")
