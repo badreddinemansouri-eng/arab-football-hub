@@ -539,35 +539,43 @@ def update_news():
     cleanup_old_news()
 def export_all_teams_json():
     """
-    Fetch all teams from all mapped leagues and export them as a single JSON list.
+    Fetch all teams from major leagues using dynamic league ID lookup,
+    and export them as a single JSON list.
     """
-    LEAGUE_TO_TSDB_ID = {
-        "Premier League": 4328,
-        "Primera Division": 4335,
-        "Bundesliga": 4331,
-        "Serie A": 4332,
-        "Ligue 1": 4334,
-        "UEFA Champions League": 4480,
-        "Eredivisie": 4337,
-        "Primeira Liga": 4336,
-        "Süper Lig": 4338,
-        "Egyptian Premier League": 4625,
-        "Tunisian Ligue 1": 4857,
-        "Brazilian Serie A": 4340,
+    # List of league names as they appear in TheSportsDB
+    league_names = [
+        "Premier League",
+        "Primera Division",
+        "Bundesliga",
+        "Serie A",
+        "Ligue 1",
+        "UEFA Champions League",
+        "Eredivisie",
+        "Primeira Liga",
+        "Süper Lig",
+        "Egyptian Premier League",
+        "Tunisian Ligue 1",
+        "Brazilian Serie A",
         # Add any other leagues you need
-    }
+    ]
 
     all_teams = []
     seen_ids = set()
 
-    for league_name, league_id in LEAGUE_TO_TSDB_ID.items():
-        print(f"Fetching {league_name} (ID {league_id})...")
+    for league_name in league_names:
+        print(f"Looking up league ID for {league_name}...")
+        league_id = get_tsdb_league_id(league_name)
+        if not league_id:
+            print(f"  Could not find ID for {league_name}, skipping.")
+            continue
+        print(f"  Found ID {league_id}. Fetching teams...")
         url = f"https://www.thesportsdb.com/api/v1/json/3/lookup_all_teams.php?id={league_id}"
         try:
             resp = requests.get(url, timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
                 teams = data.get("teams", [])
+                added = 0
                 for t in teams:
                     team_id = t.get("idTeam")
                     team_name = t.get("strTeam")
@@ -577,21 +585,20 @@ def export_all_teams_json():
                             "name": team_name
                         })
                         seen_ids.add(team_id)
-                print(f"  Added {len(teams)} teams.")
+                        added += 1
+                print(f"  Added {added} new teams from {league_name}.")
             else:
-                print(f"  Error {resp.status_code}")
+                print(f"  Error {resp.status_code} for {league_name}")
         except Exception as e:
-            print(f"  Exception: {e}")
+            print(f"  Exception for {league_name}: {e}")
 
-    # Save to a JSON file
+    # Save to JSON file
     import json
     filename = "all_thesportsdb_teams.json"
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(all_teams, f, indent=2, ensure_ascii=False)
 
-    print(f"\n✅ Exported {len(all_teams)} teams to {filename}")
-    # Optionally, you can also print the JSON content in the logs (but it's huge)
-    # st.write(all_teams) # only if you're in a Streamlit context    
+    print(f"\n✅ Exported {len(all_teams)} teams to {filename}")  
 def verify_teams_from_json():
     """
     Fetch all teams from TheSportsDB for major leagues,
