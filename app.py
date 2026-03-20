@@ -272,15 +272,13 @@ def get_css():
             100% { opacity: 1; transform: scale(1); }
         }
         /* Keep only the sidebar toggle button (the hamburger) */
-        /* Hide everything inside the default header */
-        header[data-testid="stHeader"] * {
+        /* Hide everything in the header except the first child (the button's container) */
+        header[data-testid="stHeader"] > *:not(:first-child) {
             display: none !important;
         }
 
-        /* Show only the sidebar toggle button */
-        header[data-testid="stHeader"] button[aria-label="Open menu"],
-        header[data-testid="stHeader"] button[data-testid="stSidebarButton"] {
-            display: flex !important;
+        /* Style the sidebar button to always show three horizontal lines */
+        header[data-testid="stHeader"] button {
             font-size: 0 !important;
             position: relative;
             width: 40px;
@@ -288,10 +286,7 @@ def get_css():
             background: none !important;
             border: none !important;
         }
-
-        /* Add the three‑horizontal‑lines icon */
-        header[data-testid="stHeader"] button[aria-label="Open menu"]::before,
-        header[data-testid="stHeader"] button[data-testid="stSidebarButton"]::before {
+        header[data-testid="stHeader"] button::before {
             content: "☰";
             font-size: 1.8rem;
             font-weight: bold;
