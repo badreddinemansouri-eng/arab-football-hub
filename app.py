@@ -272,27 +272,25 @@ def get_css():
             100% { opacity: 1; transform: scale(1); }
         }
         /* Keep only the sidebar toggle button (the hamburger) */
-        /* إخفاء أيقونة GitHub / أزرار النشر الافتراضية */
-        .stDeployButton {
+        /* Hide everything inside the header except the sidebar toggle button */
+        header[data-testid="stHeader"] {
+            display: flex;
+            align-items: center;
+        }
+        header[data-testid="stHeader"] * {
             display: none !important;
         }
-        .stAppDeployButton {
-            display: none !important;
-        }
-        [data-testid="stToolbar"] {
-            display: none !important;
-        }
-        /* إجبار زر القائمة الجانبية على إظهار ثلاث خطوط أفقية دائماً */
-        header[data-testid="stHeader"] button {
-            font-size: 0 !important;          /* إخفاء النص أو الأيقونة الأصلية */
+        header[data-testid="stHeader"] button[aria-label="Open menu"] {
+            display: flex !important;
+            font-size: 0 !important;
             position: relative;
             width: 40px;
             height: 40px;
             background: none !important;
             border: none !important;
         }
-        header[data-testid="stHeader"] button::before {
-            content: "☰";                     /* رمز ثلاث خطوط أفقية */
+        header[data-testid="stHeader"] button[aria-label="Open menu"]::before {
+            content: "☰";
             font-size: 1.8rem;
             font-weight: bold;
             position: absolute;
