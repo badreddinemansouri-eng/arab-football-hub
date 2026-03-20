@@ -256,6 +256,21 @@ def get_css():
         .standings-table a:hover {
             text-decoration: underline;
         }
+        .live-badge {
+            background: #ff4d4d;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            display: inline-block;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.05); }
+            100% { opacity: 1; transform: scale(1); }
+        }
     </style>
     """)
     if st.session_state.theme == "dark":
@@ -685,7 +700,7 @@ def render_match_card(match, show_favorite=True):
     # Build center display and status
     if effective_status == 'LIVE':
         center = f"<span style='color:#d32f2f; font-weight:bold; font-size:1.8rem;'>{match['home_score']} - {match['away_score']}</span>"
-        status_display = "<span style='color:#d32f2f;'>🔴 مباشر</span>"
+        status_display = '<span class="live-badge">🔴 مباشر</span>'
     elif effective_status == 'UPCOMING':
         try:
             utc_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
