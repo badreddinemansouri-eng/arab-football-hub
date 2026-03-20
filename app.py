@@ -836,26 +836,28 @@ with tab3:
             else:
                 table = standings[0].get("table", [])
                 if table:
-                    # Build clickable HTML table
-                    html_table = '<table class="standings-table">'
-                    html_table += '<tr><th>المركز</th><th>الفريق</th><th>لعب</th><th>فوز</th><th>تعادل</th><th>خسارة</th><th>له</th><th>عليه</th><th>فارق</th><th>نقاط</th></tr>'
+                    # Build a scrollable container and table
+                    html_table = '<div style="overflow-x: auto;">'
+                    html_table += '<table class="standings-table">'
+                    html_table += '<thead><tr><th>المركز</th><th>الفريق</th><th>لعب</th><th>فوز</th><th>تعادل</th><th>خسارة</th><th>له</th><th>عليه</th><th>فارق</th><th>نقاط</th></tr></thead>'
                     for row in table:
-                        team_id = row["team"]["id"]
-                        team_name = row["team"]["name"]
-                        html_table += f'<tr>'
-                        html_table += f'<td>{row["position"]}</td>'
-                        html_table += f'<td><a href="/team?team_id={team_id}" style="color: inherit; text-decoration: none;">{team_name}</a></td>'
-                        html_table += f'<td>{row["playedGames"]}</td>'
-                        html_table += f'<td>{row["won"]}</td>'
-                        html_table += f'<td>{row["draw"]}</td>'
-                        html_table += f'<td>{row["lost"]}</td>'
-                        html_table += f'<td>{row["goalsFor"]}</td>'
-                        html_table += f'<td>{row["goalsAgainst"]}</td>'
-                        html_table += f'<td>{row["goalDifference"]}</td>'
-                        html_table += f'<td>{row["points"]}</td>'
-                        html_table += f'</tr>'
-                    html_table += '</table>'
-                    st.markdown(html_table, unsafe_allow_html=True)
+                      team_id = row["team"]["id"]
+                      team_name = row["team"]["name"]
+                      html_table += '<tr>'
+                      html_table += f'<td>{row["position"]}</td>'
+                      html_table += f'<td><a href="/team?team_id={team_id}" style="color: inherit; text-decoration: none;">{team_name}</a></td>'
+                      html_table += f'<td>{row["playedGames"]}</td>'
+                      html_table += f'<td>{row["won"]}</td>'
+                      html_table += f'<td>{row["draw"]}</td>'
+                      html_table += f'<td>{row["lost"]}</td>'
+                      html_table += f'<td>{row["goalsFor"]}</td>'
+                      html_table += f'<td>{row["goalsAgainst"]}</td>'
+                      html_table += f'<td>{row["goalDifference"]}</td>'
+                      html_table += f'<td>{row["points"]}</td>'
+                      html_table += '</tr>'
+                  html_table += '</table>'
+                  html_table += '</div>'
+                  st.markdown(html_table, unsafe_allow_html=True)
                 else:
                     st.info("لا توجد بيانات جدول متاحة")
     except Exception as e:
