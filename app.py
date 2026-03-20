@@ -272,15 +272,14 @@ def get_css():
             100% { opacity: 1; transform: scale(1); }
         }
         /* Keep only the sidebar toggle button (the hamburger) */
-        /* Hide everything inside the header except the sidebar toggle button */
-        header[data-testid="stHeader"] {
-            display: flex;
-            align-items: center;
-        }
+        /* Hide everything inside the default header */
         header[data-testid="stHeader"] * {
             display: none !important;
         }
-        header[data-testid="stHeader"] button[aria-label="Open menu"] {
+
+        /* Show only the sidebar toggle button */
+        header[data-testid="stHeader"] button[aria-label="Open menu"],
+        header[data-testid="stHeader"] button[data-testid="stSidebarButton"] {
             display: flex !important;
             font-size: 0 !important;
             position: relative;
@@ -289,7 +288,10 @@ def get_css():
             background: none !important;
             border: none !important;
         }
-        header[data-testid="stHeader"] button[aria-label="Open menu"]::before {
+
+        /* Add the three‑horizontal‑lines icon */
+        header[data-testid="stHeader"] button[aria-label="Open menu"]::before,
+        header[data-testid="stHeader"] button[data-testid="stSidebarButton"]::before {
             content: "☰";
             font-size: 1.8rem;
             font-weight: bold;
