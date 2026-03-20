@@ -271,6 +271,16 @@ def get_css():
             50% { opacity: 0.7; transform: scale(1.05); }
             100% { opacity: 1; transform: scale(1); }
         }
+        /* إخفاء أيقونة GitHub / أزرار النشر الافتراضية */
+        .stDeployButton {
+            display: none !important;
+        }
+        .stAppDeployButton {
+            display: none !important;
+        }
+        [data-testid="stToolbar"] {
+            display: none !important;
+        }
     </style>
     """)
     if st.session_state.theme == "dark":
