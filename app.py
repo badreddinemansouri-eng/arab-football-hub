@@ -271,15 +271,26 @@ def get_css():
             50% { opacity: 0.7; transform: scale(1.05); }
             100% { opacity: 1; transform: scale(1); }
         }
-        /* إخفاء أيقونة GitHub / أزرار النشر الافتراضية */
-        .stDeployButton {
+        /* Keep only the sidebar toggle button (the hamburger) */
+        header[data-testid="stHeader"] > *:not(:first-child) {
             display: none !important;
         }
-        .stAppDeployButton {
-            display: none !important;
+        /* Force the button to show the hamburger icon (☰) */
+        header[data-testid="stHeader"] button {
+            font-size: 0 !important;
+            position: relative;
+            width: 40px;
+            height: 40px;
         }
-        [data-testid="stToolbar"] {
-            display: none !important;
+        header[data-testid="stHeader"] button::before {
+            content: "☰";
+            font-size: 1.8rem;
+            font-weight: bold;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
         }
     </style>
     """)
