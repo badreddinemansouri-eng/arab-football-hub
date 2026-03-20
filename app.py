@@ -272,9 +272,11 @@ def get_css():
             100% { opacity: 1; transform: scale(1); }
         }
         /* Keep only the sidebar toggle button (the hamburger) */
+        /* Keep only the sidebar toggle button (the hamburger) */
         header[data-testid="stHeader"] > *:not(:first-child) {
             display: none !important;
         }
+
         /* Force the button to show the hamburger icon (☰) */
         header[data-testid="stHeader"] button {
             font-size: 0 !important;
