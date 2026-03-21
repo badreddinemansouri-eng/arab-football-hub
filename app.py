@@ -333,12 +333,24 @@ st.markdown(get_css(), unsafe_allow_html=True)
         <h1>Badr TV</h1>
     </div>
 </div>
+st.markdown("""
+<script>
+    document.getElementById('sidebar-toggle').addEventListener('click', function() {
+        const currentUrl = new URL(window.location.href);
+        const newState = currentUrl.searchParams.get('sidebar') === 'open' ? 'closed' : 'open';
+        currentUrl.searchParams.set('sidebar', newState);
+        window.location.href = currentUrl.toString();
+    });
+</script>
+""", unsafe_allow_html=True)
 # Keep the timestamp as it was originally (below the header)
 st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 # -------------------- Sidebar (shown only when toggled) --------------------
 # -------------------- Sidebar (shown only when toggled) --------------------
-if st.session_state.sidebar_open:
+sidebar_state = st.query_params.get("sidebar", "closed")
+if sidebar_state == "open":
     with st.sidebar:
+        # ... your entire existing sidebar content ...
         # All existing sidebar content goes here, indented properly
         st.header("👤 الحساب")
         if st.session_state.user:
