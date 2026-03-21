@@ -327,7 +327,7 @@ st.markdown(get_css(), unsafe_allow_html=True)
 
 
 <div class="custom-header">
-    <button id="sidebar-toggle" class="hamburger-btn">☰</button>
+    <button id="sidebar-toggle" class="hamburger-btn">&#9776;</button>
     <div class="header-content">
         <img src="...">
         <h1>Badr TV</h1>
