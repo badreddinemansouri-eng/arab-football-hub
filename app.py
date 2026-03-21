@@ -325,14 +325,17 @@ st.markdown(get_css(), unsafe_allow_html=True)
 
 # -------------------- Custom Blue Header --------------------
 
-
+# -------------------- Custom Blue Header with Hamburger Button --------------------
+st.markdown("""
 <div class="custom-header">
     <button id="sidebar-toggle" class="hamburger-btn">&#9776;</button>
     <div class="header-content">
-        <img src="...">
+        <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
         <h1>Badr TV</h1>
     </div>
 </div>
+""", unsafe_allow_html=True)
+
 st.markdown("""
 <script>
     document.getElementById('sidebar-toggle').addEventListener('click', function() {
