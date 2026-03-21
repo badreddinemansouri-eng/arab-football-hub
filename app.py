@@ -290,13 +290,7 @@ def get_css():
             color: white !important;
             padding: 0 !important;
         }
-        /* Remove background and padding from the original custom header so it can live inside the new blue bar */
-        .custom-header {
-            background: none !important;
-            box-shadow: none !important;
-            padding: 0 !important;
-            margin: 0 !important;
-        }
+        
         /* Optional: center the content vertically in the new bar */
         
         
