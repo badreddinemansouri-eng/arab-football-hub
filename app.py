@@ -338,28 +338,49 @@ st.markdown(get_css(), unsafe_allow_html=True)
 # Create a new blue bar that contains both the button and your existing header
 # -------------------- Custom Header with Hamburger Button --------------------
 # Create a new blue bar that spans full width
+# -------------------- Custom Header with Hamburger Button --------------------
+# Add CSS to remove column gaps
+st.markdown("""
+<style>
+    /* Remove padding and margins from columns so they sit flush inside the blue bar */
+    div[data-testid="column"] {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    /* Make sure the custom header inside the bar has no background */
+    .custom-header {
+        background: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    /* Align the header content to the left inside the column */
+    .custom-header .header-content {
+        justify-content: flex-start;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Outer blue bar (full width, same gradient as your original)
 st.markdown("""
 <div style="background: linear-gradient(135deg, #1976D2, #0D47A1); 
             border-radius: 0 0 20px 20px; 
             padding: 10px 20px; 
             margin-bottom: 20px;
-            display: flex;
-            align-items: center;
             width: 100%;">
 """, unsafe_allow_html=True)
 
-# Use two columns: button (auto width) and header (fill remaining)
-col1, col2 = st.columns([0.5, 10])   # first column small, second fills
+# Two columns: button (narrow) and your custom header (fills rest)
+col1, col2 = st.columns([1, 10])
 with col1:
-    # Hamburger button
     if st.button("☰", key="sidebar_toggle", use_container_width=True):
         st.session_state.sidebar_open = not st.session_state.sidebar_open
         st.rerun()
 with col2:
-    # Your original custom header HTML (unchanged)
+    # Your original custom header HTML, unchanged (except inline style to remove its own background)
     st.markdown("""
-    <div class="custom-header" style="background: none; box-shadow: none; padding: 0; margin: 0;">
-        <div class="header-content" style="justify-content: flex-start;">
+    <div class="custom-header">
+        <div class="header-content">
             <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
             <h1>Badr TV</h1>
         </div>
@@ -368,14 +389,8 @@ with col2:
 
 st.markdown("</div>", unsafe_allow_html=True)
 
-# Keep the timestamp as it was originally (below the header)
+# Keep the timestamp exactly as it was originally (below the header)
 st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
-
-# Keep the timestamp separate if you want it below, or move it inside the header-content.
-# If you prefer the timestamp inside the header, add it to the header-content HTML.
-# For now, we'll leave it as it was originally (below the header).
-st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
-
 
 # -------------------- Sidebar (shown only when toggled) --------------------
 # -------------------- Sidebar (shown only when toggled) --------------------
