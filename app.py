@@ -272,36 +272,12 @@ def get_css():
             100% { opacity: 1; transform: scale(1); }
         }
         /* Keep only the sidebar toggle button (the hamburger) */
-        /* Hide all elements inside the default header */
-        header[data-testid="stHeader"] * {
+        /* إخفاء أيقونة GitHub / أزرار النشر الافتراضية */
+        .stDeployButton {
             display: none !important;
         }
-
-        /* Show only the sidebar toggle button (using both common selectors) */
-        header[data-testid="stHeader"] button[data-testid="stSidebarButton"],
-        header[data-testid="stHeader"] button[aria-label="Open menu"],
-        header[data-testid="stHeader"] button[aria-label="Close menu"] {
-            display: flex !important;
-            font-size: 0 !important;
-            position: relative;
-            width: 40px;
-            height: 40px;
-            background: none !important;
-            border: none !important;
-        }
-
-        /* Add the three horizontal lines icon */
-        header[data-testid="stHeader"] button[data-testid="stSidebarButton"]::before,
-        header[data-testid="stHeader"] button[aria-label="Open menu"]::before,
-        header[data-testid="stHeader"] button[aria-label="Close menu"]::before {
-            content: "☰";
-            font-size: 1.8rem;
-            font-weight: bold;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
+        .stAppDeployButton {
+            display: none !important;
         }
     </style>
     """)
