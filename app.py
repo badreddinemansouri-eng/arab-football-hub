@@ -281,6 +281,30 @@ def get_css():
         [data-testid="stToolbar"] {
             display: none !important;
         }
+        /* Hide the default Streamlit header */
+        header[data-testid="stHeader"] {
+            display: none !important;
+        }
+
+        /* Remove column gaps so the blue bar is seamless */
+        div[data-testid="column"] {
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+
+        /* Make your original custom header transparent inside the new bar */
+        .custom-header {
+            background: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+         }
+
+        /* Keep the header-content layout as before */
+        .custom-header .header-content {
+            justify-content: flex-start;  /* align left inside the column */
+            gap: 15px;
+        }
         /* Style the custom sidebar toggle button */
         button[kind="secondary"] {
             background: none !important;
