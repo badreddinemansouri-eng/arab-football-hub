@@ -298,14 +298,8 @@ def get_css():
             margin: 0 !important;
         }
         /* Optional: center the content vertically in the new bar */
-        .new-header-bar {
-            display: flex;
-            align-items: center;
-            background: linear-gradient(135deg, #1976D2, #0D47A1);
-            border-radius: 0 0 20px 20px;
-            padding: 10px 20px;
-            margin-bottom: 20px;
-        }
+        
+        
     </style>
     """)
     if st.session_state.theme == "dark":
