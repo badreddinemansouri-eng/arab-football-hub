@@ -281,6 +281,15 @@ def get_css():
         [data-testid="stToolbar"] {
             display: none !important;
         }
+        /* Style the custom sidebar toggle button */
+        button[kind="secondary"] {
+            background: none !important;
+            border: none !important;
+            font-size: 1.8rem !important;
+            font-weight: bold !important;
+            color: white !important;
+            padding: 0 !important;
+        }
     </style>
     """)
     if st.session_state.theme == "dark":
@@ -314,18 +323,23 @@ st.markdown(get_css(), unsafe_allow_html=True)
 # -------------------- Sidebar --------------------
 # -------------------- Custom Header with Sidebar Toggle --------------------
 # -------------------- Custom Header with Sidebar Toggle --------------------
-col1, col2, col3 = st.columns([1, 6, 1])
-with col1:
-    if st.button("☰", key="sidebar_toggle", use_container_width=True):
-        st.session_state.sidebar_open = not st.session_state.sidebar_open
-        st.rerun()
-with col2:
-    st.image("https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg", width=70)
-    st.markdown("<h1 style='margin:0;'>Badr TV</h1>", unsafe_allow_html=True)
-with col3:
-    st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
+# -------------------- Custom Header --------------------
+with st.container():
+    # Blue background for the header
+    st.markdown('<div style="background: linear-gradient(135deg, #1976D2, #0D47A1); border-radius: 0 0 20px 20px; padding: 10px 20px;">', unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 6, 1])
+    with col1:
+        if st.button("☰", key="sidebar_toggle", use_container_width=True):
+            st.session_state.sidebar_open = not st.session_state.sidebar_open
+            st.rerun()
+    with col2:
+        st.image("https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg", width=70)
+        st.markdown("<h1 style='margin:0; color:white;'>Badr TV</h1>", unsafe_allow_html=True)
+    with col3:
+        st.markdown(f'<div class="last-updated" style="color:white;">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-
+# -------------------- Sidebar (shown only when toggled) --------------------
 # -------------------- Sidebar (shown only when toggled) --------------------
 if st.session_state.sidebar_open:
     with st.sidebar:
