@@ -276,11 +276,7 @@ def get_css():
         /* Keep only the sidebar toggle button (the hamburger) */
         /* إخفاء أيقونة GitHub / أزرار النشر الافتراضية */
         /* Hide the GitHub icon / deploy button */
-        .stDeployButton,
-        .stAppDeployButton,
-        [data-testid="stToolbar"] {
-            display: none !important;
-        }
+        
         
         .hamburger-btn {
             background: none;
