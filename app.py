@@ -39,6 +39,8 @@ if "favorites" not in st.session_state:
     st.session_state.favorites = []
 if "theme" not in st.session_state:
     st.session_state.theme = "light"
+if "sidebar_open" not in st.session_state:
+    st.session_state.sidebar_open = False
 if "admin_auth" not in st.session_state:
     st.session_state.admin_auth = False
 if "show_admin" not in st.session_state:
@@ -308,19 +310,26 @@ st.markdown(get_css(), unsafe_allow_html=True)
 
 # -------------------- Custom Blue Header --------------------
 st.markdown("""
-<div class="custom-header">
-    <div class="header-content">
-        <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
-        <h1>Badr TV</h1>
-    </div>
-</div>
+# Custom header with a sidebar toggle button
+col1, col2, col3 = st.columns([1, 6, 1])
+with col1:
+    if st.button("☰", key="sidebar_toggle", use_container_width=True):
+        st.session_state.sidebar_open = not st.session_state.sidebar_open
+        st.rerun()
+with col2:
+    st.image("https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg", width=70)
+    st.markdown("<h1 style='margin:0;'>Badr TV</h1>", unsafe_allow_html=True)
+with col3:
+    st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 """, unsafe_allow_html=True)
 
 # -------------------- Last Updated Timestamp --------------------
 st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 
 # -------------------- Sidebar --------------------
-with st.sidebar:
+if st.session_state.sidebar_open:
+    with st.sidebar:
+        # ... all your sidebar content (user auth, settings, search, admin panel, etc.) ...
     st.header("👤 الحساب")
     if st.session_state.user:
         st.write(f"مرحباً {st.session_state.user.email}")
