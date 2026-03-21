@@ -344,26 +344,15 @@ st.markdown(get_css(), unsafe_allow_html=True)
 # -------------------- Custom Header with Sidebar Toggle --------------------
 # -------------------- Custom Header with Sidebar Toggle --------------------
 # -------------------- Custom Header with Hamburger Button --------------------
-# Open your original custom header div
-st.markdown('<div class="custom-header">', unsafe_allow_html=True)
-
-# Two columns inside the header: button (left) and content (right)
-col1, col2 = st.columns([1, 10])   # adjust ratio as needed
-with col1:
-    if st.button("☰", key="sidebar_toggle", use_container_width=True):
-        st.session_state.sidebar_open = not st.session_state.sidebar_open
-        st.rerun()
-with col2:
-    # Your original header content (logo and title)
-    st.markdown("""
-    <div class="header-content" style="justify-content: flex-start;">
+# -------------------- Custom Blue Header --------------------
+st.markdown("""
+<div class="custom-header">
+    <div class="header-content">
         <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
         <h1>Badr TV</h1>
     </div>
-    """, unsafe_allow_html=True)
-
-st.markdown('</div>', unsafe_allow_html=True)
-
+</div>
+""", unsafe_allow_html=True)
 # Keep the timestamp as it was originally (below the header)
 st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 # -------------------- Sidebar (shown only when toggled) --------------------
