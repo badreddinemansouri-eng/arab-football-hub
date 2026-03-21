@@ -338,11 +338,16 @@ st.markdown("""
 
 st.markdown("""
 <script>
-    document.getElementById('sidebar-toggle').addEventListener('click', function() {
-        const currentUrl = new URL(window.location.href);
-        const newState = currentUrl.searchParams.get('sidebar') === 'open' ? 'closed' : 'open';
-        currentUrl.searchParams.set('sidebar', newState);
-        window.location.href = currentUrl.toString();
+    document.addEventListener('DOMContentLoaded', function() {
+        const btn = document.getElementById('sidebar-toggle');
+        if (btn) {
+            btn.addEventListener('click', function() {
+                const url = new URL(window.location.href);
+                const sidebar = url.searchParams.get('sidebar');
+                url.searchParams.set('sidebar', sidebar === 'open' ? 'closed' : 'open');
+                window.location.href = url.toString();
+            });
+        }
     });
 </script>
 """, unsafe_allow_html=True)
