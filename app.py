@@ -313,6 +313,7 @@ st.markdown(get_css(), unsafe_allow_html=True)
 
 # -------------------- Sidebar --------------------
 # -------------------- Custom Header with Sidebar Toggle --------------------
+# -------------------- Custom Header with Sidebar Toggle --------------------
 col1, col2, col3 = st.columns([1, 6, 1])
 with col1:
     if st.button("☰", key="sidebar_toggle", use_container_width=True):
@@ -323,6 +324,7 @@ with col2:
     st.markdown("<h1 style='margin:0;'>Badr TV</h1>", unsafe_allow_html=True)
 with col3:
     st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
+
 
 # -------------------- Sidebar (shown only when toggled) --------------------
 if st.session_state.sidebar_open:
