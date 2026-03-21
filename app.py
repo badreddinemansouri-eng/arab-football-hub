@@ -309,8 +309,10 @@ def get_css():
 st.markdown(get_css(), unsafe_allow_html=True)
 
 # -------------------- Custom Blue Header --------------------
-st.markdown("""
-# Custom header with a sidebar toggle button
+
+
+# -------------------- Sidebar --------------------
+# -------------------- Custom Header with Sidebar Toggle --------------------
 col1, col2, col3 = st.columns([1, 6, 1])
 with col1:
     if st.button("☰", key="sidebar_toggle", use_container_width=True):
@@ -321,356 +323,345 @@ with col2:
     st.markdown("<h1 style='margin:0;'>Badr TV</h1>", unsafe_allow_html=True)
 with col3:
     st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
-""", unsafe_allow_html=True)
 
-# -------------------- Last Updated Timestamp --------------------
-st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
-
-# -------------------- Sidebar --------------------
+# -------------------- Sidebar (shown only when toggled) --------------------
 if st.session_state.sidebar_open:
     with st.sidebar:
-        # ... all your sidebar content (user auth, settings, search, admin panel, etc.) ...
-    st.header("👤 الحساب")
-    if st.session_state.user:
-        st.write(f"مرحباً {st.session_state.user.email}")
-        if st.button("تسجيل الخروج", key="logout_main"):
-            sign_out()
-    else:
-        with st.expander("تسجيل الدخول"):
-            email = st.text_input("البريد الإلكتروني", key="login_email")
-            password = st.text_input("كلمة المرور", type="password", key="login_password")
-            if st.button("دخول", key="login_main"):
-                sign_in(email, password)
-        with st.expander("إنشاء حساب"):
-            new_email = st.text_input("البريد الإلكتروني", key="signup_email")
-            new_pass = st.text_input("كلمة المرور", type="password", key="signup_pass")
-            if st.button("تسجيل", key="signup_main"):
-                sign_up(new_email, new_pass)
-
-    st.markdown("---")
-    st.header("⚙️ الإعدادات")
-    theme = st.radio("المظهر", ["داكن", "فاتح"], index=0 if st.session_state.theme=="dark" else 1, key="theme_radio")
-    if theme == "داكن" and st.session_state.theme != "dark":
-        st.session_state.theme = "dark"
-        st.rerun()
-    elif theme == "فاتح" and st.session_state.theme != "light":
-        st.session_state.theme = "light"
-        st.rerun()
-    
-    st.markdown("---")
-    # Professional search bar
-    st.markdown('<div class="search-container">', unsafe_allow_html=True)
-    search_query = st.text_input(" ", label_visibility="collapsed", key="search_input", placeholder="ابحث عن فريق أو لاعب")
-    st.markdown('</div>', unsafe_allow_html=True)
-    if search_query:
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("**الفرق**")
-            teams = supabase.table("teams").select("id, name, logo").ilike("name", f"%{search_query}%").execute()
-            for t in teams.data:
-                st.markdown(f"[{t['name']}](/team?team_id={t['id']})")
-        with col2:
-            st.markdown("**اللاعبين**")
-            players = supabase.table("players").select("id, name, photo").ilike("name", f"%{search_query}%").execute()
-            for p in players.data:
-                st.markdown(f"[{p['name']}](/player?player_id={p['id']})")
-
-    st.markdown("---")
-    st.header("⭐ المفضلة")
-    if st.session_state.user:
-        if st.session_state.favorites:
-            for team in st.session_state.favorites:
-                st.write(f"• {team}")
+        # All existing sidebar content goes here, indented properly
+        st.header("👤 الحساب")
+        if st.session_state.user:
+            st.write(f"مرحباً {st.session_state.user.email}")
+            if st.button("تسجيل الخروج", key="logout_main"):
+                sign_out()
         else:
-            st.info("لا توجد فرق مفضلة بعد")
-    else:
-        st.info("سجل الدخول لرؤية مفضلتك")
+            with st.expander("تسجيل الدخول"):
+                email = st.text_input("البريد الإلكتروني", key="login_email")
+                password = st.text_input("كلمة المرور", type="password", key="login_password")
+                if st.button("دخول", key="login_main"):
+                    sign_in(email, password)
+            with st.expander("إنشاء حساب"):
+                new_email = st.text_input("البريد الإلكتروني", key="signup_email")
+                new_pass = st.text_input("كلمة المرور", type="password", key="signup_pass")
+                if st.button("تسجيل", key="signup_main"):
+                    sign_up(new_email, new_pass)
 
-    # -------------------- Admin Panel --------------------
-    st.markdown("---")
-    with st.expander("👑 **لوحة التحكم**", expanded=False):
-        if not st.session_state.admin_auth:
-            admin_pass = st.text_input("كلمة المرور", type="password", key="admin_pass")
-            if st.button("دخول", key="admin_login"):
-                if hashlib.sha256(admin_pass.encode()).hexdigest() == "f00bf9d13f09fa3962d4a7d21de2479699adc840b74e34195a0eedb6dd45ceb4":
-                    # Debug: remove after fixing
-                    st.session_state.admin_auth = True
-                    st.success("تم تسجيل الدخول بنجاح")
-                    st.rerun()
-                else:
-                    st.error("كلمة المرور غير صحيحة")
+        st.markdown("---")
+        st.header("⚙️ الإعدادات")
+        theme = st.radio("المظهر", ["داكن", "فاتح"], index=0 if st.session_state.theme=="dark" else 1, key="theme_radio")
+        if theme == "داكن" and st.session_state.theme != "dark":
+            st.session_state.theme = "dark"
+            st.rerun()
+        elif theme == "فاتح" and st.session_state.theme != "light":
+            st.session_state.theme = "light"
+            st.rerun()
+        
+        st.markdown("---")
+        # Professional search bar
+        st.markdown('<div class="search-container">', unsafe_allow_html=True)
+        search_query = st.text_input(" ", label_visibility="collapsed", key="search_input", placeholder="ابحث عن فريق أو لاعب")
+        st.markdown('</div>', unsafe_allow_html=True)
+        if search_query:
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("**الفرق**")
+                teams = supabase.table("teams").select("id, name, logo").ilike("name", f"%{search_query}%").execute()
+                for t in teams.data:
+                    st.markdown(f"[{t['name']}](/team?team_id={t['id']})")
+            with col2:
+                st.markdown("**اللاعبين**")
+                players = supabase.table("players").select("id, name, photo").ilike("name", f"%{search_query}%").execute()
+                for p in players.data:
+                    st.markdown(f"[{p['name']}](/player?player_id={p['id']})")
+
+        st.markdown("---")
+        st.header("⭐ المفضلة")
+        if st.session_state.user:
+            if st.session_state.favorites:
+                for team in st.session_state.favorites:
+                    st.write(f"• {team}")
+            else:
+                st.info("لا توجد فرق مفضلة بعد")
         else:
-            st.success("مرحباً أيها المشرف")
-            if st.button("إظهار لوحة التحكم", key="show_admin_btn"):
-                st.session_state.show_admin = not st.session_state.show_admin
-            if st.button("تسجيل الخروج", key="admin_logout"):
-                st.session_state.admin_auth = False
-                st.session_state.show_admin = False
-                st.rerun()
+            st.info("سجل الدخول لرؤية مفضلتك")
 
-    if st.session_state.get("admin_auth") and st.session_state.get("show_admin"):
-        with st.container():
-            st.markdown("---")
-            st.markdown("### 👑 لوحة تحكم المشرف - إضافة روابط يدوية")
-
-            @st.cache_data(ttl=60)
-            def get_upcoming_matches():
-                try:
-                    resp = supabase.table("matches")\
-                        .select("*")\
-                        .in_("status", ["UPCOMING", "LIVE"])\
-                        .order("match_time")\
-                        .execute()
-                    return resp.data
-                except Exception as e:
-                    print(f"Error fetching upcoming matches: {e}")
-                    return []
-
-            upcoming = get_upcoming_matches()
-            upcoming = get_upcoming_matches()
-            if upcoming:
-      # Build options with local time and store both fixture_id and source
-                match_data = {}  # سنستخدم قاموسًا لتخزين (fixture_id, source) لكل خيار
-                for m in upcoming:
-                    try:
-                        utc_time = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00'))
-                        local_time = utc_time.astimezone(tz_tunis)
-                        time_str = local_time.strftime("%H:%M")
-                    except:
-                        time_str = "--:--"
-                    label = f"{time_str} - {m['home_team']} vs {m['away_team']} ({m['league']})"
-                    match_data[label] = (m['fixture_id'], m['source'])  # تخزين كـ tuple
-                selected_match = st.selectbox("اختر المباراة", list(match_data.keys()), key="match_select")
-                fixture_id, match_source = match_data[selected_match]  # فك الحزمة
-
-                col1, col2 = st.columns(2)
-                with col1:
-                    stream_url = st.text_input("رابط البث", key="stream_url")
-                    stream_title = st.text_input("عنوان الرابط (اختياري)", key="stream_title")
-                with col2:
-                    stream_source = st.selectbox("المصدر", ["youtube", "facebook", "custom", "official"], key="stream_source")
-                    expiry_hours = st.number_input("عدد ساعات الصلاحية", min_value=1, max_value=24, value=3, key="expiry_hours")
-
-                if st.button("إضافة الرابط", key="add_stream_btn"):
-                    if stream_url:
-                        expires_at = (datetime.now() + timedelta(hours=expiry_hours)).isoformat()
-                        data = {
-                            "fixture_id": fixture_id,
-                            "source": match_source,          # ← إضافة المصدر من المباراة
-                            "stream_url": stream_url,
-                            "stream_title": stream_title or "بث مباشر",
-                            "stream_source": stream_source,
-                            "expires_at": expires_at,
-                            "is_active": True
-                        }
-                        try:
-                            supabase.table("admin_streams").insert(data).execute()
-                            st.success("تم إضافة الرابط بنجاح! سيتم حذفه تلقائياً بعد انتهاء المباراة.")
-                            st.cache_data.clear()
-                            time.sleep(2)
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"حدث خطأ أثناء إضافة الرابط: {str(e)}")  # عرض الخطأ الفعلي للمساعدة في التصحيح
-                            print(f"Error inserting admin stream: {e}")
+        # -------------------- Admin Panel --------------------
+        st.markdown("---")
+        with st.expander("👑 **لوحة التحكم**", expanded=False):
+            if not st.session_state.admin_auth:
+                admin_pass = st.text_input("كلمة المرور", type="password", key="admin_pass")
+                if st.button("دخول", key="admin_login"):
+                    if hashlib.sha256(admin_pass.encode()).hexdigest() == "f00bf9d13f09fa3962d4a7d21de2479699adc840b74e34195a0eedb6dd45ceb4":
+                        st.session_state.admin_auth = True
+                        st.success("تم تسجيل الدخول بنجاح")
+                        st.rerun()
                     else:
-                        st.error("الرجاء إدخال رابط البث")
+                        st.error("كلمة المرور غير صحيحة")
+            else:
+                st.success("مرحباً أيها المشرف")
+                if st.button("إظهار لوحة التحكم", key="show_admin_btn"):
+                    st.session_state.show_admin = not st.session_state.show_admin
+                if st.button("تسجيل الخروج", key="admin_logout"):
+                    st.session_state.admin_auth = False
+                    st.session_state.show_admin = False
+                    st.rerun()
+
+        if st.session_state.get("admin_auth") and st.session_state.get("show_admin"):
+            with st.container():
+                st.markdown("---")
+                st.markdown("### 👑 لوحة تحكم المشرف - إضافة روابط يدوية")
+
+                @st.cache_data(ttl=60)
+                def get_upcoming_matches():
+                    try:
+                        resp = supabase.table("matches")\
+                            .select("*")\
+                            .in_("status", ["UPCOMING", "LIVE"])\
+                            .order("match_time")\
+                            .execute()
+                        return resp.data
+                    except Exception as e:
+                        print(f"Error fetching upcoming matches: {e}")
+                        return []
+
+                upcoming = get_upcoming_matches()
+                if upcoming:
+                    match_data = {}
+                    for m in upcoming:
+                        try:
+                            utc_time = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00'))
+                            local_time = utc_time.astimezone(tz_tunis)
+                            time_str = local_time.strftime("%H:%M")
+                        except:
+                            time_str = "--:--"
+                        label = f"{time_str} - {m['home_team']} vs {m['away_team']} ({m['league']})"
+                        match_data[label] = (m['fixture_id'], m['source'])
+                    selected_match = st.selectbox("اختر المباراة", list(match_data.keys()), key="match_select")
+                    fixture_id, match_source = match_data[selected_match]
+
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        stream_url = st.text_input("رابط البث", key="stream_url")
+                        stream_title = st.text_input("عنوان الرابط (اختياري)", key="stream_title")
+                    with col2:
+                        stream_source = st.selectbox("المصدر", ["youtube", "facebook", "custom", "official"], key="stream_source")
+                        expiry_hours = st.number_input("عدد ساعات الصلاحية", min_value=1, max_value=24, value=3, key="expiry_hours")
+
+                    if st.button("إضافة الرابط", key="add_stream_btn"):
+                        if stream_url:
+                            expires_at = (datetime.now() + timedelta(hours=expiry_hours)).isoformat()
+                            data = {
+                                "fixture_id": fixture_id,
+                                "source": match_source,
+                                "stream_url": stream_url,
+                                "stream_title": stream_title or "بث مباشر",
+                                "stream_source": stream_source,
+                                "expires_at": expires_at,
+                                "is_active": True
+                            }
+                            try:
+                                supabase.table("admin_streams").insert(data).execute()
+                                st.success("تم إضافة الرابط بنجاح! سيتم حذفه تلقائياً بعد انتهاء المباراة.")
+                                st.cache_data.clear()
+                                time.sleep(2)
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"حدث خطأ أثناء إضافة الرابط: {str(e)}")
+                                print(f"Error inserting admin stream: {e}")
+                        else:
+                            st.error("الرجاء إدخال رابط البث")
+
+                    st.markdown("---")
+                    st.subheader("الروابط الحالية")
+                    try:
+                        admin_streams = supabase.table("admin_streams")\
+                            .select("*, matches!inner(home_team, away_team, league, status)")\
+                            .eq("is_active", True)\
+                            .execute()\
+                            .data
+                        if admin_streams:
+                            for stream in admin_streams:
+                                match = stream.get("matches", {})
+                                try:
+                                    utc_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
+                                    local_time = utc_time.astimezone(tz_tunis)
+                                    time_str = local_time.strftime("%H:%M")
+                                except:
+                                    time_str = "--:--"
+                                st.markdown(f"""
+                                **{match.get('home_team')} vs {match.get('away_team')}**  
+                                الوقت: {time_str}  
+                                الرابط: {stream['stream_url']}  
+                                ينتهي في: {stream['expires_at'][:16]}
+                                """)
+                                if st.button(f"حذف #{stream['id']}", key=f"del_{stream['id']}"):
+                                    supabase.table("admin_streams").update({"is_active": False}).eq("id", stream["id"]).execute()
+                                    st.success("تم الحذف")
+                                    st.rerun()
+                    except Exception as e:
+                        st.error("حدث خطأ أثناء تحميل الروابط.")
+                        print(f"Error loading admin streams: {e}")
+                else:
+                    st.info("لا توجد مباريات قادمة")
 
                 st.markdown("---")
-                st.subheader("الروابط الحالية")
-                try:
-                    admin_streams = supabase.table("admin_streams")\
-                        .select("*, matches!inner(home_team, away_team, league, status)")\
-                        .eq("is_active", True)\
-                        .execute()\
-                        .data
-                    if admin_streams:
-                        for stream in admin_streams:
-                            match = stream.get("matches", {})
-                            # Convert match_time to local for display
-                            try:
-                                utc_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
-                                local_time = utc_time.astimezone(tz_tunis)
-                                time_str = local_time.strftime("%H:%M")
-                            except:
-                                time_str = "--:--"
-                            st.markdown(f"""
-                            **{match.get('home_team')} vs {match.get('away_team')}**  
-                            الوقت: {time_str}  
-                            الرابط: {stream['stream_url']}  
-                            ينتهي في: {stream['expires_at'][:16]}
-                            """)
-                            if st.button(f"حذف #{stream['id']}", key=f"del_{stream['id']}"):
-                                supabase.table("admin_streams").update({"is_active": False}).eq("id", stream["id"]).execute()
-                                st.success("تم الحذف")
-                                st.rerun()
-                except Exception as e:
-                    st.error("حدث خطأ أثناء تحميل الروابط.")
-                    print(f"Error loading admin streams: {e}")
-            else:
-                st.info("لا توجد مباريات قادمة")
+                st.subheader("➕ إضافة مباراة يدوية")
+                with st.form("add_custom_match_form"):
+                    custom_home = st.text_input("الفريق المستضيف")
+                    custom_away = st.text_input("الفريق الضيف")
+                    custom_league = st.text_input("الدوري")
+                    custom_date = st.date_input("التاريخ", datetime.now())
+                    custom_time = st.time_input("الوقت", datetime.now().time(), key="custom_match_time")
+                    custom_stream = st.text_input("رابط البث (اختياري)")
+                    submitted = st.form_submit_button("إضافة المباراة")
+                    if submitted and custom_home and custom_away:
+                        print(f"Input local datetime: {custom_date} {custom_time} (assumed Africa/Tunis)")
+                        local_dt = datetime.combine(custom_date, custom_time).replace(tzinfo=tz_tunis)
+                        utc_dt = local_dt.astimezone(timezone.utc)
+                        match_time = utc_dt.isoformat()
+                        new_id = -random.randint(10000, 99999)
+                        data = {
+                            "fixture_id": new_id,
+                            "home_team": custom_home,
+                            "away_team": custom_away,
+                            "league": custom_league,
+                            "match_time": match_time,
+                            "status": "UPCOMING",
+                            "home_score": 0,
+                            "away_score": 0,
+                            "streams": json.dumps([{"title": "بث يدوي", "url": custom_stream, "source": "admin", "verified": True, "admin_added": True}]) if custom_stream else "[]",
+                            "home_logo": None,
+                            "away_logo": None,
+                            "league_logo": None,
+                            "source": "custom",
+                            "is_custom": True
+                        }
+                        supabase.table("matches").insert(data).execute()
+                        st.success("تمت إضافة المباراة بنجاح")
+                        st.rerun()
 
-            st.markdown("---")
-            st.subheader("➕ إضافة مباراة يدوية")
-            with st.form("add_custom_match_form"):
-                custom_home = st.text_input("الفريق المستضيف")
-                custom_away = st.text_input("الفريق الضيف")
-                custom_league = st.text_input("الدوري")
-                custom_date = st.date_input("التاريخ", datetime.now())
-                custom_time = st.time_input("الوقت", datetime.now().time(), key="custom_match_time")
-                custom_stream = st.text_input("رابط البث (اختياري)")
-                submitted = st.form_submit_button("إضافة المباراة")
-                if submitted and custom_home and custom_away:
-                    # Debug prints
-                    print(f"Input local datetime: {custom_date} {custom_time} (assumed Africa/Tunis)")
-                    local_dt = datetime.combine(custom_date, custom_time).replace(tzinfo=tz_tunis)
-                    print(f"Local aware datetime: {local_dt}")
-                    utc_dt = local_dt.astimezone(timezone.utc)
-                    print(f"UTC datetime: {utc_dt}")
-                    match_time = utc_dt.isoformat()
-                    print(f"Stored match_time: {match_time}")
+                st.markdown("---")
+                st.subheader("🖼️ ربط الشعارات تلقائياً")
+                with st.expander("ربط شعارات الفرق"):
+                    st.markdown("""
+                    **سيقوم هذا الأمر بالبحث عن شعارات الفرق في مخزن Supabase باستخدام عدة صيغ للأسماء.**  
+                    يمكنك بعد ذلك تنزيل قائمة الفرق التي لم يتم العثور على شعار لها لمعالجتها يدوياً.
+                    """)
+                    st.info("""
+                    **المجلدات المتوقعة:**  
+                    Italy - Serie A, England - Premier League, Spain - LaLiga, Germany - Bundesliga, France - Ligue 1, Portugal - Liga Portugal, International - Champions League, International - World Cup
+                    """)
 
-                    new_id = -random.randint(10000, 99999)
-                    data = {
-                        "fixture_id": new_id,
-                        "home_team": custom_home,
-                        "away_team": custom_away,
-                        "league": custom_league,
-                        "match_time": match_time,
-                        "status": "UPCOMING",
-                        "home_score": 0,
-                        "away_score": 0,
-                        "streams": json.dumps([{"title": "بث يدوي", "url": custom_stream, "source": "admin", "verified": True, "admin_added": True}]) if custom_stream else "[]",
-                        "home_logo": None,
-                        "away_logo": None,
-                        "league_logo": None,
-                        "source": "custom",
-                        "is_custom": True
-                    }
-                    supabase.table("matches").insert(data).execute()
-                    st.success("تمت إضافة المباراة بنجاح")
-                    st.rerun()
+                    if st.button("🔍 بدء البحث المتقدم", key="search_team_logos"):
+                        with st.spinner("جاري البحث عن الشعارات..."):
+                            teams_resp = supabase.table("matches").select("home_team, away_team").execute()
+                            teams = set()
+                            for row in teams_resp.data:
+                                if row.get("home_team"):
+                                    teams.add(row["home_team"])
+                                if row.get("away_team"):
+                                    teams.add(row["away_team"])
+                            teams = sorted(list(teams))
+                            total = len(teams)
+                            st.info(f"تم العثور على {total} فريق في قاعدة البيانات.")
 
-            st.markdown("---")
-            st.subheader("🖼️ ربط الشعارات تلقائياً")
-            with st.expander("ربط شعارات الفرق"):
-                st.markdown("""
-                **سيقوم هذا الأمر بالبحث عن شعارات الفرق في مخزن Supabase باستخدام عدة صيغ للأسماء.**  
-                يمكنك بعد ذلك تنزيل قائمة الفرق التي لم يتم العثور على شعار لها لمعالجتها يدوياً.
-                """)
-                st.info("""
-                **المجلدات المتوقعة:**  
-                Italy - Serie A, England - Premier League, Spain - LaLiga, Germany - Bundesliga, France - Ligue 1, Portugal - Liga Portugal, International - Champions League, International - World Cup
-                """)
+                            league_folders = [
+                                "Italy - Serie A", "England - Premier League", "Spain - LaLiga",
+                                "Germany - Bundesliga", "France - Ligue 1", "Portugal - Liga Portugal",
+                                "International - Champions League", "International - World Cup"
+                            ]
+                            BUCKET_BASE = f"{SUPABASE_URL}/storage/v1/object/public/logos"
+                            progress_bar = st.progress(0)
+                            status_text = st.empty()
+                            results = {"found": 0, "not_found": 0}
+                            missing_teams = []
 
-                if st.button("🔍 بدء البحث المتقدم", key="search_team_logos"):
-                    with st.spinner("جاري البحث عن الشعارات..."):
-                        teams_resp = supabase.table("matches").select("home_team, away_team").execute()
-                        teams = set()
-                        for row in teams_resp.data:
-                            if row.get("home_team"):
-                                teams.add(row["home_team"])
-                            if row.get("away_team"):
-                                teams.add(row["away_team"])
-                        teams = sorted(list(teams))
-                        total = len(teams)
-                        st.info(f"تم العثور على {total} فريق في قاعدة البيانات.")
+                            def generate_name_variations(team_name):
+                                variations = [team_name]
+                                suffixes = [" FC", " AFC", " United", " City", " Real", " CF", " AC", " AS", " SS", " SC", " Club", " Deportivo", " Futebol", " Clube"]
+                                base = team_name
+                                for suffix in suffixes:
+                                    if base.endswith(suffix):
+                                        base = base[:-len(suffix)]
+                                        variations.append(base)
+                                        break
+                                variations.append(team_name.replace(" ", "_"))
+                                if base != team_name:
+                                    variations.append(base.replace(" ", "_"))
+                                return list(set(variations))
 
-                        league_folders = [
-                            "Italy - Serie A", "England - Premier League", "Spain - LaLiga",
-                            "Germany - Bundesliga", "France - Ligue 1", "Portugal - Liga Portugal",
-                            "International - Champions League", "International - World Cup"
-                        ]
-                        BUCKET_BASE = f"{SUPABASE_URL}/storage/v1/object/public/logos"
-                        progress_bar = st.progress(0)
-                        status_text = st.empty()
-                        results = {"found": 0, "not_found": 0}
-                        missing_teams = []
+                            for i, team in enumerate(teams):
+                                status_text.text(f"معالجة {team}... ({i+1}/{total})")
+                                name_variations = generate_name_variations(team)
+                                found = False
+                                for name in name_variations:
+                                    filename = f"{name}.png"
+                                    for folder in league_folders:
+                                        url = f"{BUCKET_BASE}/{folder}/{filename}"
+                                        try:
+                                            resp = requests.head(url, timeout=3)
+                                            if resp.status_code == 200:
+                                                supabase.table("team_logos").upsert(
+                                                    {"team_name": team, "logo_url": url},
+                                                    on_conflict="team_name"
+                                                ).execute()
+                                                results["found"] += 1
+                                                found = True
+                                                st.success(f"✅ {team} -> {folder}/{filename}")
+                                                break
+                                        except:
+                                            continue
+                                    if found:
+                                        break
+                                if not found:
+                                    results["not_found"] += 1
+                                    missing_teams.append(team)
+                                    st.warning(f"❌ {team} – لم يتم العثور على شعار")
+                                progress_bar.progress((i+1)/total)
 
-                        def generate_name_variations(team_name):
-                            variations = [team_name]
-                            suffixes = [" FC", " AFC", " United", " City", " Real", " CF", " AC", " AS", " SS", " SC", " Club", " Deportivo", " Futebol", " Clube"]
-                            base = team_name
-                            for suffix in suffixes:
-                                if base.endswith(suffix):
-                                    base = base[:-len(suffix)]
-                                    variations.append(base)
-                                    break
-                            variations.append(team_name.replace(" ", "_"))
-                            if base != team_name:
-                                variations.append(base.replace(" ", "_"))
-                            return list(set(variations))
+                            status_text.text("اكتمل البحث!")
+                            st.success(f"النتائج: تم العثور على {results['found']} شعار، لم يتم العثور على {results['not_found']}")
 
-                        for i, team in enumerate(teams):
-                            status_text.text(f"معالجة {team}... ({i+1}/{total})")
-                            name_variations = generate_name_variations(team)
-                            found = False
-                            for name in name_variations:
-                                filename = f"{name}.png"
-                                for folder in league_folders:
-                                    url = f"{BUCKET_BASE}/{folder}/{filename}"
+                            if missing_teams:
+                                missing_text = "\n".join(missing_teams)
+                                st.download_button(
+                                    label="📥 تنزيل قائمة الفرق بدون شعار",
+                                    data=missing_text,
+                                    file_name="missing_logos.txt",
+                                    mime="text/plain"
+                                )
+
+                with st.expander("ربط شعارات البطولات"):
+                    if st.button("🔍 تحديث شعارات البطولات", key="search_league_logos"):
+                        leagues_resp = supabase.table("matches").select("league").execute()
+                        leagues = list(set([m["league"] for m in leagues_resp.data if m.get("league")]))
+                        if not leagues:
+                            st.warning("لا توجد بطولات لعرضها.")
+                        else:
+                            with st.spinner("جاري البحث عن شعارات البطولات..."):
+                                found = 0
+                                not_found = 0
+                                for league in leagues:
+                                    name = league.replace(' ', '_')
+                                    url = f"{SUPABASE_URL}/storage/v1/object/public/logos/leagues/{name}.png"
                                     try:
                                         resp = requests.head(url, timeout=3)
                                         if resp.status_code == 200:
-                                            supabase.table("team_logos").upsert(
-                                                {"team_name": team, "logo_url": url},
-                                                on_conflict="team_name"
+                                            supabase.table("league_logos").upsert(
+                                                {"league_name": league, "logo_url": url},
+                                                on_conflict="league_name"
                                             ).execute()
-                                            results["found"] += 1
-                                            found = True
-                                            st.success(f"✅ {team} -> {folder}/{filename}")
-                                            break
+                                            st.success(f"✅ {league}")
+                                            found += 1
+                                        else:
+                                            st.warning(f"❌ {league}")
+                                            not_found += 1
                                     except:
-                                        continue
-                                if found:
-                                    break
-                            if not found:
-                                results["not_found"] += 1
-                                missing_teams.append(team)
-                                st.warning(f"❌ {team} – لم يتم العثور على شعار")
-                            progress_bar.progress((i+1)/total)
-
-                        status_text.text("اكتمل البحث!")
-                        st.success(f"النتائج: تم العثور على {results['found']} شعار، لم يتم العثور على {results['not_found']}")
-
-                        if missing_teams:
-                            missing_text = "\n".join(missing_teams)
-                            st.download_button(
-                                label="📥 تنزيل قائمة الفرق بدون شعار",
-                                data=missing_text,
-                                file_name="missing_logos.txt",
-                                mime="text/plain"
-                            )
-
-            with st.expander("ربط شعارات البطولات"):
-                if st.button("🔍 تحديث شعارات البطولات", key="search_league_logos"):
-                    leagues_resp = supabase.table("matches").select("league").execute()
-                    leagues = list(set([m["league"] for m in leagues_resp.data if m.get("league")]))
-                    if not leagues:
-                        st.warning("لا توجد بطولات لعرضها.")
-                    else:
-                        with st.spinner("جاري البحث عن شعارات البطولات..."):
-                            found = 0
-                            not_found = 0
-                            for league in leagues:
-                                name = league.replace(' ', '_')
-                                url = f"{SUPABASE_URL}/storage/v1/object/public/logos/leagues/{name}.png"
-                                try:
-                                    resp = requests.head(url, timeout=3)
-                                    if resp.status_code == 200:
-                                        supabase.table("league_logos").upsert(
-                                            {"league_name": league, "logo_url": url},
-                                            on_conflict="league_name"
-                                        ).execute()
-                                        st.success(f"✅ {league}")
-                                        found += 1
-                                    else:
-                                        st.warning(f"❌ {league}")
+                                        st.warning(f"❌ {league} (فشل الاتصال)")
                                         not_found += 1
-                                except:
-                                    st.warning(f"❌ {league} (فشل الاتصال)")
-                                    not_found += 1
-                            st.info(f"النتائج: {found} تم العثور عليها، {not_found} لم يتم العثور عليها.")
+                                st.info(f"النتائج: {found} تم العثور عليها، {not_found} لم يتم العثور عليها.")
 
+# -------------------- Data Fetching --------------------
+                                                     
 # -------------------- Data Fetching --------------------
 
 def get_matches():
