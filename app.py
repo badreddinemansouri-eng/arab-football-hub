@@ -290,6 +290,22 @@ def get_css():
             color: white !important;
             padding: 0 !important;
         }
+        /* Remove background and padding from the original custom header so it can live inside the new blue bar */
+        .custom-header {
+            background: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        /* Optional: center the content vertically in the new bar */
+        .new-header-bar {
+            display: flex;
+            align-items: center;
+            background: linear-gradient(135deg, #1976D2, #0D47A1);
+            border-radius: 0 0 20px 20px;
+            padding: 10px 20px;
+            margin-bottom: 20px;
+        }
     </style>
     """)
     if st.session_state.theme == "dark":
@@ -324,32 +340,32 @@ st.markdown(get_css(), unsafe_allow_html=True)
 # -------------------- Custom Header with Sidebar Toggle --------------------
 # -------------------- Custom Header with Sidebar Toggle --------------------
 # -------------------- Custom Header --------------------
-# -------------------- Custom Header --------------------
 # -------------------- Custom Header with Hamburger Button --------------------
-# Create a container to hold the button and the custom header
-with st.container():
-    # Add the hamburger button (Streamlit button) with custom styling
-    # We'll use columns to place the button on the left and the custom header on the right
-    col1, col2 = st.columns([1, 10])   # adjust ratio as needed
-    with col1:
-        if st.button("☰", key="sidebar_toggle", use_container_width=True):
-            st.session_state.sidebar_open = not st.session_state.sidebar_open
-            st.rerun()
-    with col2:
-        # Your original custom header HTML (unchanged)
-        st.markdown("""
-        <div class="custom-header">
-            <div class="header-content">
-                <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
-                <h1>Badr TV</h1>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+# Create a new blue bar that contains both the button and your existing header
+st.markdown('<div class="new-header-bar">', unsafe_allow_html=True)
 
-# -------------------- Last Updated Timestamp (moved inside the right column) --------------------
-# We'll include it inside the right column to keep it aligned.
-# Actually the timestamp was already inside the custom header? No, it was separate.
-# Let's move it inside the custom header's right side.
+col1, col2 = st.columns([1, 10])   # Adjust ratio as needed
+with col1:
+    if st.button("☰", key="sidebar_toggle", use_container_width=True):
+        st.session_state.sidebar_open = not st.session_state.sidebar_open
+        st.rerun()
+with col2:
+    # Your original custom header HTML (unchanged)
+    st.markdown("""
+    <div class="custom-header">
+        <div class="header-content">
+            <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
+            <h1>Badr TV</h1>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Keep the timestamp separate if you want it below, or move it inside the header-content.
+# If you prefer the timestamp inside the header, add it to the header-content HTML.
+# For now, we'll leave it as it was originally (below the header).
+st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 
 
 # -------------------- Sidebar (shown only when toggled) --------------------
