@@ -88,7 +88,7 @@ def get_css():
             margin-bottom: 20px;
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: space-between;
             color: white;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
@@ -281,30 +281,16 @@ def get_css():
         [data-testid="stToolbar"] {
             display: none !important;
         }
-        /* Hide the default Streamlit header */
-        header[data-testid="stHeader"] {
-            display: none !important;
-        }
-
-        /* Remove column gaps so the blue bar is seamless */
-        div[data-testid="column"] {
-            padding: 0 !important;
-            margin: 0 !important;
-        }
-
-        /* Keep the header-content layout as before */
-        .custom-header .header-content {
-            justify-content: flex-start;  /* align left inside the column */
-            gap: 15px;
-        }
-        /* Style the custom sidebar toggle button */
-        button[kind="secondary"] {
-            background: none !important;
-            border: none !important;
-            font-size: 1.8rem !important;
-            font-weight: bold !important;
-            color: white !important;
-            padding: 0 !important;
+        
+        .hamburger-btn {
+            background: none;
+            border: none;
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            padding: 0;
+            margin: 0;
         }
         
         /* Optional: center the content vertically in the new bar */
@@ -340,19 +326,13 @@ st.markdown(get_css(), unsafe_allow_html=True)
 # -------------------- Custom Blue Header --------------------
 
 
-# -------------------- Sidebar --------------------
-# -------------------- Custom Header with Sidebar Toggle --------------------
-# -------------------- Custom Header with Sidebar Toggle --------------------
-# -------------------- Custom Header with Hamburger Button --------------------
-# -------------------- Custom Blue Header --------------------
-st.markdown("""
 <div class="custom-header">
+    <button id="sidebar-toggle" class="hamburger-btn">☰</button>
     <div class="header-content">
-        <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
+        <img src="...">
         <h1>Badr TV</h1>
     </div>
 </div>
-""", unsafe_allow_html=True)
 # Keep the timestamp as it was originally (below the header)
 st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 # -------------------- Sidebar (shown only when toggled) --------------------
