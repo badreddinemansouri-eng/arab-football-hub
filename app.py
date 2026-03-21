@@ -45,7 +45,7 @@ if "admin_auth" not in st.session_state:
     st.session_state.admin_auth = False
 if "show_admin" not in st.session_state:
     st.session_state.show_admin = False
-
+sidebar_state = st.query_params.get("sidebar", "closed")
 # -------------------- Custom CSS --------------------
 def get_css():
     base_css = textwrap.dedent("""
@@ -350,7 +350,7 @@ st.markdown("""
 st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 # -------------------- Sidebar (shown only when toggled) --------------------
 # -------------------- Sidebar (shown only when toggled) --------------------
-sidebar_state = st.query_params.get("sidebar", "closed")
+
 if sidebar_state == "open":
     with st.sidebar:
         # ... your entire existing sidebar content ...
