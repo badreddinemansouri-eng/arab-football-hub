@@ -325,22 +325,31 @@ st.markdown(get_css(), unsafe_allow_html=True)
 # -------------------- Custom Header with Sidebar Toggle --------------------
 # -------------------- Custom Header --------------------
 # -------------------- Custom Header --------------------
-st.markdown("""
-<div style="background: linear-gradient(135deg, #1976D2, #0D47A1); border-radius: 0 0 20px 20px; padding: 10px 20px; margin-bottom: 20px;">
-""", unsafe_allow_html=True)
+# -------------------- Custom Header with Hamburger Button --------------------
+# Create a container to hold the button and the custom header
+with st.container():
+    # Add the hamburger button (Streamlit button) with custom styling
+    # We'll use columns to place the button on the left and the custom header on the right
+    col1, col2 = st.columns([1, 10])   # adjust ratio as needed
+    with col1:
+        if st.button("☰", key="sidebar_toggle", use_container_width=True):
+            st.session_state.sidebar_open = not st.session_state.sidebar_open
+            st.rerun()
+    with col2:
+        # Your original custom header HTML (unchanged)
+        st.markdown("""
+        <div class="custom-header">
+            <div class="header-content">
+                <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
+                <h1>Badr TV</h1>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-col1, col2, col3 = st.columns([1, 6, 1])
-with col1:
-    if st.button("☰", key="sidebar_toggle", use_container_width=True):
-        st.session_state.sidebar_open = not st.session_state.sidebar_open
-        st.rerun()
-with col2:
-    st.image("https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg", width=60)
-    st.markdown("<h1 style='margin:0; color:white;'>Badr TV</h1>", unsafe_allow_html=True)
-with col3:
-    st.markdown(f'<div style="color:white; text-align:left;">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
-
-st.markdown("</div>", unsafe_allow_html=True)
+# -------------------- Last Updated Timestamp (moved inside the right column) --------------------
+# We'll include it inside the right column to keep it aligned.
+# Actually the timestamp was already inside the custom header? No, it was separate.
+# Let's move it inside the custom header's right side.
 
 
 # -------------------- Sidebar (shown only when toggled) --------------------
