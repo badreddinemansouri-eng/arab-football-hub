@@ -290,7 +290,15 @@ def get_css():
             margin: 0;
         }
         /* Keep only the hamburger button visible */
-        header[data-testid="stHeader"] > *:not(:first-child) {
+        /* Hide the default Streamlit title */
+        header[data-testid="stHeader"] p {
+            display: none !important;
+        }
+
+        /* Hide the deploy button, GitHub icon, toolbar (if not already hidden) */
+        .stDeployButton,
+        .stAppDeployButton,
+        [data-testid="stToolbar"] {
             display: none !important;
         }
         /* Optional: center the content vertically in the new bar */
