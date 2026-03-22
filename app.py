@@ -293,13 +293,13 @@ def get_css():
         /* Hide the default title (the paragraph containing the app name) */
         /* Hide all elements in the default header except the hamburger button */
         /* Hide all elements in the default header except the sidebar toggle button */
-        header[data-testid="stHeader"] *:not(button[data-testid="stSidebarButton"]) {
+        /* Hide all elements inside the default header */
+        header[data-testid="stHeader"] * {
             display: none !important;
         }
-        /* Ensure the sidebar toggle button itself is visible */
-        header[data-testid="stHeader"] button[data-testid="stSidebarButton"] {
+        /* Show the first button (the hamburger) */
+        header[data-testid="stHeader"] button:first-of-type {
             display: flex !important;
-            visibility: visible !important;
         }
         /* Optional: center the content vertically in the new bar */
         
