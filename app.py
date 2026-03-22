@@ -292,10 +292,12 @@ def get_css():
         /* Keep only the hamburger button visible */
         /* Hide the default title (the paragraph containing the app name) */
         /* Hide all elements in the default header except the hamburger button */
-        header[data-testid="stHeader"] * {
+        /* Hide all elements in the default header except the sidebar toggle button */
+        header[data-testid="stHeader"] *:not(button[data-testid="stSidebarButton"]) {
             display: none !important;
         }
-        header[data-testid="stHeader"] button {
+        /* Ensure the sidebar toggle button itself is visible */
+        header[data-testid="stHeader"] button[data-testid="stSidebarButton"] {
             display: flex !important;
             visibility: visible !important;
         }
