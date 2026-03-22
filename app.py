@@ -289,7 +289,10 @@ def get_css():
             padding: 0;
             margin: 0;
         }
-        
+        /* Keep only the hamburger button visible */
+        header[data-testid="stHeader"] > *:not(:first-child) {
+            display: none !important;
+        }
         /* Optional: center the content vertically in the new bar */
         
         
