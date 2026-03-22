@@ -290,16 +290,22 @@ def get_css():
             margin: 0;
         }
         /* Keep only the hamburger button visible */
-        /* Hide the default Streamlit title */
+        /* Hide the default title (the paragraph containing the app name) */
         header[data-testid="stHeader"] p {
             display: none !important;
         }
 
-        /* Hide the deploy button, GitHub icon, toolbar (if not already hidden) */
+        /* Hide the deploy button and GitHub icon */
         .stDeployButton,
         .stAppDeployButton,
         [data-testid="stToolbar"] {
             display: none !important;
+        }
+
+        /* Ensure the hamburger button is still visible (it should be by default) */
+        header[data-testid="stHeader"] button {
+            visibility: visible !important;
+            display: flex !important;
         }
         /* Optional: center the content vertically in the new bar */
         
