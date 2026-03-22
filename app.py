@@ -291,21 +291,13 @@ def get_css():
         }
         /* Keep only the hamburger button visible */
         /* Hide the default title (the paragraph containing the app name) */
-        header[data-testid="stHeader"] p {
+        /* Hide all elements in the default header except the hamburger button */
+        header[data-testid="stHeader"] * {
             display: none !important;
         }
-
-        /* Hide the deploy button and GitHub icon */
-        .stDeployButton,
-        .stAppDeployButton,
-        [data-testid="stToolbar"] {
-            display: none !important;
-        }
-
-        /* Ensure the hamburger button is still visible (it should be by default) */
         header[data-testid="stHeader"] button {
-            visibility: visible !important;
             display: flex !important;
+            visibility: visible !important;
         }
         /* Optional: center the content vertically in the new bar */
         
