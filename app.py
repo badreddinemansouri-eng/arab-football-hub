@@ -346,16 +346,9 @@ st.markdown("""
 
 st.markdown("""
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const btn = document.getElementById('sidebar-toggle');
-        if (btn) {
-            btn.addEventListener('click', function() {
-                const url = new URL(window.location.href);
-                const sidebar = url.searchParams.get('sidebar');
-                url.searchParams.set('sidebar', sidebar === 'open' ? 'closed' : 'open');
-                window.location.href = url.toString();
-            });
-        }
+    document.getElementById('sidebar-toggle').addEventListener('click', function() {
+        const nativeBtn = document.querySelector('header[data-testid="stHeader"] button');
+        if (nativeBtn) nativeBtn.click();
     });
 </script>
 """, unsafe_allow_html=True)
