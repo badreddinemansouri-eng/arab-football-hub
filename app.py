@@ -46,6 +46,7 @@ if "admin_auth" not in st.session_state:
 if "show_admin" not in st.session_state:
     st.session_state.show_admin = False
 sidebar_state = st.query_params.get("sidebar", "closed")
+st.write(f"DEBUG: sidebar_state = {sidebar_state}")   # <-- add this
 # -------------------- Custom CSS --------------------
 def get_css():
     base_css = textwrap.dedent("""
