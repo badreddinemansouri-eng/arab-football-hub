@@ -340,7 +340,7 @@ st.markdown('<div class="custom-header-bar">', unsafe_allow_html=True)
 
 col1, col2 = st.columns([1, 4])   # button minimal, content takes rest
 with col1:
-    if st.button("☰", key="sidebar_toggle", use_container_width=True):
+    if st.button("☰", key="sidebar_toggle"):
         st.session_state.sidebar_open = not st.session_state.sidebar_open
         st.rerun()
 with col2:
