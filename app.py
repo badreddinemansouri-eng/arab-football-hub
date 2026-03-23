@@ -304,7 +304,20 @@ def get_css():
             display: none !important;
         }
         /* Mobile responsiveness: stack sidebar columns on small screens */
-        
+        /* Hide the column that contains the button and reposition it */
+        div[data-testid="column"]:first-child {
+            position: absolute !important;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: auto !important;
+            background: transparent !important;
+            z-index: 20;
+        }
+        /* Hide the other columns so they don't occupy space */
+        div[data-testid="column"]:not(:first-child) {
+            display: none !important;
+        }
     </style>
     """)
     if st.session_state.theme == "dark":
@@ -336,22 +349,26 @@ st.markdown(get_css(), unsafe_allow_html=True)
 # -------------------- Custom Blue Header with Hamburger Button --------------------
 # -------------------- Custom Blue Header with Hamburger Button --------------------
 # -------------------- Custom Blue Header with Hamburger Button --------------------
-st.markdown('<div class="custom-header-bar">', unsafe_allow_html=True)
+# -------------------- Custom Header with Hamburger Button --------------------
+# Create a container to hold both the header and the button
+st.markdown("""
+<div style="position: relative; margin-bottom: 20px;">
+    <div class="custom-header-bar" style="background: linear-gradient(135deg, #1976D2, #0D47A1); border-radius: 0 0 20px 20px; padding: 10px 20px; display: flex; align-items: center; justify-content: center;">
+        <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;">
+        <h1 style="font-size: 2.2rem; margin: 0 15px; font-weight: 700; color: white;">Badr TV</h1>
+    </div>
+    <div id="button-overlay" style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); z-index: 10;"></div>
+</div>
+""", unsafe_allow_html=True)
 
-col1, col2 = st.columns([1, 4])   # button minimal, content takes rest
+# Now inject the Streamlit button into the overlay using a dummy column trick
+# We'll create a small column with the button, but hide it and position it absolutely.
+# This works because the column will still create the button, and CSS will move it.
+col1, col2, col3 = st.columns([1, 10, 1])
 with col1:
-    if st.button("☰", key="sidebar_toggle"):
+    if st.button("☰", key="sidebar_toggle", use_container_width=True):
         st.session_state.sidebar_open = not st.session_state.sidebar_open
         st.rerun()
-with col2:
-    st.markdown("""
-    <div style="display: flex; align-items: center; gap: 15px;">
-        <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;">
-        <h1 style="font-size: 2.2rem; margin: 0; font-weight: 700; color: white;">Badr TV</h1>
-    </div>
-    """, unsafe_allow_html=True)
-
-st.markdown('</div>', unsafe_allow_html=True)
 # Keep the timestamp as originally placed
 st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 
