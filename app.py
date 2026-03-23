@@ -240,6 +240,15 @@ def get_css():
         [data-testid="stToolbar"] {
             display: none !important;
         }
+        @media (max-width: 600px) {
+            .custom-header-outer {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .custom-header-outer div[data-testid="column"] {
+                width: 100%;
+            }
+        }
     </style>
     """)
     if st.session_state.theme == "dark":
@@ -262,22 +271,29 @@ def get_css():
             .stTabs [aria-selected="true"] { background-color: #1976d2; color: white; }
             .search-container input { background: white; color: #333; border-color: #ccc; }
             .standings-table { background: white; }
+            /* Ensure the custom header container uses flex and columns are transparent */
+            .custom-header-outer {
+                background: linear-gradient(135deg, #1976D2, #0D47A1);
+                border-radius: 0 0 20px 20px;
+                padding: 10px 20px;
+                margin-bottom: 20px;
+                display: flex;
+                align-items: center;
+            }
+            .custom-header-outer div[data-testid="column"] {
+                background: transparent !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
         </style>
         """)
 
 st.markdown(get_css(), unsafe_allow_html=True)
 
 # -------------------- Custom Header with Hamburger Button --------------------
-st.markdown("""
-<div style="background: linear-gradient(135deg, #1976D2, #0D47A1);
-            border-radius: 0 0 20px 20px;
-            padding: 10px 20px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;">
-""", unsafe_allow_html=True)
-
-col1, col2 = st.columns([1, 10])   # button left, content right
+# -------------------- Custom Header with Hamburger Button --------------------
+st.markdown('<div class="custom-header-outer">', unsafe_allow_html=True)
+col1, col2 = st.columns([1, 10])
 with col1:
     if st.button("☰", key="sidebar_toggle", use_container_width=True):
         st.session_state.sidebar_open = not st.session_state.sidebar_open
@@ -289,9 +305,7 @@ with col2:
         <h1 style="font-size: 2.2rem; margin: 0; font-weight: 700; color: white;">Badr TV</h1>
     </div>
     """, unsafe_allow_html=True)
-
-st.markdown("</div>", unsafe_allow_html=True)
-
+st.markdown('</div>', unsafe_allow_html=True)
 # Keep the timestamp as originally placed
 st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 
