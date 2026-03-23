@@ -307,7 +307,7 @@ def get_css():
         /* Hide the column that contains the button and reposition it */
         div[data-testid="column"]:first-child {
             position: absolute !important;
-            left: 20px;
+            right: 20px;
             top: 50%;
             transform: translateY(-50%);
             width: auto !important;
