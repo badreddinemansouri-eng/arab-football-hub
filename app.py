@@ -293,14 +293,16 @@ def get_css():
         /* Hide the default title (the paragraph containing the app name) */
         /* Hide all elements in the default header except the hamburger button */
         /* Hide all elements in the default header except the sidebar toggle button */
-        /* Hide all elements inside the default header */
-        /* Hide everything in the default header except the sidebar button */
-        header[data-testid="stHeader"] * {
+        /* Hide the default title (the paragraph) */
+        header[data-testid="stHeader"] p {
             display: none !important;
         }
-        /* Show only the sidebar button */
-        header[data-testid="stHeader"] button[data-testid="stSidebarButton"] {
-            display: flex !important;
+        
+        /* Hide the deploy button, GitHub icon, and toolbar */
+        .stDeployButton,
+        .stAppDeployButton,
+        [data-testid="stToolbar"] {
+            display: none !important;
         }
         /* Optional: center the content vertically in the new bar */
         
@@ -347,15 +349,26 @@ st.markdown("""
 
 st.markdown("""
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    (function() {
+        function clickNative() {
+            const nativeBtn = document.querySelector('button[data-testid="stSidebarButton"]');
+            if (nativeBtn) {
+                nativeBtn.click();
+                return true;
+            }
+            return false;
+        }
+
         const customBtn = document.getElementById('sidebar-toggle');
         if (customBtn) {
             customBtn.addEventListener('click', function() {
-                const nativeBtn = document.querySelector('button[data-testid="stSidebarButton"]');
-                if (nativeBtn) nativeBtn.click();
+                // Try immediately; if not found, retry after a short delay
+                if (!clickNative()) {
+                    setTimeout(clickNative, 100);
+                }
             });
         }
-    });
+    })();
 </script>
 """, unsafe_allow_html=True)
 # Keep the timestamp as it was originally (below the header)
