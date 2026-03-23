@@ -283,29 +283,7 @@ def get_css():
         }
 
         }
-        /* Style the hamburger button */
-        .stButton > button {
-            background: none !important;
-            border: none !important;
-            font-size: 1.8rem !important;
-            font-weight: bold !important;
-            color: white !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            width: auto !important;
-        }
-        /* Optional: reduce font sizes on very small screens */
-        @media (max-width: 600px) {
-            .custom-header {
-                padding: 8px 15px;
-            }
-            .custom-header h1 {
-                font-size: 1.6rem;
-            }
-            .stButton > button {
-                font-size: 1.5rem !important;
-            }
-        }
+
     </style>
     """)
     if st.session_state.theme == "dark":
