@@ -352,7 +352,8 @@ st.markdown(get_css(), unsafe_allow_html=True)
 # -------------------- Custom Header with Hamburger Button --------------------
 # Create a container to hold both the header and the button
 # -------------------- Custom Header with Hamburger Button --------------------
-# Wrapper for absolute positioning
+# -------------------- Custom Header with Hamburger Button --------------------
+# Wrapper that will contain both the header and the button
 st.markdown('<div style="position: relative; margin-bottom: 20px;">', unsafe_allow_html=True)
 
 # Centered header content (blue bar)
@@ -363,15 +364,15 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Placeholder for the button – we'll insert a Streamlit button here, but position it absolutely
-st.markdown('</div>', unsafe_allow_html=True)   # close the relative wrapper
-
-# Now create the button in its own column (or container) – we'll move it with CSS
+# Now create the button columns inside the same relative container
 col1, col2, col3 = st.columns([1, 10, 1])
 with col1:
     if st.button("☰", key="sidebar_toggle", use_container_width=True):
         st.session_state.sidebar_open = not st.session_state.sidebar_open
         st.rerun()
+# col2 and col3 are empty, they will be hidden by CSS
+
+st.markdown('</div>', unsafe_allow_html=True)   # close the relative wrapper
 # Keep the timestamp as originally placed
 st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 
