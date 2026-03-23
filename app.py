@@ -353,7 +353,7 @@ st.markdown(get_css(), unsafe_allow_html=True)
 # Create a container to hold both the header and the button
 # -------------------- Custom Header with Hamburger Button --------------------
 # -------------------- Custom Header with Hamburger Button --------------------
-# Wrapper that will contain both the header and the button
+# -------------------- Custom Header with Hamburger Button --------------------
 st.markdown('<div style="position: relative; margin-bottom: 20px;">', unsafe_allow_html=True)
 
 # Centered header content (blue bar)
@@ -364,18 +364,48 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Now create the button columns inside the same relative container
+# Create button columns inside the same relative container
 col1, col2, col3 = st.columns([1, 10, 1])
 with col1:
     if st.button("☰", key="sidebar_toggle", use_container_width=True):
         st.session_state.sidebar_open = not st.session_state.sidebar_open
         st.rerun()
-# col2 and col3 are empty, they will be hidden by CSS
 
-st.markdown('</div>', unsafe_allow_html=True)   # close the relative wrapper
+st.markdown('</div>', unsafe_allow_html=True)   # close relative wrapper
+
+# Inline CSS to position the button on the right and hide empty columns
+st.markdown("""
+<style>
+/* Move the first column (button) to the right side */
+div[data-testid="column"]:first-child {
+    position: absolute !important;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: auto !important;
+    background: transparent !important;
+    z-index: 20;
+}
+/* Hide the other columns so they don't take up space */
+div[data-testid="column"]:not(:first-child) {
+    display: none !important;
+}
+/* Style the hamburger button */
+.stButton > button {
+    background: none !important;
+    border: none !important;
+    font-size: 1.8rem !important;
+    font-weight: bold !important;
+    color: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: auto !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # Keep the timestamp as originally placed
 st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
-
 # -------------------- Helper Functions --------------------
 def get_matches():
     resp = supabase.table("matches").select("*").order("match_time", desc=False).execute()
