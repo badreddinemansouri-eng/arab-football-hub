@@ -371,7 +371,7 @@ div[data-testid="column"] {
 .stButton {
     position: absolute !important;
     right: 20px;
-    top: 90%;
+    top: -50%;
     transform: translateY(-50%);
     z-index: 20;
 }
