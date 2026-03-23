@@ -294,11 +294,12 @@ def get_css():
         /* Hide all elements in the default header except the hamburger button */
         /* Hide all elements in the default header except the sidebar toggle button */
         /* Hide all elements inside the default header */
+        /* Hide everything in the default header except the sidebar button */
         header[data-testid="stHeader"] * {
             display: none !important;
         }
-        /* Show the first button (the hamburger) */
-        header[data-testid="stHeader"] button:first-of-type {
+        /* Show only the sidebar button */
+        header[data-testid="stHeader"] button[data-testid="stSidebarButton"] {
             display: flex !important;
         }
         /* Optional: center the content vertically in the new bar */
@@ -346,9 +347,14 @@ st.markdown("""
 
 st.markdown("""
 <script>
-    document.getElementById('sidebar-toggle').addEventListener('click', function() {
-        const nativeBtn = document.querySelector('header[data-testid="stHeader"] button');
-        if (nativeBtn) nativeBtn.click();
+    document.addEventListener('DOMContentLoaded', function() {
+        const customBtn = document.getElementById('sidebar-toggle');
+        if (customBtn) {
+            customBtn.addEventListener('click', function() {
+                const nativeBtn = document.querySelector('button[data-testid="stSidebarButton"]');
+                if (nativeBtn) nativeBtn.click();
+            });
+        }
     });
 </script>
 """, unsafe_allow_html=True)
