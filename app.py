@@ -364,7 +364,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Create button columns inside the same relative container
+# Create the button columns inside the same relative container (we'll hide the columns)
 col1, col2, col3 = st.columns([1, 10, 1])
 with col1:
     if st.button("☰", key="sidebar_toggle", use_container_width=True):
@@ -376,21 +376,19 @@ st.markdown('</div>', unsafe_allow_html=True)   # close relative wrapper
 # Inline CSS to position the button on the right and hide empty columns
 st.markdown("""
 <style>
-/* Move the first column (button) to the right side */
-div[data-testid="column"]:first-child {
+/* Hide all columns so they don't affect layout */
+div[data-testid="column"] {
+    display: none !important;
+}
+/* Position the button itself absolutely on the right */
+.stButton {
     position: absolute !important;
     right: 20px;
     top: 50%;
     transform: translateY(-50%);
-    width: auto !important;
-    background: transparent !important;
     z-index: 20;
 }
-/* Hide the other columns so they don't take up space */
-div[data-testid="column"]:not(:first-child) {
-    display: none !important;
-}
-/* Style the hamburger button */
+/* Style the button to look like a plain hamburger */
 .stButton > button {
     background: none !important;
     border: none !important;
@@ -404,6 +402,8 @@ div[data-testid="column"]:not(:first-child) {
 </style>
 """, unsafe_allow_html=True)
 
+# Keep the timestamp as originally placed
+st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 # Keep the timestamp as originally placed
 st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 # -------------------- Helper Functions --------------------
