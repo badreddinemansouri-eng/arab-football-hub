@@ -58,19 +58,6 @@ def get_css():
             display: none !important;
         }
 
-        /* Custom blue header (your original, with button) */
-        .custom-header {
-            background: linear-gradient(135deg, #1976D2, #0D47A1);
-            padding: 10px 20px;
-            border-radius: 0 0 20px 20px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            flex-wrap: nowrap;
-        }
         .custom-header .header-content {
             display: flex;
             align-items: center;
@@ -97,20 +84,42 @@ def get_css():
             padding: 0;
             margin: 0;
         }
-        /* Mobile responsiveness: stack header on small screens */
-        @media (max-width: 600px) {
-            .custom-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 10px;
-            }
-            .custom-header .header-content {
-                width: 100%;
-                justify-content: center;
-            }
+
+        
+        
+        /* Outer header bar – full width, no wrap */
+        .custom-header-bar {
+            background: linear-gradient(135deg, #1976D2, #0D47A1);
+            border-radius: 0 0 20px 20px;
+            padding: 10px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: nowrap;          /* force one line */
+            width: 100%;
         }
 
-        /* Style the hamburger button (Streamlit button in sidebar) – not used here */
+        /* Remove padding/margin from columns inside */
+        .custom-header-bar div[data-testid="column"] {
+            background: transparent !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            flex: 0 1 auto;             /* allow shrinking, no growing */
+        }
+
+        /* First column (button) – fixed width based on content */
+        .custom-header-bar div[data-testid="column"]:first-child {
+            flex: 0 0 auto;
+        }
+
+        /* Second column (content) – take remaining space, allow shrink */
+        .custom-header-bar div[data-testid="column"]:last-child {
+            flex: 1 1 auto;
+            min-width: 0;               /* prevent overflow */
+        }
+
+        /* Hamburger button styling */
         .stButton > button {
             background: none !important;
             border: none !important;
@@ -120,6 +129,24 @@ def get_css():
             padding: 0 !important;
             margin: 0 !important;
             width: auto !important;
+        }
+
+        /* Mobile adjustments – reduce sizes but keep inline */
+        @media (max-width: 600px) {
+            .custom-header-bar {
+                padding: 8px 15px;
+            }
+            .custom-header-bar h1 {
+                font-size: 1.4rem;
+                white-space: nowrap;
+            }
+            .custom-header-bar img {
+                width: 40px;
+                height: 40px;
+            }
+            .stButton > button {
+                font-size: 1.5rem !important;
+            }
         }
 
         /* Match card styling */
@@ -308,25 +335,22 @@ st.markdown(get_css(), unsafe_allow_html=True)
 # -------------------- Custom Blue Header with Hamburger Button --------------------
 # -------------------- Custom Blue Header with Hamburger Button --------------------
 # -------------------- Custom Blue Header with Hamburger Button --------------------
-st.markdown('<div class="custom-header" style="display: flex; align-items: center; justify-content: center;">', unsafe_allow_html=True)
+st.markdown('<div class="custom-header-bar">', unsafe_allow_html=True)
 
-col1, col2 = st.columns([1, 10])   # button left, content right
+col1, col2 = st.columns([1, 4])   # button minimal, content takes rest
 with col1:
     if st.button("☰", key="sidebar_toggle", use_container_width=True):
         st.session_state.sidebar_open = not st.session_state.sidebar_open
         st.rerun()
 with col2:
     st.markdown("""
-    <div class="header-content" style="display: flex; align-items: center; gap: 15px;">
+    <div style="display: flex; align-items: center; gap: 15px;">
         <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;">
         <h1 style="font-size: 2.2rem; margin: 0; font-weight: 700; color: white;">Badr TV</h1>
     </div>
     """, unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
-
-# Keep the timestamp
-st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 # Keep the timestamp as originally placed
 st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 
