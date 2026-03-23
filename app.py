@@ -234,19 +234,49 @@ def get_css():
             50% { opacity: 0.7; transform: scale(1.05); }
             100% { opacity: 1; transform: scale(1); }
         }
-        /* Hide deploy button and GitHub icon (just in case) */
-        .stDeployButton,
-        .stAppDeployButton,
-        [data-testid="stToolbar"] {
+        /* Hide the default Streamlit header completely */
+        header[data-testid="stHeader"] {
             display: none !important;
         }
+        
+        /* Custom header bar (same gradient as before) */
+        .custom-header-bar {
+            background: linear-gradient(135deg, #1976D2, #0D47A1);
+            border-radius: 0 0 20px 20px;
+            padding: 10px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+        
+        /* Remove padding/margin from columns inside the header bar */
+        .custom-header-bar div[data-testid="column"] {
+            background: transparent !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        
+        /* Style the hamburger button */
+        .stButton > button {
+            background: none !important;
+            border: none !important;
+            font-size: 1.8rem !important;
+            font-weight: bold !important;
+            color: white !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: auto !important;
+        }
+        
+        /* Mobile responsiveness: stack header elements on small screens */
         @media (max-width: 600px) {
-            .custom-header-outer {
+            .custom-header-bar {
                 flex-direction: column;
                 align-items: flex-start;
+                gap: 10px;
             }
-            .custom-header-outer div[data-testid="column"] {
-                width: 100%;
+            .custom-header-bar div[data-testid="column"] {
+                width: 100% !important;
             }
         }
     </style>
@@ -292,8 +322,10 @@ st.markdown(get_css(), unsafe_allow_html=True)
 
 # -------------------- Custom Header with Hamburger Button --------------------
 # -------------------- Custom Header with Hamburger Button --------------------
-st.markdown('<div class="custom-header-outer">', unsafe_allow_html=True)
-col1, col2 = st.columns([1, 10])
+# -------------------- Custom Header with Hamburger Button --------------------
+st.markdown('<div class="custom-header-bar">', unsafe_allow_html=True)
+
+col1, col2 = st.columns([1, 10])   # button left, content right
 with col1:
     if st.button("☰", key="sidebar_toggle", use_container_width=True):
         st.session_state.sidebar_open = not st.session_state.sidebar_open
@@ -305,7 +337,11 @@ with col2:
         <h1 style="font-size: 2.2rem; margin: 0; font-weight: 700; color: white;">Badr TV</h1>
     </div>
     """, unsafe_allow_html=True)
+
 st.markdown('</div>', unsafe_allow_html=True)
+
+# Keep the timestamp as originally placed
+st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 # Keep the timestamp as originally placed
 st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 
