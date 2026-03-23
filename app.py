@@ -372,7 +372,7 @@ div[data-testid="column"] {
     position: absolute !important;
     right: 30px;
     top: 200%;
-    transform: translateY(-50%);
+    transform: translateY(-90%);
     z-index: 20;
 }
 /* Style the button to look like a plain hamburger */
