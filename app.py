@@ -69,7 +69,7 @@ def get_css():
             justify-content: space-between;
             color: white;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
         }
         .custom-header .header-content {
             display: flex;
@@ -307,25 +307,25 @@ st.markdown(get_css(), unsafe_allow_html=True)
 # -------------------- Custom Header with Hamburger Button --------------------
 # -------------------- Custom Blue Header with Hamburger Button --------------------
 # -------------------- Custom Blue Header with Hamburger Button --------------------
-st.markdown('<div class="custom-header">', unsafe_allow_html=True)
+# -------------------- Custom Blue Header with Hamburger Button --------------------
+st.markdown('<div class="custom-header" style="display: flex; align-items: center; justify-content: space-between;">', unsafe_allow_html=True)
 
-# Use columns to place button on the left and content on the right
-col1, col2 = st.columns([1, 10])   # button takes 1 part, content 10 parts
+col1, col2 = st.columns([1, 10])   # button left, content right
 with col1:
     if st.button("☰", key="sidebar_toggle", use_container_width=True):
         st.session_state.sidebar_open = not st.session_state.sidebar_open
         st.rerun()
 with col2:
     st.markdown("""
-    <div class="header-content">
-        <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
-        <h1>Badr TV</h1>
+    <div class="header-content" style="display: flex; align-items: center; gap: 15px;">
+        <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;">
+        <h1 style="font-size: 2.2rem; margin: 0; font-weight: 700; color: white;">Badr TV</h1>
     </div>
     """, unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Keep the timestamp as originally placed
+# Keep the timestamp
 st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 # Keep the timestamp as originally placed
 st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
