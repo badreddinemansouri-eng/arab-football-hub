@@ -106,7 +106,7 @@ def get_css():
             }
             .custom-header .header-content {
                 width: 100%;
-                justify-content: space-between;
+                justify-content: center;
             }
         }
 
@@ -308,7 +308,7 @@ st.markdown(get_css(), unsafe_allow_html=True)
 # -------------------- Custom Blue Header with Hamburger Button --------------------
 # -------------------- Custom Blue Header with Hamburger Button --------------------
 # -------------------- Custom Blue Header with Hamburger Button --------------------
-st.markdown('<div class="custom-header" style="display: flex; align-items: center; justify-content: space-between;">', unsafe_allow_html=True)
+st.markdown('<div class="custom-header" style="display: flex; align-items: center; justify-content: center;">', unsafe_allow_html=True)
 
 col1, col2 = st.columns([1, 10])   # button left, content right
 with col1:
