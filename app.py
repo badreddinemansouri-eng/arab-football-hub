@@ -304,20 +304,7 @@ def get_css():
             display: none !important;
         }
         /* Mobile responsiveness: stack sidebar columns on small screens */
-        /* Hide the column that contains the button and reposition it */
-        div[data-testid="column"]:first-child {
-            position: absolute !important;
-            right: 20px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: auto !important;
-            background: transparent !important;
-            z-index: 20;
-        }
-        /* Hide the other columns so they don't occupy space */
-        div[data-testid="column"]:not(:first-child) {
-            display: none !important;
-        }
+        
     </style>
     """)
     if st.session_state.theme == "dark":
@@ -384,7 +371,7 @@ div[data-testid="column"] {
 .stButton {
     position: absolute !important;
     right: 20px;
-    top: 50%;
+    top: 90%;
     transform: translateY(-50%);
     z-index: 20;
 }
