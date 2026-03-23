@@ -69,7 +69,7 @@ def get_css():
             justify-content: space-between;
             color: white;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            flex-wrap: nowrap;
+            flex-wrap: wrap;
         }
         .custom-header .header-content {
             display: flex;
