@@ -69,7 +69,7 @@ def get_css():
             justify-content: space-between;
             color: white;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
         }
         .custom-header .header-content {
             display: flex;
@@ -281,11 +281,7 @@ def get_css():
                 width: 100% !important;
             }
         }
-        /* Make columns inside the header transparent */
-        .custom-header div[data-testid="column"] {
-            background: transparent !important;
-            padding: 0 !important;
-            margin: 0 !important;
+
         }
         /* Style the hamburger button */
         .stButton > button {
