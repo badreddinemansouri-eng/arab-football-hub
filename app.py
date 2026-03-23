@@ -370,8 +370,8 @@ div[data-testid="column"] {
 /* Position the button itself absolutely on the right */
 .stButton {
     position: absolute !important;
-    right: 20px;
-    top: -50%;
+    right: 30px;
+    top: 200%;
     transform: translateY(-50%);
     z-index: 20;
 }
