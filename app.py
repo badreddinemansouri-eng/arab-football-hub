@@ -306,8 +306,11 @@ st.markdown(get_css(), unsafe_allow_html=True)
 
 # -------------------- Custom Header with Hamburger Button --------------------
 # -------------------- Custom Blue Header with Hamburger Button --------------------
+# -------------------- Custom Blue Header with Hamburger Button --------------------
 st.markdown('<div class="custom-header">', unsafe_allow_html=True)
-col1, col2 = st.columns([1, 10])
+
+# Use columns to place button on the left and content on the right
+col1, col2 = st.columns([1, 10])   # button takes 1 part, content 10 parts
 with col1:
     if st.button("☰", key="sidebar_toggle", use_container_width=True):
         st.session_state.sidebar_open = not st.session_state.sidebar_open
@@ -319,7 +322,11 @@ with col2:
         <h1>Badr TV</h1>
     </div>
     """, unsafe_allow_html=True)
+
 st.markdown('</div>', unsafe_allow_html=True)
+
+# Keep the timestamp as originally placed
+st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 # Keep the timestamp as originally placed
 st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 
