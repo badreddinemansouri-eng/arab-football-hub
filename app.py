@@ -371,8 +371,8 @@ div[data-testid="column"] {
 .stButton {
     position: absolute !important;
     right: 30px;
-    top: 200%;
-    transform: translateY(-90%);
+    top: 100%;
+    transform: translateY(-250%);
     z-index: 20;
 }
 /* Style the button to look like a plain hamburger */
