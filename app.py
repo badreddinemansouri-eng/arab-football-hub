@@ -69,7 +69,7 @@ def get_css():
             justify-content: space-between;
             color: white;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
         }
         .custom-header .header-content {
             display: flex;
@@ -281,6 +281,35 @@ def get_css():
                 width: 100% !important;
             }
         }
+        /* Make columns inside the header transparent */
+        .custom-header div[data-testid="column"] {
+            background: transparent !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        /* Style the hamburger button */
+        .stButton > button {
+            background: none !important;
+            border: none !important;
+            font-size: 1.8rem !important;
+            font-weight: bold !important;
+            color: white !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: auto !important;
+        }
+        /* Optional: reduce font sizes on very small screens */
+        @media (max-width: 600px) {
+            .custom-header {
+                padding: 8px 15px;
+            }
+            .custom-header h1 {
+                font-size: 1.6rem;
+            }
+            .stButton > button {
+                font-size: 1.5rem !important;
+            }
+        }
     </style>
     """)
     if st.session_state.theme == "dark":
@@ -309,15 +338,27 @@ def get_css():
 st.markdown(get_css(), unsafe_allow_html=True)
 
 # -------------------- Custom Header with Hamburger Button --------------------
-st.markdown("""
-<div class="custom-header">
-    <button id="sidebar-toggle" class="hamburger-btn">☰</button>
+# -------------------- Custom Blue Header with Hamburger Button --------------------
+st.markdown('<div class="custom-header">', unsafe_allow_html=True)
+
+col1, col2 = st.columns([1, 10])   # button left, content right
+with col1:
+    if st.button("☰", key="sidebar_toggle", use_container_width=True):
+        st.session_state.sidebar_open = not st.session_state.sidebar_open
+        st.rerun()
+with col2:
+    # Your original header content
+    st.markdown("""
     <div class="header-content">
         <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg">
         <h1>Badr TV</h1>
     </div>
-</div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Keep the timestamp as originally placed
+st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 
 # Keep the timestamp as originally placed
 st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
