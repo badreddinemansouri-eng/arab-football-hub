@@ -66,7 +66,7 @@ def get_css():
             margin-bottom: 20px;
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: center;
             color: white;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             flex-wrap: nowrap;
