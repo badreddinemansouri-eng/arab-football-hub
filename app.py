@@ -240,26 +240,6 @@ def get_css():
         [data-testid="stToolbar"] {
             display: none !important;
         }
-        /* Ensure the custom header container uses flex and columns are transparent */
-        .custom-header-container {
-            display: flex;
-            align-items: center;
-        }
-        .custom-header-container div[data-testid="column"] {
-            background: transparent !important;
-            padding: 0 !important;
-            margin: 0 !important;
-        }
-        .custom-header-container .stButton > button {
-            background: none !important;
-            border: none !important;
-            font-size: 1.8rem !important;
-            font-weight: bold !important;
-            color: white !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            width: auto !important;
-        }
     </style>
     """)
     if st.session_state.theme == "dark":
@@ -289,7 +269,7 @@ st.markdown(get_css(), unsafe_allow_html=True)
 
 # -------------------- Custom Header with Hamburger Button --------------------
 st.markdown("""
-<div class="custom-header-container" style="background: linear-gradient(135deg, #1976D2, #0D47A1);
+<div style="background: linear-gradient(135deg, #1976D2, #0D47A1);
             border-radius: 0 0 20px 20px;
             padding: 10px 20px;
             margin-bottom: 20px;
@@ -311,10 +291,104 @@ with col2:
     """, unsafe_allow_html=True)
 
 st.markdown("</div>", unsafe_allow_html=True)
+
 # Keep the timestamp as originally placed
 st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 
-# -------------------- Custom Sidebar (controlled by button) --------------------
+# -------------------- Data Fetching & Helper Functions (defined once) --------------------
+def get_matches():
+    resp = supabase.table("matches").select("*").order("match_time", desc=False).execute()
+    return resp.data
+
+def time_until(match_time_str):
+    try:
+        match_time = datetime.fromisoformat(match_time_str.replace('Z', '+00:00'))
+        now = datetime.now(datetime.timezone.utc)
+        diff = match_time - now
+        if diff.total_seconds() < 0:
+            return "انتهت"
+        hours = int(diff.total_seconds() // 3600)
+        minutes = int((diff.total_seconds() % 3600) // 60)
+        return f"{hours} س {minutes} د"
+    except:
+        return "---"
+
+def render_match_card(match, show_favorite=True):
+    home_team = html.escape(match.get('home_team', '???'))
+    away_team = html.escape(match.get('away_team', '???'))
+    home_logo = match.get('home_logo') or get_team_logo(home_team)
+    away_logo = match.get('away_logo') or get_team_logo(away_team)
+    league_logo = match.get('league_logo') or get_league_logo(match.get('league', ''))
+    league_name = html.escape(match.get('league', ''))
+
+    effective_status = match['status']
+    if effective_status != 'FINISHED':
+        try:
+            match_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
+            now = datetime.now(datetime.timezone.utc)
+            if now - match_time > timedelta(hours=3):
+                effective_status = 'FINISHED'
+        except:
+            pass
+
+    if effective_status == 'LIVE':
+        center = f"<span style='color:#d32f2f; font-weight:bold; font-size:1.8rem;'>{match['home_score']} - {match['away_score']}</span>"
+        status_display = '<span class="live-badge">🔴 مباشر</span>'
+    elif effective_status == 'UPCOMING':
+        try:
+            utc_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
+            local_time = utc_time.astimezone(tz_tunis)
+            today = datetime.now(tz_tunis).date()
+            match_date = local_time.date()
+            if match_date == today:
+                diff = (local_time - datetime.now(tz_tunis)).total_seconds() / 60
+                if 0 < diff <= 30:
+                    status_display = "<span style='color:#ff8c00;'>⏳ بعد قليل</span>"
+                else:
+                    status_display = "<span style='color:#666;'>لم تبدأ بعد</span>"
+                center = f"<span style='color:#1976d2; font-weight:bold; font-size:1.8rem;'>{local_time.strftime('%H:%M')}</span>"
+            else:
+                status_display = f"<span style='color:#888;'>{match_date.strftime('%m-%d')}</span>"
+                center = f"<span style='color:#1976d2; font-weight:bold; font-size:1.8rem;'>{local_time.strftime('%H:%M')}</span>"
+        except Exception as e:
+            status_display = "<span style='color:#666;'>لم تبدأ بعد</span>"
+            center = "--:--"
+    else:
+        try:
+            utc_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
+            local_time = utc_time.astimezone(tz_tunis)
+            status_display = f"<span style='color:#888;'>{local_time.strftime('%m-%d')}</span>"
+            center = f"<span style='color:#888; font-weight:bold; font-size:1.5rem;'>{match['home_score']} - {match['away_score']}</span>"
+        except:
+            status_display = "<span style='color:#888;'>انتهت</span>"
+            center = f"{match['home_score']} - {match['away_score']}"
+
+    return f"""
+    <a href="/watch_stream?match_id={match['fixture_id']}" style="text-decoration:none; color:inherit; display:block;">
+        <div class="match-card">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                <div style="flex:1; text-align:center;">
+                    <img src="{home_logo}" style="width:48px; height:48px; object-fit:contain; margin-bottom:6px;">
+                    <div style="font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px; margin:0 auto;">{home_team}</div>
+                </div>
+                <div style="flex:1; text-align:center;">
+                    {center}
+                    <div style="margin-top:4px;">{status_display}</div>
+                </div>
+                <div style="flex:1; text-align:center;">
+                    <img src="{away_logo}" style="width:48px; height:48px; object-fit:contain; margin-bottom:6px;">
+                    <div style="font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px; margin:0 auto;">{away_team}</div>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap:8px; margin-top:12px; padding-top:8px; border-top:1px solid #444;">
+                <img src="{league_logo}" style="width:20px; height:20px; object-fit:contain;">
+                <span style="color:#aaa;">{league_name}</span>
+            </div>
+        </div>
+    </a>
+    """
+
+# -------------------- Main Layout with Custom Sidebar --------------------
 if st.session_state.sidebar_open:
     sidebar_col, main_col = st.columns([1, 3])   # adjust sidebar width as needed
     with sidebar_col:
@@ -651,102 +725,7 @@ if st.session_state.sidebar_open:
                                 st.info(f"النتائج: {found} تم العثور عليها، {not_found} لم يتم العثور عليها.")
 
     with main_col:
-        # -------------------- Data Fetching --------------------
-        def get_matches():
-            resp = supabase.table("matches").select("*").order("match_time", desc=False).execute()
-            return resp.data
-
         matches = get_matches()
-
-        # -------------------- Helper Functions --------------------
-        def time_until(match_time_str):
-            try:
-                match_time = datetime.fromisoformat(match_time_str.replace('Z', '+00:00'))
-                now = datetime.now(datetime.timezone.utc)
-                diff = match_time - now
-                if diff.total_seconds() < 0:
-                    return "انتهت"
-                hours = int(diff.total_seconds() // 3600)
-                minutes = int((diff.total_seconds() % 3600) // 60)
-                return f"{hours} س {minutes} د"
-            except:
-                return "---"
-
-        def render_match_card(match, show_favorite=True):
-            home_team = html.escape(match.get('home_team', '???'))
-            away_team = html.escape(match.get('away_team', '???'))
-            home_logo = match.get('home_logo') or get_team_logo(home_team)
-            away_logo = match.get('away_logo') or get_team_logo(away_team)
-            league_logo = match.get('league_logo') or get_league_logo(match.get('league', ''))
-            league_name = html.escape(match.get('league', ''))
-
-            effective_status = match['status']
-            if effective_status != 'FINISHED':
-                try:
-                    match_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
-                    now = datetime.now(datetime.timezone.utc)
-                    if now - match_time > timedelta(hours=3):
-                        effective_status = 'FINISHED'
-                except:
-                    pass
-
-            if effective_status == 'LIVE':
-                center = f"<span style='color:#d32f2f; font-weight:bold; font-size:1.8rem;'>{match['home_score']} - {match['away_score']}</span>"
-                status_display = '<span class="live-badge">🔴 مباشر</span>'
-            elif effective_status == 'UPCOMING':
-                try:
-                    utc_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
-                    local_time = utc_time.astimezone(tz_tunis)
-                    today = datetime.now(tz_tunis).date()
-                    match_date = local_time.date()
-                    if match_date == today:
-                        diff = (local_time - datetime.now(tz_tunis)).total_seconds() / 60
-                        if 0 < diff <= 30:
-                            status_display = "<span style='color:#ff8c00;'>⏳ بعد قليل</span>"
-                        else:
-                            status_display = "<span style='color:#666;'>لم تبدأ بعد</span>"
-                        center = f"<span style='color:#1976d2; font-weight:bold; font-size:1.8rem;'>{local_time.strftime('%H:%M')}</span>"
-                    else:
-                        status_display = f"<span style='color:#888;'>{match_date.strftime('%m-%d')}</span>"
-                        center = f"<span style='color:#1976d2; font-weight:bold; font-size:1.8rem;'>{local_time.strftime('%H:%M')}</span>"
-                except Exception as e:
-                    status_display = "<span style='color:#666;'>لم تبدأ بعد</span>"
-                    center = "--:--"
-            else:
-                try:
-                    utc_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
-                    local_time = utc_time.astimezone(tz_tunis)
-                    status_display = f"<span style='color:#888;'>{local_time.strftime('%m-%d')}</span>"
-                    center = f"<span style='color:#888; font-weight:bold; font-size:1.5rem;'>{match['home_score']} - {match['away_score']}</span>"
-                except:
-                    status_display = "<span style='color:#888;'>انتهت</span>"
-                    center = f"{match['home_score']} - {match['away_score']}"
-
-            return f"""
-            <a href="/watch_stream?match_id={match['fixture_id']}" style="text-decoration:none; color:inherit; display:block;">
-                <div class="match-card">
-                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                        <div style="flex:1; text-align:center;">
-                            <img src="{home_logo}" style="width:48px; height:48px; object-fit:contain; margin-bottom:6px;">
-                            <div style="font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px; margin:0 auto;">{home_team}</div>
-                        </div>
-                        <div style="flex:1; text-align:center;">
-                            {center}
-                            <div style="margin-top:4px;">{status_display}</div>
-                        </div>
-                        <div style="flex:1; text-align:center;">
-                            <img src="{away_logo}" style="width:48px; height:48px; object-fit:contain; margin-bottom:6px;">
-                            <div style="font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px; margin:0 auto;">{away_team}</div>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: center; gap:8px; margin-top:12px; padding-top:8px; border-top:1px solid #444;">
-                        <img src="{league_logo}" style="width:20px; height:20px; object-fit:contain;">
-                        <span style="color:#aaa;">{league_name}</span>
-                    </div>
-                </div>
-            </a>
-            """
-
         # -------------------- Tabs --------------------
         tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 المباريات", "📊 النتائج", "🏆 الترتيب", "⭐ المفضلة", "📰 الأخبار", "🔮 التوقعات"])
 
@@ -844,18 +823,18 @@ if st.session_state.sidebar_open:
                                 team_id = row["team"]["id"]
                                 team_name = row["team"]["name"]
                                 html_table += '<tr>'
-                                html_table += f'<td>{row["position"]}</td>'
-                                html_table += f'<td><a href="/team?team_id={team_id}" style="color: inherit; text-decoration: none;">{team_name}</a></td>'
-                                html_table += f'<td>{row["playedGames"]}</td>'
-                                html_table += f'<td>{row["won"]}</td>'
-                                html_table += f'<td>{row["draw"]}</td>'
-                                html_table += f'<td>{row["lost"]}</td>'
-                                html_table += f'<td>{row["goalsFor"]}</td>'
-                                html_table += f'<td>{row["goalsAgainst"]}</td>'
-                                html_table += f'<td>{row["goalDifference"]}</td>'
-                                html_table += f'<td>{row["points"]}</td>'
-                                html_table += '</tr>'
-                            html_table += '</table>'
+                                html_table += f' Ways{row["position"]} Ways'
+                                html_table += f' Ways<a href="/team?team_id={team_id}" style="color: inherit; text-decoration: none;">{team_name}</a> Ways'
+                                html_table += f' Ways{row["playedGames"]} Ways'
+                                html_table += f' Ways{row["won"]} Ways'
+                                html_table += f' Ways{row["draw"]} Ways'
+                                html_table += f' Ways{row["lost"]} Ways'
+                                html_table += f' Ways{row["goalsFor"]} Ways'
+                                html_table += f' Ways{row["goalsAgainst"]} Ways'
+                                html_table += f' Ways{row["goalDifference"]} Ways'
+                                html_table += f' Ways{row["points"]} Ways'
+                                html_table += ' </tr>'
+                            html_table += ' </table>'
                             html_table += '</div>'
                             st.markdown(html_table, unsafe_allow_html=True)
                         else:
@@ -957,105 +936,10 @@ if st.session_state.sidebar_open:
                     st.write(f"{m['home_team']} vs {m['away_team']} – لا توجد توقعات بعد")
 
 else:
-    # When sidebar is closed, use a single column for the main content
+    # When sidebar is closed, use a single container for the main content
     main_col = st.container()
     with main_col:
-        # -------------------- Data Fetching --------------------
-        def get_matches():
-            resp = supabase.table("matches").select("*").order("match_time", desc=False).execute()
-            return resp.data
-
         matches = get_matches()
-
-        # -------------------- Helper Functions --------------------
-        def time_until(match_time_str):
-            try:
-                match_time = datetime.fromisoformat(match_time_str.replace('Z', '+00:00'))
-                now = datetime.now(datetime.timezone.utc)
-                diff = match_time - now
-                if diff.total_seconds() < 0:
-                    return "انتهت"
-                hours = int(diff.total_seconds() // 3600)
-                minutes = int((diff.total_seconds() % 3600) // 60)
-                return f"{hours} س {minutes} د"
-            except:
-                return "---"
-
-        def render_match_card(match, show_favorite=True):
-            home_team = html.escape(match.get('home_team', '???'))
-            away_team = html.escape(match.get('away_team', '???'))
-            home_logo = match.get('home_logo') or get_team_logo(home_team)
-            away_logo = match.get('away_logo') or get_team_logo(away_team)
-            league_logo = match.get('league_logo') or get_league_logo(match.get('league', ''))
-            league_name = html.escape(match.get('league', ''))
-
-            effective_status = match['status']
-            if effective_status != 'FINISHED':
-                try:
-                    match_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
-                    now = datetime.now(datetime.timezone.utc)
-                    if now - match_time > timedelta(hours=3):
-                        effective_status = 'FINISHED'
-                except:
-                    pass
-
-            if effective_status == 'LIVE':
-                center = f"<span style='color:#d32f2f; font-weight:bold; font-size:1.8rem;'>{match['home_score']} - {match['away_score']}</span>"
-                status_display = '<span class="live-badge">🔴 مباشر</span>'
-            elif effective_status == 'UPCOMING':
-                try:
-                    utc_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
-                    local_time = utc_time.astimezone(tz_tunis)
-                    today = datetime.now(tz_tunis).date()
-                    match_date = local_time.date()
-                    if match_date == today:
-                        diff = (local_time - datetime.now(tz_tunis)).total_seconds() / 60
-                        if 0 < diff <= 30:
-                            status_display = "<span style='color:#ff8c00;'>⏳ بعد قليل</span>"
-                        else:
-                            status_display = "<span style='color:#666;'>لم تبدأ بعد</span>"
-                        center = f"<span style='color:#1976d2; font-weight:bold; font-size:1.8rem;'>{local_time.strftime('%H:%M')}</span>"
-                    else:
-                        status_display = f"<span style='color:#888;'>{match_date.strftime('%m-%d')}</span>"
-                        center = f"<span style='color:#1976d2; font-weight:bold; font-size:1.8rem;'>{local_time.strftime('%H:%M')}</span>"
-                except Exception as e:
-                    status_display = "<span style='color:#666;'>لم تبدأ بعد</span>"
-                    center = "--:--"
-            else:
-                try:
-                    utc_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
-                    local_time = utc_time.astimezone(tz_tunis)
-                    status_display = f"<span style='color:#888;'>{local_time.strftime('%m-%d')}</span>"
-                    center = f"<span style='color:#888; font-weight:bold; font-size:1.5rem;'>{match['home_score']} - {match['away_score']}</span>"
-                except:
-                    status_display = "<span style='color:#888;'>انتهت</span>"
-                    center = f"{match['home_score']} - {match['away_score']}"
-
-            return f"""
-            <a href="/watch_stream?match_id={match['fixture_id']}" style="text-decoration:none; color:inherit; display:block;">
-                <div class="match-card">
-                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                        <div style="flex:1; text-align:center;">
-                            <img src="{home_logo}" style="width:48px; height:48px; object-fit:contain; margin-bottom:6px;">
-                            <div style="font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px; margin:0 auto;">{home_team}</div>
-                        </div>
-                        <div style="flex:1; text-align:center;">
-                            {center}
-                            <div style="margin-top:4px;">{status_display}</div>
-                        </div>
-                        <div style="flex:1; text-align:center;">
-                            <img src="{away_logo}" style="width:48px; height:48px; object-fit:contain; margin-bottom:6px;">
-                            <div style="font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px; margin:0 auto;">{away_team}</div>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: center; gap:8px; margin-top:12px; padding-top:8px; border-top:1px solid #444;">
-                        <img src="{league_logo}" style="width:20px; height:20px; object-fit:contain;">
-                        <span style="color:#aaa;">{league_name}</span>
-                    </div>
-                </div>
-            </a>
-            """
-
         # -------------------- Tabs --------------------
         tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 المباريات", "📊 النتائج", "🏆 الترتيب", "⭐ المفضلة", "📰 الأخبار", "🔮 التوقعات"])
 
@@ -1148,23 +1032,23 @@ else:
                         if table:
                             html_table = '<div style="overflow-x: auto;">'
                             html_table += '<table class="standings-table">'
-                            html_table += '<thead><tr><th>المركز</th><th>الفريق</th><th>لعب</th><th>فوز</th><th>تعادل</th><th>خسارة</th><th>له</th><th>عليه</th><th>فارق</th><th>نقاط</th></tr></thead>'
+                            html_table += '<thead> capital< th>المركز</th><th>الفريق</th><th>لعب</th><th>فوز</th><th>تعادل</th><th>خسارة</th><th>له</th><th>عليه</th><th>فارق</th><th>نقاط</th> </thead>'
                             for row in table:
                                 team_id = row["team"]["id"]
                                 team_name = row["team"]["name"]
                                 html_table += '<tr>'
-                                html_table += f'<td>{row["position"]}</td>'
-                                html_table += f'<td><a href="/team?team_id={team_id}" style="color: inherit; text-decoration: none;">{team_name}</a></td>'
-                                html_table += f'<td>{row["playedGames"]}</td>'
-                                html_table += f'<td>{row["won"]}</td>'
-                                html_table += f'<td>{row["draw"]}</td>'
-                                html_table += f'<td>{row["lost"]}</td>'
-                                html_table += f'<td>{row["goalsFor"]}</td>'
-                                html_table += f'<td>{row["goalsAgainst"]}</td>'
-                                html_table += f'<td>{row["goalDifference"]}</td>'
-                                html_table += f'<td>{row["points"]}</td>'
-                                html_table += '</tr>'
-                            html_table += '</table>'
+                                html_table += f' Ways{row["position"]} Ways'
+                                html_table += f' Ways<a href="/team?team_id={team_id}" style="color: inherit; text-decoration: none;">{team_name}</a> Ways'
+                                html_table += f' Ways{row["playedGames"]} Ways'
+                                html_table += f' Ways{row["won"]} Ways'
+                                html_table += f' Ways{row["draw"]} Ways'
+                                html_table += f' Ways{row["lost"]} Ways'
+                                html_table += f' Ways{row["goalsFor"]} Ways'
+                                html_table += f' Ways{row["goalsAgainst"]} Ways'
+                                html_table += f' Ways{row["goalDifference"]} Ways'
+                                html_table += f' Ways{row["points"]} Ways'
+                                html_table += ' </tr>'
+                            html_table += ' </table>'
                             html_table += '</div>'
                             st.markdown(html_table, unsafe_allow_html=True)
                         else:
