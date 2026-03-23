@@ -240,6 +240,26 @@ def get_css():
         [data-testid="stToolbar"] {
             display: none !important;
         }
+        /* Ensure the custom header container uses flex and columns are transparent */
+        .custom-header-container {
+            display: flex;
+            align-items: center;
+        }
+        .custom-header-container div[data-testid="column"] {
+            background: transparent !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        .custom-header-container .stButton > button {
+            background: none !important;
+            border: none !important;
+            font-size: 1.8rem !important;
+            font-weight: bold !important;
+            color: white !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: auto !important;
+        }
     </style>
     """)
     if st.session_state.theme == "dark":
@@ -269,7 +289,7 @@ st.markdown(get_css(), unsafe_allow_html=True)
 
 # -------------------- Custom Header with Hamburger Button --------------------
 st.markdown("""
-<div style="background: linear-gradient(135deg, #1976D2, #0D47A1);
+<div class="custom-header-container" style="background: linear-gradient(135deg, #1976D2, #0D47A1);
             border-radius: 0 0 20px 20px;
             padding: 10px 20px;
             margin-bottom: 20px;
@@ -291,7 +311,6 @@ with col2:
     """, unsafe_allow_html=True)
 
 st.markdown("</div>", unsafe_allow_html=True)
-
 # Keep the timestamp as originally placed
 st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 
