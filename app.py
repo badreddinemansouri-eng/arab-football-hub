@@ -351,19 +351,22 @@ st.markdown(get_css(), unsafe_allow_html=True)
 # -------------------- Custom Blue Header with Hamburger Button --------------------
 # -------------------- Custom Header with Hamburger Button --------------------
 # Create a container to hold both the header and the button
+# -------------------- Custom Header with Hamburger Button --------------------
+# Wrapper for absolute positioning
+st.markdown('<div style="position: relative; margin-bottom: 20px;">', unsafe_allow_html=True)
+
+# Centered header content (blue bar)
 st.markdown("""
-<div style="position: relative; margin-bottom: 20px;">
-    <div class="custom-header-bar" style="background: linear-gradient(135deg, #1976D2, #0D47A1); border-radius: 0 0 20px 20px; padding: 10px 20px; display: flex; align-items: center; justify-content: center;">
-        <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;">
-        <h1 style="font-size: 2.2rem; margin: 0 15px; font-weight: 700; color: white;">Badr TV</h1>
-    </div>
-    <div id="button-overlay" style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); z-index: 10;"></div>
+<div class="custom-header-bar" style="background: linear-gradient(135deg, #1976D2, #0D47A1); border-radius: 0 0 20px 20px; padding: 10px 20px; display: flex; align-items: center; justify-content: center;">
+    <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;">
+    <h1 style="font-size: 2.2rem; margin: 0 15px; font-weight: 700; color: white;">Badr TV</h1>
 </div>
 """, unsafe_allow_html=True)
 
-# Now inject the Streamlit button into the overlay using a dummy column trick
-# We'll create a small column with the button, but hide it and position it absolutely.
-# This works because the column will still create the button, and CSS will move it.
+# Placeholder for the button – we'll insert a Streamlit button here, but position it absolutely
+st.markdown('</div>', unsafe_allow_html=True)   # close the relative wrapper
+
+# Now create the button in its own column (or container) – we'll move it with CSS
 col1, col2, col3 = st.columns([1, 10, 1])
 with col1:
     if st.button("☰", key="sidebar_toggle", use_container_width=True):
