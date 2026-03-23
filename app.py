@@ -89,14 +89,14 @@ def get_css():
         
         /* Outer header bar – full width, no wrap */
         .custom-header-bar {
-            background: linear-gradient(135deg, #1976D2, #0D47A1);
+            background: linear-gradient(135deg, #1976D2, #0D47A1) !important;
             border-radius: 0 0 20px 20px;
             padding: 10px 20px;
             margin-bottom: 20px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            flex-wrap: nowrap;          /* force one line */
+            flex-wrap: nowrap !important;          /* force one line */
             width: 100%;
         }
 
@@ -108,16 +108,6 @@ def get_css():
             flex: 0 1 auto;             /* allow shrinking, no growing */
         }
 
-        /* First column (button) – fixed width based on content */
-        .custom-header-bar div[data-testid="column"]:first-child {
-            flex: 0 0 auto;
-        }
-
-        /* Second column (content) – take remaining space, allow shrink */
-        .custom-header-bar div[data-testid="column"]:last-child {
-            flex: 1 1 auto;
-            min-width: 0;               /* prevent overflow */
-        }
 
         /* Hamburger button styling */
         .stButton > button {
@@ -131,10 +121,10 @@ def get_css():
             width: auto !important;
         }
 
-        /* Mobile adjustments – reduce sizes but keep inline */
         @media (max-width: 600px) {
             .custom-header-bar {
                 padding: 8px 15px;
+                flex-wrap: nowrap !important;       /* override any potential wrap */
             }
             .custom-header-bar h1 {
                 font-size: 1.4rem;
@@ -146,6 +136,17 @@ def get_css():
             }
             .stButton > button {
                 font-size: 1.5rem !important;
+            }
+            /* Force columns to stay side‑by‑side */
+            .custom-header-bar div[data-testid="column"] {
+                flex: 0 1 auto !important;
+            }
+            .custom-header-bar div[data-testid="column"]:first-child {
+                flex: 0 0 auto !important;
+            }
+            .custom-header-bar div[data-testid="column"]:last-child {
+                flex: 1 1 auto !important;
+                min-width: 0 !important;
             }
         }
 
