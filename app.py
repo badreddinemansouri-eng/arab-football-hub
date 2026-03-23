@@ -293,11 +293,7 @@ def get_css():
         /* Hide the default title (the paragraph containing the app name) */
         /* Hide all elements in the default header except the hamburger button */
         /* Hide all elements in the default header except the sidebar toggle button */
-        /* Hide the default title (the paragraph) */
-        header[data-testid="stHeader"] p {
-            display: none !important;
-        }
-        
+  
         /* Hide the deploy button, GitHub icon, and toolbar */
         .stDeployButton,
         .stAppDeployButton,
@@ -350,24 +346,34 @@ st.markdown("""
 st.markdown("""
 <script>
     (function() {
-        function clickNative() {
+        console.log("Custom header script loaded");
+        const customBtn = document.getElementById('sidebar-toggle');
+        if (!customBtn) {
+            console.error("Custom button not found");
+            return;
+        }
+        console.log("Custom button found");
+
+        customBtn.addEventListener('click', function() {
+            console.log("Custom button clicked");
             const nativeBtn = document.querySelector('button[data-testid="stSidebarButton"]');
             if (nativeBtn) {
+                console.log("Native button found, clicking");
                 nativeBtn.click();
-                return true;
+            } else {
+                console.error("Native button not found");
+                // Retry after a short delay
+                setTimeout(() => {
+                    const retryBtn = document.querySelector('button[data-testid="stSidebarButton"]');
+                    if (retryBtn) {
+                        console.log("Retry: found native button");
+                        retryBtn.click();
+                    } else {
+                        console.error("Retry: still not found");
+                    }
+                }, 200);
             }
-            return false;
-        }
-
-        const customBtn = document.getElementById('sidebar-toggle');
-        if (customBtn) {
-            customBtn.addEventListener('click', function() {
-                // Try immediately; if not found, retry after a short delay
-                if (!clickNative()) {
-                    setTimeout(clickNative, 100);
-                }
-            });
-        }
+        });
     })();
 </script>
 """, unsafe_allow_html=True)
