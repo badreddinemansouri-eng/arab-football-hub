@@ -74,7 +74,7 @@ def get_css():
         .hamburger-btn {
             background: none;
             border: none;
-            font-size: 1.8rem;
+            font-size: 5.8rem;
             font-weight: bold;
             color: white;
             cursor: pointer;
@@ -142,7 +142,7 @@ def get_css():
                 height: 40px;
             }
             .stButton > button {
-                font-size: 2.5rem !important;
+                font-size: 7.5rem !important;
             }
             /* Force columns to stay side‑by‑side */
             .custom-header-bar div[data-testid="column"] {
@@ -378,9 +378,9 @@ div[data-testid="column"] {
 /* Position the button itself absolutely on the right */
 .stButton {
     position: absolute !important;
-    right: 20px;
+    left: 20px;
     top: 70%;
-    transform: translateY(-220%);
+    transform: translateY(-200%);
     z-index: 20;
 }
 /* Style the button to look like a plain hamburger */
