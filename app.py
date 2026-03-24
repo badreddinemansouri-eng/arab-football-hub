@@ -90,7 +90,7 @@ def get_css():
             border-radius: 0;
             padding: 10px 20px;
             margin-bottom: 0px;
-            margin-top: 0;  /* or margin-bottom,
+            margin-top: -10;  /* or margin-bottom,
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -102,8 +102,7 @@ def get_css():
         /* Remove top padding from the main content area */
         .block-container {
             padding-top: 0 !important;
-            padding-left: 0;
-            padding-right: 0;
+            
         }
 
         /* Remove padding/margin from columns inside */
@@ -119,7 +118,7 @@ def get_css():
         .stButton > button {
             background: none !important;
             border: none !important;
-            font-size: 7.8rem !important;
+            font-size: 20.8rem !important;
             font-weight: bold !important;
             color: white !important;
             padding: 0 !important;
@@ -141,7 +140,7 @@ def get_css():
                 height: 40px;
             }
             .stButton > button {
-                font-size: 1.5rem !important;
+                font-size: 2.5rem !important;
             }
             /* Force columns to stay side‑by‑side */
             .custom-header-bar div[data-testid="column"] {
@@ -396,8 +395,6 @@ div[data-testid="column"] {
 </style>
 """, unsafe_allow_html=True)
 
-# Keep the timestamp as originally placed
-st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 # Keep the timestamp as originally placed
 st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 # -------------------- Helper Functions --------------------
