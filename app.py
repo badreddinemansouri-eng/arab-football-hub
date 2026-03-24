@@ -312,7 +312,9 @@ def get_css():
        /* }
 
         /* Mobile responsiveness: stack sidebar columns on small screens */
-        
+        display: inline-block !important;
+        white-space: nowrap !important;
+        overflow: visible !important;
     </style>
     """)
     if st.session_state.theme == "dark":
