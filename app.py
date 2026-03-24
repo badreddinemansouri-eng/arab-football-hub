@@ -88,12 +88,16 @@ def get_css():
             border-radius: 0 0 20px 20px;
             padding: 10px 20px;
             margin-bottom: 10px;
-            margin-top: 10px;  /* or margin-bottom,
+            margin-top: 0px;  /* or margin-bottom,
             display: flex;
             align-items: center;
             justify-content: space-between;
             flex-wrap: nowrap !important;          /* force one line */
             width: 100%;
+        }
+        /* Remove top padding from the main content area */
+        .block-container {
+            padding-top: 0 !important;
         }
 
         /* Remove padding/margin from columns inside */
