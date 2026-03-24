@@ -308,13 +308,6 @@ def get_css():
            /* box-shadow: 0 4px 10px rgba(0,0,0,0.3);
        /* }
 
-
-        /* Hide deploy button, GitHub icon, etc. */
-        .stDeployButton,
-        .stAppDeployButton,
-        [data-testid="stToolbar"] {
-            display: none !important;
-        }
         /* Mobile responsiveness: stack sidebar columns on small screens */
         
     </style>
