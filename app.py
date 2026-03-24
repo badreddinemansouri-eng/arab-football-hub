@@ -87,7 +87,7 @@ def get_css():
             background: linear-gradient(135deg, #1976D2, #0D47A1) !important;
             border-radius: 0 0 20px 20px;
             padding: 10px 20px;
-            margin-bottom: 20px;
+            margin-bottom: 0px;
             display: flex;
             align-items: center;
             justify-content: space-between;
