@@ -292,6 +292,14 @@ def get_css():
             50% { opacity: 0.7; transform: scale(1.05); }
             100% { opacity: 1; transform: scale(1); }
         }
+        /* Make the default Streamlit header blue */
+        header[data-testid="stHeader"] {
+            background: linear-gradient(135deg, #1976D2, #0D47A1) !important;
+            color: white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+
         /* Hide deploy button, GitHub icon, etc. */
         .stDeployButton,
         .stAppDeployButton,
