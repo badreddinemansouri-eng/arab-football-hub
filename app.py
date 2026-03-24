@@ -327,6 +327,18 @@ def get_css():
                 flex: 0 0 34% !important;
             }
         }
+        /* When sidebar is open, overlay the first column (sidebar) */
+        div[data-testid="column"]:first-child {
+            position: fixed !important;
+            left: 0;
+            top: 0;
+            width: 66% !important;
+            height: 100vh;
+            z-index: 1000;
+            background: white;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+            overflow-y: auto;
+        }
     </style>
     """)
     if st.session_state.theme == "dark":
