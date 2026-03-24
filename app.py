@@ -120,7 +120,7 @@ def get_css():
         .stButton > button {
             background: none !important;
             border: none !important;
-            font-size: 4rem !important;
+            font-size: 6rem !important;
             font-weight: bold !important;
             color: white !important;
             padding: 0 !important;
@@ -142,7 +142,7 @@ def get_css():
                 height: 40px;
             }
             .stButton > button {
-                font-size: 7.5rem !important;
+                font-size: 12.5rem !important;
             }
             /* Force columns to stay side‑by‑side */
             .custom-header-bar div[data-testid="column"] {
