@@ -90,7 +90,7 @@ def get_css():
             border-radius: 0;
             padding: 10px 20px;
             margin-bottom: 0px;
-            margin-top: -10px;  /* or margin-bottom,
+            margin-top: 0px;  /* or margin-bottom,
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -102,7 +102,7 @@ def get_css():
         }
         /* Remove top padding from the main content area */
         .block-container {
-            padding-top: -10 !important;
+            padding-top: 0 !important;
             padding-bottom: 0;
             
         }
