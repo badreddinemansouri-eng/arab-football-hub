@@ -52,7 +52,8 @@ def get_css():
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
         * { font-family: 'Cairo', sans-serif; }
         .main, .block-container { direction: rtl; text-align: right; }
-
+        .header[data-testid="stHeader"] { 
+            display: none; }
         .custom-header .header-content {
             display: flex;
             align-items: center;
