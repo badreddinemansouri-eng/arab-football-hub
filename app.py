@@ -372,14 +372,14 @@ div[data-testid="column"] {
     position: absolute !important;
     right: 25px;
     top: 70%;
-    transform: translateY(-220%);
+    transform: translateY(-600%);
     z-index: 20;
 }
 /* Style the button to look like a plain hamburger */
 .stButton > button {
     background: none !important;
     border: none !important;
-    font-size: 2.8rem !important;
+    font-size: 7.8rem !important;
     font-weight: bold !important;
     color: white !important;
     padding: 0 !important;
