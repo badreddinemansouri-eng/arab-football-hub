@@ -96,6 +96,8 @@ def get_css():
             justify-content: space-between;
             flex-wrap: nowrap !important;          /* force one line */
             width: 100%;
+            margin-left: 0px;
+            margin-right: 0px
         }
         /* Remove top padding from the main content area */
         .block-container {
