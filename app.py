@@ -387,12 +387,13 @@ div[data-testid="column"] {
 .stButton > button {
     background: none !important;
     border: none !important;
-    font-size: 15.8rem !important;
+    font-size: 3rem !important;
     font-weight: bold !important;
     color: white !important;
     padding: 0 !important;
     margin: 0 !important;
     width: auto !important;
+    min-width: 60px;
 }
 </style>
 """, unsafe_allow_html=True)
