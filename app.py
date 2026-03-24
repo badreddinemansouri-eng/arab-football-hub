@@ -384,6 +384,7 @@ div[data-testid="column"] {
     top: 70%;
     transform: translateY(-170%);
     z-index: 20;
+    overflow: visible !important;
 }
 /* Style the button to look like a plain hamburger */
 .stButton > button {
@@ -392,7 +393,7 @@ div[data-testid="column"] {
     font-size: 6rem !important;
     font-weight: bold !important;
     color: white !important;
-    padding: 0 !important;
+    padding: 10px 15px !important;
     margin: 0 !important;
     width: auto !important;
     min-width: 0;
