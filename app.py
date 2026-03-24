@@ -53,7 +53,8 @@ def get_css():
         * { font-family: 'Cairo', sans-serif; }
         .main, .block-container { direction: rtl; text-align: right; }
         .header[data-testid="stHeader"] { 
-            display: none; }
+            display: none !important;
+        }
         .custom-header .header-content {
             display: flex;
             align-items: center;
@@ -86,7 +87,7 @@ def get_css():
         /* Outer header bar – full width, no wrap */
         .custom-header-bar {
             background: linear-gradient(135deg, #1976D2, #0D47A1) !important;
-            border-radius: 0 0 20px 20px;
+            border-radius: 0;
             padding: 10px 20px;
             margin-bottom: 10px;
             margin-top: 0px;  /* or margin-bottom,
