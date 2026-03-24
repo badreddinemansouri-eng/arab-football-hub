@@ -98,10 +98,7 @@ def get_css():
             width: 100%;
             margin-left: 0;
             margin-right: 0;
-            box-sizing: border-box;
-            position: relative;
-            left: 0;
-            right: 0;
+            
         }
         /* Remove top padding from the main content area */
         .block-container {
