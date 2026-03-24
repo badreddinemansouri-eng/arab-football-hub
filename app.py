@@ -315,6 +315,18 @@ def get_css():
         display: inline-block !important;
         white-space: nowrap !important;
         overflow: visible !important;
+        /* When sidebar is open on mobile, adjust column widths */
+        @media (max-width: 768px) {
+           /* Target the columns inside the main layout (sidebar and main) */
+            div[data-testid="column"]:first-child {
+                width: 66% !important;
+                flex: 0 0 66% !important;
+            }
+            div[data-testid="column"]:last-child {
+                width: 34% !important;
+                flex: 0 0 34% !important;
+            }
+        }
     </style>
     """)
     if st.session_state.theme == "dark":
