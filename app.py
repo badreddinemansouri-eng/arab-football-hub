@@ -89,19 +89,21 @@ def get_css():
             background: linear-gradient(135deg, #1976D2, #0D47A1) !important;
             border-radius: 0;
             padding: 10px 20px;
-            margin-bottom: 10px;
-            margin-top: 0px;  /* or margin-bottom,
+            margin-bottom: 0px;
+            margin-top: 0;  /* or margin-bottom,
             display: flex;
             align-items: center;
             justify-content: space-between;
             flex-wrap: nowrap !important;          /* force one line */
             width: 100%;
-            margin-left: 0px;
-            margin-right: 0px
+            margin-left: 0;
+            margin-right: 0;
         }
         /* Remove top padding from the main content area */
         .block-container {
             padding-top: 0 !important;
+            padding-left: 0;
+            padding-right: 0;
         }
 
         /* Remove padding/margin from columns inside */
