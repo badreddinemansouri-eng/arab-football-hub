@@ -53,11 +53,6 @@ def get_css():
         * { font-family: 'Cairo', sans-serif; }
         .main, .block-container { direction: rtl; text-align: right; }
 
-        /* Hide the default Streamlit header completely */
-        header[data-testid="stHeader"] {
-            display: none !important;
-        }
-
         .custom-header .header-content {
             display: flex;
             align-items: center;
