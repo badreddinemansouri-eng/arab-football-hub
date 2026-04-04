@@ -52,67 +52,94 @@ for k, v in _defaults.items():
         st.session_state[k] = v
 
 # ═══════════════════════════════════════════════
-#  CACHED DATA FETCHERS  ← Advice #1: cache everything
+#  LOGO FALLBACK HELPER
+#  FIX #1 — wrap every logo call so a Supabase
+#  502/network error never crashes the whole app.
+#  Returns a reliable UI-Avatars URL as fallback.
 # ═══════════════════════════════════════════════
-@st.cache_data(ttl=30)          # live data: refresh every 30 s
+def safe_team_logo(team_name: str) -> str:
+    """Return team logo URL, never raises an exception."""
+    try:
+        return get_team_logo(team_name) or _avatar_url(team_name)
+    except Exception:
+        return _avatar_url(team_name)
+
+def safe_league_logo(league_name: str) -> str:
+    """Return league logo URL, never raises an exception."""
+    try:
+        return get_league_logo(league_name) or _avatar_url(league_name, bg="1565c0")
+    except Exception:
+        return _avatar_url(league_name, bg="1565c0")
+
+def _avatar_url(name: str, bg: str = "0d47a1") -> str:
+    """Reliable UI-Avatars fallback — always works, no DB call."""
+    initials = quote(name[:2]) if name else "?"
+    return f"https://ui-avatars.com/api/?name={initials}&background={bg}&color=fff&size=64&bold=true&format=png"
+
+
+# ═══════════════════════════════════════════════
+#  CACHED DATA FETCHERS
+# ═══════════════════════════════════════════════
+@st.cache_data(ttl=30)
 def get_live_matches():
     try:
-        return supabase.table("matches").select("*").eq("status", "LIVE").execute().data
-    except:
+        return supabase.table("matches").select("*").eq("status", "LIVE").execute().data or []
+    except Exception:
         return []
 
 @st.cache_data(ttl=60)
 def get_upcoming_matches_main():
     try:
-        return supabase.table("matches").select("*").eq("status", "UPCOMING").order("match_time").execute().data
-    except:
+        return supabase.table("matches").select("*").eq("status", "UPCOMING").order("match_time").execute().data or []
+    except Exception:
         return []
 
 @st.cache_data(ttl=120)
 def get_finished_matches():
     try:
-        return supabase.table("matches").select("*").eq("status", "FINISHED").order("match_time", desc=True).execute().data
-    except:
+        return supabase.table("matches").select("*").eq("status", "FINISHED").order("match_time", desc=True).execute().data or []
+    except Exception:
         return []
 
 @st.cache_data(ttl=3600)
 def get_news():
     cutoff = (datetime.now() - timedelta(days=14)).isoformat()
     try:
-        return supabase.table("news").select("*").gte("published_at", cutoff).order("published_at", desc=True).limit(50).execute().data
-    except:
+        return supabase.table("news").select("*").gte("published_at", cutoff).order("published_at", desc=True).limit(50).execute().data or []
+    except Exception:
         return []
 
 @st.cache_data(ttl=3600)
 def get_competitions_with_standings():
     try:
         return supabase.table("standings").select("competition_code, competition_name, data").execute().data or []
-    except:
+    except Exception:
         return []
 
 @st.cache_data(ttl=60)
 def get_all_matches():
     try:
-        return supabase.table("matches").select("*").order("match_time").execute().data
-    except:
+        return supabase.table("matches").select("*").order("match_time").execute().data or []
+    except Exception:
         return []
 
 @st.cache_data(ttl=60)
 def get_admin_upcoming():
     try:
-        return supabase.table("matches").select("*").in_("status", ["UPCOMING", "LIVE"]).order("match_time").execute().data
-    except:
+        return supabase.table("matches").select("*").in_("status", ["UPCOMING", "LIVE"]).order("match_time").execute().data or []
+    except Exception:
         return []
 
 @st.cache_data(ttl=300)
 def get_predictions_for_match(fixture_id):
     try:
-        return supabase.table("predictions").select("*").eq("fixture_id", fixture_id).execute().data
-    except:
+        return supabase.table("predictions").select("*").eq("fixture_id", fixture_id).execute().data or []
+    except Exception:
         return []
 
+
 # ═══════════════════════════════════════════════
-#  CSS  ← Advice #2: skeleton loader + bottom nav
+#  CSS
 # ═══════════════════════════════════════════════
 def get_css():
     is_dark = st.session_state.theme == "dark"
@@ -157,15 +184,14 @@ header[data-testid="stHeader"], footer, #MainMenu, .stDeployButton {{ display: n
     background: {bg_primary} !important;
     direction: rtl; text-align: right;
     padding-top: 0 !important;
-    padding-bottom: 5rem;          /* space for bottom nav */
+    padding-bottom: 5rem;
     max-width: 100% !important;
 }}
 
 /* ── HEADER ──────────────────────────────── */
 .badrtv-header {{
     background: linear-gradient(135deg, #0d47a1 0%, #1565c0 50%, #1976d2 100%);
-    padding: 0 20px;
-    height: 64px;
+    padding: 0 20px; height: 64px;
     display: flex; align-items: center; justify-content: space-between;
     position: sticky; top: 0; z-index: 900;
     box-shadow: 0 4px 24px rgba(13,71,161,0.45);
@@ -236,7 +262,7 @@ div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:first-child .st
     text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px;
 }}
 
-/* ── BOTTOM NAV  ← Advice #3 ────────────── */
+/* ── BOTTOM NAV ──────────────────────────── */
 .bottom-nav {{
     position: fixed; bottom: 0; left: 0; right: 0;
     height: 60px; z-index: 800;
@@ -255,7 +281,7 @@ div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:first-child .st
 }}
 .bottom-nav a.active {{ color: #1976d2; }}
 .bottom-nav a .bn-icon {{ font-size: 1.3rem; line-height: 1; }}
-@media (min-width: 768px) {{ .bottom-nav {{ display: none; }} }}   /* desktop: hide */
+@media (min-width: 768px) {{ .bottom-nav {{ display: none; }} }}
 
 /* ── TABS ────────────────────────────────── */
 .stTabs [data-baseweb="tab-list"] {{
@@ -290,8 +316,7 @@ div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:first-child .st
     width: 34px; height: 34px;
     background: linear-gradient(135deg, #1565c0, #1976d2);
     border-radius: 10px; display: flex; align-items: center; justify-content: center;
-    font-size: 1rem; box-shadow: 0 4px 10px rgba(25,118,210,.3);
-    flex-shrink: 0;
+    font-size: 1rem; box-shadow: 0 4px 10px rgba(25,118,210,.3); flex-shrink: 0;
 }}
 .section-header-text {{ font-size: 1.05rem; font-weight: 700; color: {text_primary}; }}
 .live-count-badge {{
@@ -318,7 +343,7 @@ div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:first-child .st
 .match-card:hover {{ transform: translateY(-3px); box-shadow: 0 8px 28px rgba(25,118,210,.18); border-color: #1976d2; }}
 .match-card.live-card::before {{ background: linear-gradient(180deg, #dc2626, #ef4444); }}
 
-/* ── SKELETON LOADER  ← Advice #4 ───────── */
+/* ── SKELETON LOADER ─────────────────────── */
 .skeleton {{
     background: linear-gradient(90deg, {skeleton_base} 25%, {skeleton_shine} 50%, {skeleton_base} 75%);
     background-size: 200% 100%;
@@ -420,7 +445,6 @@ div[data-testid="stVerticalBlock"] .stButton > button:hover {{ opacity: .9 !impo
 .prediction-teams {{ font-size: .98rem; font-weight: 700; color: {text_primary}; margin-bottom: 13px; text-align: center; }}
 .pred-label {{ font-size: .8rem; color: {text_secondary}; margin-bottom: 3px; font-weight: 600; }}
 .fav-team-tag {{ display: inline-flex; align-items: center; gap: 5px; background: {bg_secondary}; border: 1px solid {border_color}; border-radius: 20px; padding: 4px 13px; font-size: .8rem; color: {text_primary}; margin: 3px; font-weight: 600; }}
-.info-toast {{ background: {bg_card}; border: 1px solid {border_color}; border-right: 4px solid #1976d2; border-radius: 10px; padding: 10px 14px; font-size: .85rem; color: {text_primary}; margin: 8px 0; }}
 
 @media (max-width: 640px) {{
     .block-container {{ padding-left: 10px !important; padding-right: 10px !important; }}
@@ -436,10 +460,9 @@ st.markdown(get_css(), unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════
-#  HELPER: SKELETON CARDS  ← Advice #4
+#  SKELETON HELPERS
 # ═══════════════════════════════════════════════
 def render_match_skeletons(n=3):
-    """Show pulsing placeholder cards while data loads."""
     skels = ""
     for _ in range(n):
         skels += """
@@ -476,15 +499,17 @@ def render_news_skeletons(n=3):
 
 
 # ═══════════════════════════════════════════════
-#  HELPER: MATCH CARD HTML
+#  MATCH CARD RENDERER
+#  FIX #1 applied: safe_team_logo / safe_league_logo
 # ═══════════════════════════════════════════════
 def render_match_card(match, show_favorite=True):
-    home_team  = html.escape(match.get('home_team', '???'))
-    away_team  = html.escape(match.get('away_team', '???'))
-    home_logo  = match.get('home_logo')  or get_team_logo(home_team)
-    away_logo  = match.get('away_logo')  or get_team_logo(away_team)
-    league_logo= match.get('league_logo') or get_league_logo(match.get('league', ''))
-    league_name= html.escape(match.get('league', ''))
+    home_team   = html.escape(match.get('home_team', '???'))
+    away_team   = html.escape(match.get('away_team', '???'))
+    # FIX #1: use safe wrappers — a 502 from Supabase will never crash the page
+    home_logo   = match.get('home_logo')   or safe_team_logo(home_team)
+    away_logo   = match.get('away_logo')   or safe_team_logo(away_team)
+    league_logo = match.get('league_logo') or safe_league_logo(match.get('league', ''))
+    league_name = html.escape(match.get('league', ''))
 
     effective_status = match['status']
     if effective_status != 'FINISHED':
@@ -493,15 +518,14 @@ def render_match_card(match, show_favorite=True):
             now = datetime.now(timezone.utc)
             if now - mt > timedelta(hours=3):
                 effective_status = 'FINISHED'
-        except:
+        except Exception:
             pass
 
     live_class = ""
     if effective_status == 'LIVE':
-        center        = f"<span style='color:#ef4444;font-weight:900;font-size:1.85rem;letter-spacing:2px;'>{match['home_score']} - {match['away_score']}</span>"
-        status_display= '<span class="live-badge">🔴 مباشر</span>'
-        live_class    = "live-card"
-
+        center         = f"<span style='color:#ef4444;font-weight:900;font-size:1.85rem;letter-spacing:2px;'>{match['home_score']} - {match['away_score']}</span>"
+        status_display = '<span class="live-badge">🔴 مباشر</span>'
+        live_class     = "live-card"
     elif effective_status == 'UPCOMING':
         try:
             utc_time   = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
@@ -515,7 +539,7 @@ def render_match_card(match, show_favorite=True):
             else:
                 status_display = f"<span style='color:#9ca3af;font-size:.78rem;'>{match_date.strftime('%m/%d')}</span>"
             center = f"<span style='color:#1976d2;font-weight:900;font-size:1.6rem;'>{time_str}</span>"
-        except:
+        except Exception:
             status_display = "<span style='color:#6b7280;font-size:.78rem;'>لم تبدأ</span>"
             center         = "--:--"
     else:
@@ -524,7 +548,7 @@ def render_match_card(match, show_favorite=True):
             local_time = utc_time.astimezone(tz_tunis)
             status_display = f"<span style='color:#9ca3af;font-size:.78rem;'>{local_time.strftime('%m/%d')}</span>"
             center         = f"<span style='color:#6b7280;font-weight:900;font-size:1.6rem;'>{match['home_score']} - {match['away_score']}</span>"
-        except:
+        except Exception:
             status_display = "<span style='color:#9ca3af;font-size:.78rem;'>انتهت</span>"
             center         = f"{match['home_score']} - {match['away_score']}"
 
@@ -554,7 +578,7 @@ def render_match_card(match, show_favorite=True):
 
 
 # ═══════════════════════════════════════════════
-#  HELPER: SECTION HEADER
+#  SMALL UI HELPERS
 # ═══════════════════════════════════════════════
 def render_section_header(icon, title, badge=None):
     badge_html = f'<span class="live-count-badge">{badge}</span>' if badge else ''
@@ -565,10 +589,6 @@ def render_section_header(icon, title, badge=None):
       {badge_html}
     </div>""", unsafe_allow_html=True)
 
-
-# ═══════════════════════════════════════════════
-#  HELPER: EMPTY STATE
-# ═══════════════════════════════════════════════
 def render_empty(icon, msg):
     st.markdown(f"""
     <div class="empty-state">
@@ -604,7 +624,7 @@ with col_burger:
 
 
 # ═══════════════════════════════════════════════
-#  BOTTOM NAVIGATION (mobile)  ← Advice #3
+#  BOTTOM NAVIGATION (mobile only)
 # ═══════════════════════════════════════════════
 st.markdown("""
 <div class="bottom-nav">
@@ -632,14 +652,13 @@ st.markdown("""
 if st.session_state.sidebar_open:
     st.markdown('<div class="sidebar-overlay"></div>', unsafe_allow_html=True)
     st.markdown('<div class="sidebar-drawer">', unsafe_allow_html=True)
-
     st.markdown('<div class="sidebar-drawer-header"><h3>⚙️ القائمة الرئيسية</h3></div>', unsafe_allow_html=True)
 
     if st.button("✕ إغلاق", key="close_sidebar"):
         st.session_state.sidebar_open = False
         st.rerun()
 
-    # Account
+    # ── Account ──
     st.markdown('<div class="sidebar-section"><div class="sidebar-section-title">👤 الحساب</div>', unsafe_allow_html=True)
     if st.session_state.user:
         st.markdown(f"<p style='margin:0 0 10px;font-size:.86rem;opacity:.8;'>مرحباً 👋<br><strong>{st.session_state.user.email}</strong></p>", unsafe_allow_html=True)
@@ -652,39 +671,60 @@ if st.session_state.sidebar_open:
             if st.button("دخول", key="login_main"):
                 sign_in(email, password)
         with st.expander("إنشاء حساب"):
-            new_email= st.text_input("البريد الإلكتروني", key="signup_email")
-            new_pass = st.text_input("كلمة المرور", type="password", key="signup_pass")
+            new_email = st.text_input("البريد الإلكتروني", key="signup_email")
+            new_pass  = st.text_input("كلمة المرور", type="password", key="signup_pass")
             if st.button("تسجيل", key="signup_main"):
                 sign_up(new_email, new_pass)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Theme
+    # ── Theme ──
+    # FIX #2: give the radio a real label + label_visibility="collapsed"
+    # Passing "" as label is deprecated in Streamlit 1.56 and will become an error.
     st.markdown('<div class="sidebar-section"><div class="sidebar-section-title">🎨 المظهر</div>', unsafe_allow_html=True)
-    theme = st.radio("", ["داكن", "فاتح"], index=0 if st.session_state.theme == "dark" else 1, key="theme_radio", horizontal=True)
+    theme = st.radio(
+        "اختر المظهر",
+        ["داكن", "فاتح"],
+        index=0 if st.session_state.theme == "dark" else 1,
+        key="theme_radio",
+        horizontal=True,
+        label_visibility="collapsed",   # ← hides the label visually but keeps it for accessibility
+    )
     if theme == "داكن" and st.session_state.theme != "dark":
         st.session_state.theme = "dark"; st.rerun()
     elif theme == "فاتح" and st.session_state.theme != "light":
         st.session_state.theme = "light"; st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Search
+    # ── Search ──
     st.markdown('<div class="sidebar-section"><div class="sidebar-section-title">🔍 البحث</div>', unsafe_allow_html=True)
-    search_query = st.text_input(" ", label_visibility="collapsed", key="search_input", placeholder="ابحث عن فريق أو لاعب...")
+    # FIX #2 also applies here: text_input with real label + collapsed visibility
+    search_query = st.text_input(
+        "البحث عن فريق أو لاعب",
+        key="search_input",
+        placeholder="ابحث عن فريق أو لاعب...",
+        label_visibility="collapsed",
+    )
     if search_query:
         c1, c2 = st.columns(2)
         with c1:
             st.markdown("**الفرق**")
-            teams = supabase.table("teams").select("id,name,logo").ilike("name", f"%{search_query}%").execute()
-            for t in teams.data:
-                st.markdown(f"[{t['name']}](/team?team_id={t['id']})")
+            try:
+                teams = supabase.table("teams").select("id,name,logo").ilike("name", f"%{search_query}%").execute()
+                for t in teams.data:
+                    st.markdown(f"[{t['name']}](/team?team_id={t['id']})")
+            except Exception:
+                st.caption("تعذّر تحميل الفرق")
         with c2:
             st.markdown("**اللاعبين**")
-            players = supabase.table("players").select("id,name,photo").ilike("name", f"%{search_query}%").execute()
-            for p in players.data:
-                st.markdown(f"[{p['name']}](/player?player_id={p['id']})")
+            try:
+                players = supabase.table("players").select("id,name,photo").ilike("name", f"%{search_query}%").execute()
+                for p in players.data:
+                    st.markdown(f"[{p['name']}](/player?player_id={p['id']})")
+            except Exception:
+                st.caption("تعذّر تحميل اللاعبين")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Favorites
+    # ── Favorites ──
     st.markdown('<div class="sidebar-section"><div class="sidebar-section-title">⭐ المفضلة</div>', unsafe_allow_html=True)
     if st.session_state.user:
         if st.session_state.favorites:
@@ -696,7 +736,7 @@ if st.session_state.sidebar_open:
         st.markdown('<p style="font-size:.83rem;opacity:.55;margin:0;">سجل الدخول لرؤية مفضلتك</p>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Admin
+    # ── Admin ──
     st.markdown('<div class="sidebar-section"><div class="sidebar-section-title">👑 لوحة التحكم</div>', unsafe_allow_html=True)
     with st.expander("دخول المشرف", expanded=False):
         if not st.session_state.admin_auth:
@@ -712,14 +752,16 @@ if st.session_state.sidebar_open:
             if st.button("إظهار لوحة التحكم", key="show_admin_btn"):
                 st.session_state.show_admin = not st.session_state.show_admin
             if st.button("تسجيل الخروج", key="admin_logout"):
-                st.session_state.admin_auth = False; st.session_state.show_admin = False; st.rerun()
+                st.session_state.admin_auth = False
+                st.session_state.show_admin = False
+                st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)  # close drawer
 
 
 # ═══════════════════════════════════════════════
-#  ADMIN PANEL (inline, when open)
+#  ADMIN PANEL (inline)
 # ═══════════════════════════════════════════════
 if st.session_state.get("admin_auth") and st.session_state.get("show_admin"):
     with st.container():
@@ -731,14 +773,14 @@ if st.session_state.get("admin_auth") and st.session_state.get("show_admin"):
             match_data = {}
             for m in upcoming:
                 try:
-                    lt      = datetime.fromisoformat(m["match_time"].replace('Z','+00:00')).astimezone(tz_tunis)
-                    t_str   = lt.strftime("%H:%M")
-                except:
-                    t_str   = "--:--"
+                    lt    = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00')).astimezone(tz_tunis)
+                    t_str = lt.strftime("%H:%M")
+                except Exception:
+                    t_str = "--:--"
                 label = f"{t_str} - {m['home_team']} vs {m['away_team']} ({m['league']})"
                 match_data[label] = (m['fixture_id'], m['source'])
 
-            selected_match         = st.selectbox("اختر المباراة", list(match_data.keys()), key="match_select")
+            selected_match           = st.selectbox("اختر المباراة", list(match_data.keys()), key="match_select")
             fixture_id, match_source = match_data[selected_match]
 
             c1, c2 = st.columns(2)
@@ -746,15 +788,17 @@ if st.session_state.get("admin_auth") and st.session_state.get("show_admin"):
                 stream_url   = st.text_input("رابط البث", key="stream_url")
                 stream_title = st.text_input("عنوان الرابط (اختياري)", key="stream_title")
             with c2:
-                stream_source = st.selectbox("المصدر", ["youtube","facebook","custom","official"], key="stream_source")
+                stream_source = st.selectbox("المصدر", ["youtube", "facebook", "custom", "official"], key="stream_source")
                 expiry_hours  = st.number_input("ساعات الصلاحية", min_value=1, max_value=24, value=3, key="expiry_hours")
 
             if st.button("إضافة الرابط", key="add_stream_btn"):
                 if stream_url:
                     expires_at = (datetime.now() + timedelta(hours=expiry_hours)).isoformat()
-                    data = {"fixture_id": fixture_id, "source": match_source,
-                            "stream_url": stream_url, "stream_title": stream_title or "بث مباشر",
-                            "stream_source": stream_source, "expires_at": expires_at, "is_active": True}
+                    data = {
+                        "fixture_id": fixture_id, "source": match_source,
+                        "stream_url": stream_url, "stream_title": stream_title or "بث مباشر",
+                        "stream_source": stream_source, "expires_at": expires_at, "is_active": True
+                    }
                     try:
                         supabase.table("admin_streams").insert(data).execute()
                         st.success("تم إضافة الرابط بنجاح!")
@@ -779,7 +823,6 @@ if st.session_state.get("admin_auth") and st.session_state.get("show_admin"):
                             st.success("تم الحذف"); st.rerun()
             except Exception as e:
                 st.error("خطأ في تحميل الروابط")
-
         else:
             st.info("لا توجد مباريات قادمة")
 
@@ -793,23 +836,26 @@ if st.session_state.get("admin_auth") and st.session_state.get("show_admin"):
             custom_time   = st.time_input("الوقت", datetime.now().time(), key="custom_match_time")
             custom_stream = st.text_input("رابط البث (اختياري)")
             if st.form_submit_button("إضافة المباراة") and custom_home and custom_away:
-                local_dt  = datetime.combine(custom_date, custom_time).replace(tzinfo=tz_tunis)
-                match_time= local_dt.astimezone(timezone.utc).isoformat()
-                new_id    = -random.randint(10000, 99999)
+                local_dt   = datetime.combine(custom_date, custom_time).replace(tzinfo=tz_tunis)
+                match_time = local_dt.astimezone(timezone.utc).isoformat()
+                new_id     = -random.randint(10000, 99999)
                 data = {
                     "fixture_id": new_id, "home_team": custom_home, "away_team": custom_away,
                     "league": custom_league, "match_time": match_time,
                     "status": "UPCOMING", "home_score": 0, "away_score": 0,
-                    "streams": json.dumps([{"title":"بث يدوي","url":custom_stream,"source":"admin","verified":True,"admin_added":True}]) if custom_stream else "[]",
+                    "streams": json.dumps([{"title": "بث يدوي", "url": custom_stream, "source": "admin", "verified": True, "admin_added": True}]) if custom_stream else "[]",
                     "home_logo": None, "away_logo": None, "league_logo": None,
                     "source": "custom", "is_custom": True
                 }
-                supabase.table("matches").insert(data).execute()
-                st.success("تمت إضافة المباراة بنجاح"); st.rerun()
+                try:
+                    supabase.table("matches").insert(data).execute()
+                    st.success("تمت إضافة المباراة بنجاح"); st.rerun()
+                except Exception as e:
+                    st.error(f"خطأ في الإضافة: {e}")
 
 
 # ═══════════════════════════════════════════════
-#  LAST UPDATED TIMESTAMP
+#  TIMESTAMP
 # ═══════════════════════════════════════════════
 st.markdown(f'<div class="last-updated">🔄 آخر تحديث: {now_str}</div>', unsafe_allow_html=True)
 
@@ -829,29 +875,19 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 
 # ─── TAB 1 : MATCHES ────────────────────────────
 with tab1:
-    # ── Live matches (short TTL: 30s) ──
-    with st.spinner(""):
-        live_matches = get_live_matches()
-
-    live_count = len(live_matches) if live_matches else None
+    live_matches = get_live_matches()
+    live_count   = len(live_matches) if live_matches else None
     render_section_header("🔴", "المباريات المباشرة الآن", badge=live_count)
 
-    if live_matches is None:
-        render_match_skeletons(2)
-    elif live_matches:
+    if live_matches:
         for m in live_matches:
             st.markdown(render_match_card(m), unsafe_allow_html=True)
     else:
         render_empty("📡", "لا توجد مباريات مباشرة حالياً")
 
-    # ── Upcoming ──
     render_section_header("📅", "المباريات القادمة")
-    with st.spinner(""):
-        upcoming = get_upcoming_matches_main()
-
-    if upcoming is None:
-        render_match_skeletons(3)
-    elif upcoming:
+    upcoming = get_upcoming_matches_main()
+    if upcoming:
         for m in upcoming:
             st.markdown(render_match_card(m), unsafe_allow_html=True)
     else:
@@ -861,22 +897,19 @@ with tab1:
 # ─── TAB 2 : RESULTS ────────────────────────────
 with tab2:
     render_section_header("📊", "النتائج الأخيرة")
-    with st.spinner(""):
-        finished = get_finished_matches()
-
-    if finished is None:
-        render_match_skeletons(4)
-    elif finished:
+    finished = get_finished_matches()
+    if finished:
         for m in finished:
-            ht  = html.escape(m['home_team'])
-            at  = html.escape(m['away_team'])
-            hl  = m.get('home_logo') or get_team_logo(ht)
-            al  = m.get('away_logo') or get_team_logo(at)
+            ht = html.escape(m['home_team'])
+            at = html.escape(m['away_team'])
+            # FIX #1 applied here too
+            hl = m.get('home_logo') or safe_team_logo(ht)
+            al = m.get('away_logo') or safe_team_logo(at)
             try:
-                lt  = datetime.fromisoformat(m["match_time"].replace('Z','+00:00')).astimezone(tz_tunis)
-                ds  = lt.strftime('%Y-%m-%d')
-            except:
-                ds  = "---"
+                lt = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00')).astimezone(tz_tunis)
+                ds = lt.strftime('%Y-%m-%d')
+            except Exception:
+                ds = "---"
             st.markdown(f"""
             <a href="/match_details?match_id={m['fixture_id']}" style="text-decoration:none;color:inherit;display:block;">
               <div class="match-card">
@@ -906,12 +939,8 @@ with tab2:
 # ─── TAB 3 : NEWS ───────────────────────────────
 with tab3:
     render_section_header("📰", "آخر الأخبار")
-    with st.spinner(""):
-        news = get_news()
-
-    if news is None:
-        render_news_skeletons(4)
-    elif not news:
+    news = get_news()
+    if not news:
         render_empty("📭", "لا توجد أخبار حالياً")
     else:
         for item in news:
@@ -921,9 +950,9 @@ with tab3:
             safe_url     = html.escape(item.get('url', ''))
             safe_image   = html.escape(item.get('image', '')) if item.get('image') else None
             try:
-                pub_date = datetime.fromisoformat(item["published_at"].replace('Z','+00:00'))
+                pub_date = datetime.fromisoformat(item["published_at"].replace('Z', '+00:00'))
                 date_str = pub_date.strftime("%Y-%m-%d %H:%M")
-            except:
+            except Exception:
                 date_str = "تاريخ غير معروف"
             lang       = item.get("language", "ar")
             lang_badge = '<span class="lang-badge en">🇬🇧 EN</span>' if lang == "en" else '<span class="lang-badge">🇸🇦 AR</span>'
@@ -953,10 +982,10 @@ with tab4:
         if not comps:
             render_empty("🏆", "لا توجد ترتيبات متاحة حالياً")
         else:
-            comp_names   = [c["competition_name"] for c in comps]
-            selected_comp= st.selectbox("اختر البطولة", comp_names, key="standings_select")
-            comp_data    = next(c for c in comps if c["competition_name"] == selected_comp)
-            standings    = comp_data["data"].get("standings", [])
+            comp_names    = [c["competition_name"] for c in comps]
+            selected_comp = st.selectbox("اختر البطولة", comp_names, key="standings_select")
+            comp_data     = next(c for c in comps if c["competition_name"] == selected_comp)
+            standings     = comp_data["data"].get("standings", [])
             if not standings:
                 st.warning("لا توجد معلومات ترتيب لهذه البطولة")
             else:
@@ -967,15 +996,15 @@ with tab4:
                     html_table += '<th>#</th><th>الفريق</th><th>لعب</th><th>فوز</th><th>تعادل</th><th>خسارة</th><th>له</th><th>عليه</th><th>فارق</th><th>نقاط</th>'
                     html_table += '</tr></thead><tbody>'
                     for row in table:
-                        team_id  = row["team"]["id"]
-                        team_name= row["team"]["name"]
-                        gd       = row["goalDifference"]
-                        gd_color = "#22c55e" if gd > 0 else ("#ef4444" if gd < 0 else "inherit")
-                        gd_str   = f"+{gd}" if gd > 0 else str(gd)
+                        team_id   = row["team"]["id"]
+                        team_name = row["team"]["name"]
+                        gd        = row["goalDifference"]
+                        gd_color  = "#22c55e" if gd > 0 else ("#ef4444" if gd < 0 else "inherit")
+                        gd_str    = f"+{gd}" if gd > 0 else str(gd)
                         html_table += f"""<tr>
                           <td><strong>{row["position"]}</strong></td>
                           <td style="text-align:right;padding-right:12px;">
-                            <a href="/team?team_id={team_id}" style="color:inherit;text-decoration:none;">{team_name}</a>
+                            <a href="/team?team_id={team_id}">{team_name}</a>
                           </td>
                           <td>{row["playedGames"]}</td>
                           <td style="color:#22c55e;font-weight:700;">{row["won"]}</td>
@@ -1034,18 +1063,18 @@ with tab6:
                     p = pred_data[0]
                     st.markdown(f"""
                     <div class="prediction-card">
-                      <div class="prediction-teams">{m['home_team']} ⚔️ {m['away_team']}</div>
+                      <div class="prediction-teams">{html.escape(m['home_team'])} ⚔️ {html.escape(m['away_team'])}</div>
                     </div>""", unsafe_allow_html=True)
-                    st.markdown(f'<div class="pred-label">فوز {m["home_team"]} — {round(p["home_win_prob"]*100)}%</div>', unsafe_allow_html=True)
-                    st.progress(p["home_win_prob"])
-                    st.markdown(f'<div class="pred-label">تعادل — {round(p["draw_prob"]*100)}%</div>', unsafe_allow_html=True)
-                    st.progress(p["draw_prob"])
-                    st.markdown(f'<div class="pred-label">فوز {m["away_team"]} — {round(p["away_win_prob"]*100)}%</div>', unsafe_allow_html=True)
-                    st.progress(p["away_win_prob"])
+                    st.markdown(f'<div class="pred-label">فوز {html.escape(m["home_team"])} — {round(p["home_win_prob"] * 100)}%</div>', unsafe_allow_html=True)
+                    st.progress(float(p["home_win_prob"]))
+                    st.markdown(f'<div class="pred-label">تعادل — {round(p["draw_prob"] * 100)}%</div>', unsafe_allow_html=True)
+                    st.progress(float(p["draw_prob"]))
+                    st.markdown(f'<div class="pred-label">فوز {html.escape(m["away_team"])} — {round(p["away_win_prob"] * 100)}%</div>', unsafe_allow_html=True)
+                    st.progress(float(p["away_win_prob"]))
                 else:
                     st.markdown(f"""
                     <div class="prediction-card">
-                      <div class="prediction-teams">{m['home_team']} ⚔️ {m['away_team']}</div>
+                      <div class="prediction-teams">{html.escape(m['home_team'])} ⚔️ {html.escape(m['away_team'])}</div>
                       <div style="text-align:center;opacity:.45;font-size:.83rem;">لا توجد توقعات بعد</div>
                     </div>""", unsafe_allow_html=True)
     except Exception as e:
