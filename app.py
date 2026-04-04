@@ -37,7 +37,7 @@ if "profile" not in st.session_state:
 if "favorites" not in st.session_state:
     st.session_state.favorites = []
 if "theme" not in st.session_state:
-    st.session_state.theme = "light"
+    st.session_state.theme = "dark"
 if "sidebar_open" not in st.session_state:
     st.session_state.sidebar_open = False
 if "admin_auth" not in st.session_state:
@@ -47,387 +47,631 @@ if "show_admin" not in st.session_state:
 
 # -------------------- Custom CSS --------------------
 def get_css():
-    base_css = textwrap.dedent("""
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
-        * { font-family: 'Cairo', sans-serif; }
-        .main, .block-container { direction: rtl; text-align: right; }
-        header[data-testid="stHeader"] { 
-            display: none !important;
-        }
-        .custom-header .header-content {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        .custom-header img {
-            width: 70px;
-            height: 70px;
-            border-radius: 50%;
-            object-fit: cover;
-        }
-        .custom-header h1 {
-            font-size: 2.2rem;
-            margin: 0;
-            font-weight: 700;
-        }
-        .hamburger-btn {
-            background: none;
-            border: none;
-            font-size: 4rem;
-            font-weight: bold;
-            color: white;
-            cursor: pointer;
-            padding: 0;
-            margin: 0;
-        }
+    is_dark = st.session_state.theme == "dark"
 
-        
-        
-        /* Outer header bar – full width, no wrap */
-        .custom-header-bar {
-            background: linear-gradient(135deg, #1976D2, #0D47A1) !important;
-            border-radius: 0;
-            padding: 10px 20px;
-            margin-bottom: 0px;
-            margin-top: 0px;  /* or margin-bottom,
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: nowrap !important;          /* force one line */
-            width: 100%;
-            margin-left: 0;
-            margin-right: 0;
-            
-        }
-        /* Remove top padding from the main content area */
-        .block-container {
-            padding-top: 0 !important;
-            padding-bottom: 0;
-            
-        }
-
-        /* Remove padding/margin from columns inside */
-        .custom-header-bar div[data-testid="column"] {
-            background: transparent !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            flex: 0 1 auto;             /* allow shrinking, no growing */
-        }
-
-
-        /* Hamburger button styling */
-        .stButton > button {
-            background: none !important;
-            border: none !important;
-            font-size: 6rem !important;
-            font-weight: bold !important;
-            color: white !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            width: auto !important;
-        }
-
-        @media (max-width: 600px) {
-            .custom-header-bar {
-                padding: 8px 15px;
-                flex-wrap: nowrap !important;       /* override any potential wrap */
-            }
-            .custom-header-bar h1 {
-                font-size: 1.4rem;
-                white-space: nowrap;
-            }
-            .custom-header-bar img {
-                width: 40px;
-                height: 40px;
-            }
-            .stButton > button {
-                font-size: 12.5rem !important;
-            }
-            /* Force columns to stay side‑by‑side */
-            .custom-header-bar div[data-testid="column"] {
-                flex: 0 1 auto !important;
-            }
-            .custom-header-bar div[data-testid="column"]:first-child {
-                flex: 0 0 auto !important;
-            }
-            .custom-header-bar div[data-testid="column"]:last-child {
-                flex: 1 1 auto !important;
-                min-width: 0 !important;
-            }
-        }
-
-        /* Match card styling */
-        .match-card {
-            border-radius: 20px;
-            padding: 16px;
-            margin-bottom: 16px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-        }
-        .stTabs [data-baseweb="tab-list"] { gap: 8px; }
-        .stTabs [data-baseweb="tab"] { border-radius: 20px; padding: 8px 16px; }
-        /* Professional search bar */
-        .search-container {
-            position: relative;
-            width: 100%;
-            margin-bottom: 20px;
-        }
-        .search-container input {
-            width: 100%;
-            padding: 12px 45px 12px 15px;
-            border: 1px solid #444;
-            border-radius: 30px;
-            background: rgba(255,255,255,0.1);
-            color: white;
-            font-size: 1rem;
-            outline: none;
-        }
-        .search-container input:focus {
-            border-color: #1976d2;
-            box-shadow: 0 0 8px #1976d2;
-        }
-        .search-container::after {
-            content: "🔍";
-            position: absolute;
-            left: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 1.2rem;
-            color: #aaa;
-            pointer-events: none;
-        }
-        .last-updated {
-            text-align: left;
-            color: #888;
-            font-size: 0.8rem;
-            margin-bottom: 10px;
-        }
-        /* News card styles */
-        .news-card {
-            background: #ffffff;
-            border-radius: 20px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            border: 1px solid #e0e0e0;
-            transition: transform 0.2s;
-            direction: rtl;
-        }
-        .news-card:hover { transform: translateY(-2px); }
-        .news-image {
-            width: 100%;
-            max-height: 150px;
-            object-fit: cover;
-            border-radius: 12px;
-            margin-bottom: 10px;
-        }
-        .news-title {
-            font-size: 1.3rem;
-            font-weight: 700;
-            margin: 0 0 8px 0;
-            color: #333;
-            text-decoration: none;
-        }
-        .news-title a { color: #333; text-decoration: none; }
-        .news-title a:hover { color: #1976d2; }
-        .news-content {
-            color: #666;
-            margin: 0 0 12px 0;
-            line-height: 1.6;
-        }
-        .news-meta {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            color: #888;
-            font-size: 0.9rem;
-            flex-wrap: wrap;
-        }
-        .source-badge {
-            background: #1976d2;
-            color: white;
-            padding: 2px 10px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-        }
-        .lang-badge {
-            background: #166534;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 0.8rem;
-        }
-        .lang-badge.en { background: #1e3a8a; }
-        @media (prefers-color-scheme: dark) {
-            .news-card {
-                background: #1e1e2e;
-                border-color: #333;
-            }
-            .news-title a { color: #f0f0f0; }
-            .news-content { color: #aaa; }
-        }
-        /* Standings table */
-        .standings-table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: center;
-            background: rgba(255,255,255,0.05);
-            border-radius: 12px;
-            overflow: hidden;
-        }
-        .standings-table th {
-            background: #1976d2;
-            color: white;
-            padding: 10px;
-        }
-        .standings-table td {
-            padding: 8px;
-            border-bottom: 1px solid #444;
-        }
-        .standings-table a {
-            color: inherit;
-            text-decoration: none;
-        }
-        .standings-table a:hover { text-decoration: underline; }
-        .live-badge {
-            background: #ff4d4d;
-            color: white;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: bold;
-            display: inline-block;
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse {
-            0% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.7; transform: scale(1.05); }
-            100% { opacity: 1; transform: scale(1); }
-        }
-        /* Make the default Streamlit header blue */
-       /* header[data-testid="stHeader"] {
-           /* background: linear-gradient(135deg, #1976D2, #0D47A1) !important;
-            /*color: white;
-           /* box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-       /* }
-
-        /* Mobile responsiveness: stack sidebar columns on small screens */
-        display: inline-block !important;
-        white-space: nowrap !important;
-        overflow: visible !important;
-        /* When sidebar is open on mobile, adjust column widths */
-        @media (max-width: 768px) {
-           /* Target the columns inside the main layout (sidebar and main) */
-            div[data-testid="column"]:first-child {
-                width: 66% !important;
-                flex: 0 0 66% !important;
-            }
-            div[data-testid="column"]:last-child {
-                width: 34% !important;
-                flex: 0 0 34% !important;
-            }
-        }
-        /* When sidebar is open, overlay the first column (sidebar) */
-        div[data-testid="column"]:first-child {
-            position: fixed !important;
-            left: 0;
-            top: 0;
-            width: 66% !important;
-            height: 100vh;
-            z-index: 1000;
-            background: white;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.2);
-            overflow-y: auto;
-        }
-    </style>
-    """)
-    if st.session_state.theme == "dark":
-        return base_css + textwrap.dedent("""
-        <style>
-            .main, .block-container { background: #0f0f1a; color: white; }
-            .match-card { background: #1a1a2e; }
-            .stTabs [data-baseweb="tab"] { background-color: transparent; color: white; }
-            .stTabs [aria-selected="true"] { background-color: #1976d2; }
-            .search-container input { background: rgba(255,255,255,0.1); color: white; border-color: #444; }
-            .standings-table { background: #1a1a2e; }
-        </style>
-        """)
+    # Color tokens
+    if is_dark:
+        bg_primary    = "#0a0e1a"
+        bg_secondary  = "#111827"
+        bg_card       = "#1a2035"
+        bg_card_hover = "#1e2845"
+        text_primary  = "#f0f4ff"
+        text_secondary= "#8899bb"
+        border_color  = "#1e2d50"
+        sidebar_bg    = "#0d1526"
+        input_bg      = "#151f35"
     else:
-        return base_css + textwrap.dedent("""
-        <style>
-            .main, .block-container { background: #f5f5f5; color: #333; }
-            .match-card { background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-            .stTabs [data-baseweb="tab"] { background-color: transparent; color: #333; }
-            .stTabs [aria-selected="true"] { background-color: #1976d2; color: white; }
-            .search-container input { background: white; color: #333; border-color: #ccc; }
-            .standings-table { background: white; }
-        </style>
-        """)
+        bg_primary    = "#f0f4ff"
+        bg_secondary  = "#e4eaf8"
+        bg_card       = "#ffffff"
+        bg_card_hover = "#f5f8ff"
+        text_primary  = "#0a0e1a"
+        text_secondary= "#5a6a8a"
+        border_color  = "#d0daf0"
+        sidebar_bg    = "#ffffff"
+        input_bg      = "#eef2fc"
+
+    return f"""
+<style>
+    /* ===== GOOGLE FONT ===== */
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap');
+
+    /* ===== GLOBAL RESET ===== */
+    *, *::before, *::after {{
+        font-family: 'Cairo', sans-serif !important;
+        box-sizing: border-box;
+    }}
+
+    /* ===== HIDE STREAMLIT CHROME ===== */
+    header[data-testid="stHeader"],
+    footer,
+    #MainMenu,
+    .stDeployButton {{
+        display: none !important;
+    }}
+
+    /* ===== PAGE BACKGROUND ===== */
+    .stApp {{
+        background: {bg_primary} !important;
+    }}
+    .main, .block-container {{
+        background: {bg_primary} !important;
+        direction: rtl;
+        text-align: right;
+        padding-top: 0 !important;
+        padding-bottom: 2rem;
+        max-width: 100% !important;
+    }}
+
+    /* ===== HEADER BAR ===== */
+    .badrtv-header {{
+        background: linear-gradient(135deg, #0d47a1 0%, #1565c0 50%, #1976d2 100%);
+        padding: 0 24px;
+        height: 68px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: sticky;
+        top: 0;
+        z-index: 900;
+        box-shadow: 0 4px 24px rgba(13,71,161,0.5);
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        margin-bottom: 0;
+    }}
+    .badrtv-header-brand {{
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }}
+    .badrtv-header-brand img {{
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid rgba(255,255,255,0.3);
+        box-shadow: 0 0 12px rgba(255,255,255,0.15);
+    }}
+    .badrtv-header-title {{
+        font-size: 1.5rem;
+        font-weight: 900;
+        color: #ffffff;
+        margin: 0;
+        letter-spacing: 0.5px;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }}
+    .badrtv-header-sub {{
+        font-size: 0.7rem;
+        color: rgba(255,255,255,0.6);
+        font-weight: 400;
+        display: block;
+        margin-top: -4px;
+        letter-spacing: 1px;
+    }}
+    .badrtv-header-right {{
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }}
+    .badrtv-time-badge {{
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 20px;
+        padding: 4px 14px;
+        font-size: 0.78rem;
+        color: rgba(255,255,255,0.8);
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }}
+
+    /* ===== HAMBURGER BUTTON ===== */
+    /* Target the hamburger button column specifically */
+    div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:first-child .stButton > button {{
+        background: rgba(255,255,255,0.12) !important;
+        border: 1px solid rgba(255,255,255,0.2) !important;
+        color: white !important;
+        font-size: 1.3rem !important;
+        font-weight: 700 !important;
+        width: 42px !important;
+        height: 42px !important;
+        border-radius: 12px !important;
+        padding: 0 !important;
+        line-height: 1 !important;
+        cursor: pointer;
+        transition: background 0.2s ease !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }}
+    div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:first-child .stButton > button:hover {{
+        background: rgba(255,255,255,0.22) !important;
+    }}
+
+    /* ===== DRAWER OVERLAY ===== */
+    .sidebar-overlay {{
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.55);
+        z-index: 1000;
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+    }}
+    .sidebar-drawer {{
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: min(340px, 88vw);
+        height: 100dvh;
+        background: {sidebar_bg};
+        z-index: 1001;
+        overflow-y: auto;
+        box-shadow: -8px 0 40px rgba(0,0,0,0.4);
+        border-left: 1px solid {border_color};
+        direction: rtl;
+        animation: slideInRight 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+    }}
+    @keyframes slideInRight {{
+        from {{ transform: translateX(100%); opacity: 0; }}
+        to   {{ transform: translateX(0);    opacity: 1; }}
+    }}
+    .sidebar-drawer-header {{
+        background: linear-gradient(135deg, #0d47a1, #1976d2);
+        padding: 20px 20px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }}
+    .sidebar-drawer-header h3 {{
+        color: white;
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 700;
+    }}
+    .sidebar-close-btn {{
+        background: rgba(255,255,255,0.15);
+        border: none;
+        border-radius: 8px;
+        color: white;
+        font-size: 1.2rem;
+        width: 34px;
+        height: 34px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
+    }}
+    .sidebar-close-btn:hover {{ background: rgba(255,255,255,0.28); }}
+    .sidebar-section {{
+        padding: 16px 20px;
+        border-bottom: 1px solid {border_color};
+    }}
+    .sidebar-section-title {{
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #1976d2;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        margin-bottom: 12px;
+    }}
+
+    /* ===== TABS ===== */
+    .stTabs [data-baseweb="tab-list"] {{
+        gap: 4px;
+        background: {bg_secondary} !important;
+        border-radius: 14px;
+        padding: 5px;
+        border: 1px solid {border_color};
+        margin-bottom: 20px;
+    }}
+    .stTabs [data-baseweb="tab"] {{
+        border-radius: 10px !important;
+        padding: 8px 14px !important;
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
+        color: {text_secondary} !important;
+        background: transparent !important;
+        border: none !important;
+        transition: all 0.2s ease !important;
+    }}
+    .stTabs [aria-selected="true"] {{
+        background: linear-gradient(135deg, #1565c0, #1976d2) !important;
+        color: white !important;
+        box-shadow: 0 4px 12px rgba(25,118,210,0.4) !important;
+    }}
+    .stTabs [data-baseweb="tab-highlight"] {{ display: none !important; }}
+    .stTabs [data-baseweb="tab-border"] {{ display: none !important; }}
+
+    /* Mobile tabs: scroll */
+    @media (max-width: 600px) {{
+        .stTabs [data-baseweb="tab-list"] {{
+            overflow-x: auto;
+            flex-wrap: nowrap;
+            scrollbar-width: none;
+        }}
+        .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar {{ display: none; }}
+        .stTabs [data-baseweb="tab"] {{
+            padding: 7px 10px !important;
+            font-size: 0.75rem !important;
+            white-space: nowrap;
+        }}
+    }}
+
+    /* ===== SECTION HEADERS ===== */
+    .section-header {{
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 20px 0 14px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid {border_color};
+    }}
+    .section-header-icon {{
+        width: 36px;
+        height: 36px;
+        background: linear-gradient(135deg, #1565c0, #1976d2);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        box-shadow: 0 4px 10px rgba(25,118,210,0.35);
+    }}
+    .section-header-text {{
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: {text_primary};
+    }}
+    .live-count-badge {{
+        background: #dc2626;
+        color: white;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 20px;
+        margin-right: auto;
+        animation: pulseBadge 1.5s infinite;
+    }}
+    @keyframes pulseBadge {{
+        0%,100% {{ opacity: 1; transform: scale(1); }}
+        50%      {{ opacity: 0.75; transform: scale(1.06); }}
+    }}
+
+    /* ===== MATCH CARD ===== */
+    .match-card {{
+        background: {bg_card};
+        border-radius: 16px;
+        padding: 16px 18px;
+        margin-bottom: 12px;
+        border: 1px solid {border_color};
+        box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }}
+    .match-card::before {{
+        content: '';
+        position: absolute;
+        top: 0; right: 0;
+        width: 4px;
+        height: 100%;
+        background: linear-gradient(180deg, #1565c0, #1976d2);
+        border-radius: 0 16px 16px 0;
+    }}
+    .match-card:hover {{
+        transform: translateY(-3px);
+        box-shadow: 0 8px 28px rgba(25,118,210,0.18);
+        border-color: #1976d2;
+    }}
+    .match-card.live-card::before {{
+        background: linear-gradient(180deg, #dc2626, #ef4444);
+    }}
+
+    /* ===== NEWS CARD ===== */
+    .news-card {{
+        background: {bg_card};
+        border-radius: 16px;
+        padding: 18px;
+        margin-bottom: 14px;
+        border: 1px solid {border_color};
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+        direction: rtl;
+        overflow: hidden;
+    }}
+    .news-card:hover {{
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    }}
+    .news-image {{
+        width: 100%;
+        max-height: 180px;
+        object-fit: cover;
+        border-radius: 10px;
+        margin-bottom: 12px;
+    }}
+    .news-title h3 {{
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin: 0 0 8px 0;
+        color: {text_primary};
+        line-height: 1.5;
+    }}
+    .news-title {{ text-decoration: none; color: inherit; }}
+    .news-title:hover h3 {{ color: #1976d2; }}
+    .news-content {{
+        color: {text_secondary};
+        font-size: 0.88rem;
+        line-height: 1.7;
+        margin-bottom: 12px;
+    }}
+    .news-meta {{
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        color: {text_secondary};
+        font-size: 0.8rem;
+    }}
+    .source-badge {{
+        background: linear-gradient(135deg, #1565c0, #1976d2);
+        color: white;
+        padding: 3px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }}
+    .lang-badge {{
+        background: #166534;
+        color: white;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.72rem;
+        font-weight: 600;
+    }}
+    .lang-badge.en {{ background: #1e3a8a; }}
+
+    /* ===== LIVE BADGE ===== */
+    .live-badge {{
+        background: linear-gradient(135deg, #dc2626, #ef4444);
+        color: white;
+        padding: 4px 14px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        display: inline-block;
+        animation: pulse 1.5s infinite;
+        box-shadow: 0 0 12px rgba(220,38,38,0.5);
+        letter-spacing: 0.5px;
+    }}
+    @keyframes pulse {{
+        0%,100% {{ opacity: 1; transform: scale(1); }}
+        50%      {{ opacity: 0.8; transform: scale(1.04); }}
+    }}
+
+    /* ===== STANDINGS TABLE ===== */
+    .standings-table {{
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        text-align: center;
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid {border_color};
+        font-size: 0.85rem;
+    }}
+    .standings-table thead th {{
+        background: linear-gradient(135deg, #0d47a1, #1976d2);
+        color: white;
+        padding: 12px 8px;
+        font-weight: 700;
+        font-size: 0.8rem;
+        letter-spacing: 0.3px;
+    }}
+    .standings-table tbody tr {{
+        background: {bg_card};
+        transition: background 0.15s;
+    }}
+    .standings-table tbody tr:nth-child(even) {{
+        background: {bg_secondary};
+    }}
+    .standings-table tbody tr:hover {{
+        background: {bg_card_hover};
+    }}
+    .standings-table td {{
+        padding: 10px 8px;
+        border-bottom: 1px solid {border_color};
+        color: {text_primary};
+    }}
+    .standings-table a {{
+        color: {text_primary};
+        text-decoration: none;
+        font-weight: 600;
+    }}
+    .standings-table a:hover {{ color: #1976d2; }}
+
+    /* Top 4 highlight */
+    .standings-table tbody tr:nth-child(-n+4) td:first-child {{
+        border-right: 3px solid #1976d2;
+    }}
+
+    /* ===== SEARCH BAR ===== */
+    .stTextInput > div > div > input {{
+        background: {input_bg} !important;
+        border: 1.5px solid {border_color} !important;
+        border-radius: 12px !important;
+        color: {text_primary} !important;
+        font-family: 'Cairo', sans-serif !important;
+        padding: 10px 16px !important;
+        font-size: 0.9rem !important;
+        direction: rtl;
+        transition: border-color 0.2s ease !important;
+    }}
+    .stTextInput > div > div > input:focus {{
+        border-color: #1976d2 !important;
+        box-shadow: 0 0 0 3px rgba(25,118,210,0.15) !important;
+    }}
+
+    /* ===== SELECTBOX ===== */
+    .stSelectbox > div > div {{
+        background: {input_bg} !important;
+        border: 1.5px solid {border_color} !important;
+        border-radius: 12px !important;
+        color: {text_primary} !important;
+    }}
+
+    /* ===== RADIO BUTTONS ===== */
+    .stRadio label {{
+        color: {text_primary} !important;
+    }}
+
+    /* ===== EXPANDER ===== */
+    .stExpander {{
+        background: {bg_card} !important;
+        border: 1px solid {border_color} !important;
+        border-radius: 12px !important;
+    }}
+    .stExpander summary {{
+        color: {text_primary} !important;
+        font-weight: 600 !important;
+    }}
+
+    /* ===== SIDEBAR STREAMLIT BUTTONS (inside drawer) ===== */
+    div[data-testid="stVerticalBlock"] .stButton > button {{
+        background: linear-gradient(135deg, #1565c0, #1976d2) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 10px !important;
+        font-weight: 600 !important;
+        font-size: 0.9rem !important;
+        padding: 8px 20px !important;
+        width: 100% !important;
+        transition: opacity 0.2s, transform 0.2s !important;
+        box-shadow: 0 4px 12px rgba(25,118,210,0.3) !important;
+        cursor: pointer;
+    }}
+    div[data-testid="stVerticalBlock"] .stButton > button:hover {{
+        opacity: 0.9 !important;
+        transform: translateY(-1px) !important;
+    }}
+
+    /* ===== INFO / SUCCESS / ERROR MESSAGES ===== */
+    .stInfo, .stSuccess, .stWarning, .stError {{
+        border-radius: 12px !important;
+        font-family: 'Cairo', sans-serif !important;
+    }}
+
+    /* ===== PROGRESS BAR (predictions) ===== */
+    .stProgress > div > div {{
+        background: linear-gradient(90deg, #1565c0, #1976d2) !important;
+        border-radius: 10px !important;
+    }}
+    .stProgress > div {{
+        background: {border_color} !important;
+        border-radius: 10px !important;
+    }}
+
+    /* ===== SCROLLBAR ===== */
+    ::-webkit-scrollbar {{ width: 5px; height: 5px; }}
+    ::-webkit-scrollbar-track {{ background: transparent; }}
+    ::-webkit-scrollbar-thumb {{ background: #1976d2; border-radius: 4px; }}
+
+    /* ===== LAST UPDATED ===== */
+    .last-updated {{
+        text-align: left;
+        color: {text_secondary};
+        font-size: 0.75rem;
+        margin: 6px 0 16px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 0 4px;
+    }}
+
+    /* ===== EMPTY STATE ===== */
+    .empty-state {{
+        text-align: center;
+        padding: 40px 20px;
+        color: {text_secondary};
+        font-size: 0.95rem;
+    }}
+    .empty-state-icon {{
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+        display: block;
+    }}
+
+    /* ===== PREDICTION CARD ===== */
+    .prediction-card {{
+        background: {bg_card};
+        border: 1px solid {border_color};
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 14px;
+    }}
+    .prediction-teams {{
+        font-size: 1rem;
+        font-weight: 700;
+        color: {text_primary};
+        margin-bottom: 14px;
+        text-align: center;
+    }}
+    .pred-label {{
+        font-size: 0.82rem;
+        color: {text_secondary};
+        margin-bottom: 4px;
+        font-weight: 600;
+    }}
+
+    /* ===== FAVORITE TEAM TAG ===== */
+    .fav-team-tag {{
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: {bg_secondary};
+        border: 1px solid {border_color};
+        border-radius: 20px;
+        padding: 4px 14px;
+        font-size: 0.82rem;
+        color: {text_primary};
+        margin: 4px;
+        font-weight: 600;
+    }}
+
+    /* ===== FORM INPUTS in admin ===== */
+    .stNumberInput > div > div > input {{
+        background: {input_bg} !important;
+        border: 1.5px solid {border_color} !important;
+        border-radius: 10px !important;
+        color: {text_primary} !important;
+    }}
+
+    /* ===== MOBILE PADDING ===== */
+    @media (max-width: 640px) {{
+        .block-container {{
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+        }}
+        .match-card {{
+            padding: 13px 14px;
+        }}
+        .badrtv-header {{
+            padding: 0 14px;
+            height: 60px;
+        }}
+        .badrtv-header-title {{
+            font-size: 1.2rem;
+        }}
+        .badrtv-time-badge {{
+            display: none;
+        }}
+    }}
+</style>
+"""
 
 st.markdown(get_css(), unsafe_allow_html=True)
 
-# -------------------- Custom Header with Hamburger Button --------------------
-# -------------------- Custom Blue Header with Hamburger Button --------------------
-# -------------------- Custom Blue Header with Hamburger Button --------------------
-# -------------------- Custom Blue Header with Hamburger Button --------------------
-# -------------------- Custom Header with Hamburger Button --------------------
-# Create a container to hold both the header and the button
-# -------------------- Custom Header with Hamburger Button --------------------
-# -------------------- Custom Header with Hamburger Button --------------------
-# -------------------- Custom Header with Hamburger Button --------------------
-st.markdown('<div style="position: relative; margin-bottom: 20px;">', unsafe_allow_html=True)
-
-# Centered header content (blue bar)
-st.markdown("""
-<div class="custom-header-bar" style="background: linear-gradient(135deg, #1976D2, #0D47A1); border-radius: 0 0 20px 20px; padding: 10px 20px; display: flex; align-items: center; justify-content: center;">
-    <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;">
-    <h1 style="font-size: 2.2rem; margin: 0 15px; font-weight: 700; color: white;">Badr TV</h1>
-</div>
-""", unsafe_allow_html=True)
-
-# Create the button columns inside the same relative container (we'll hide the columns)
-col1, col2, col3 = st.columns([1, 10, 1])
-with col1:
-    if st.button("☰", key="sidebar_toggle", use_container_width=True):
-        st.session_state.sidebar_open = not st.session_state.sidebar_open
-        st.rerun()
-
-st.markdown('</div>', unsafe_allow_html=True)   # close relative wrapper
-
-# Inline CSS to position the button on the right and hide empty columns
-st.markdown("""
-<style>
-/* Hide all columns so they don't affect layout */
-div[data-testid="column"] {
-    display: none !important;
-}
-/* Position the button itself absolutely on the right */
-.stButton {
-    position: absolute !important;
-    right: 260px;
-    top: 70%;
-    transform: translateY(-170%);
-    z-index: 20;
-    overflow: visible !important;
-}
-/* Style the button to look like a plain hamburger */
-.stButton > button {
-    background: none !important;
-    border: none !important;
-    font-size: 6rem !important;
-    font-weight: bold !important;
-    color: white !important;
-    padding: 10px 15px !important;
-    margin: 0 !important;
-    width: auto !important;
-    min-width: 0;
-    line-height: 1;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# Keep the timestamp as originally placed
-st.markdown(f'<div class="last-updated">آخر تحديث: {datetime.now(tz_tunis).strftime("%H:%M:%S")}</div>', unsafe_allow_html=True)
 # -------------------- Helper Functions --------------------
 def get_matches():
     resp = supabase.table("matches").select("*").order("match_time", desc=False).execute()
@@ -464,9 +708,11 @@ def render_match_card(match, show_favorite=True):
         except:
             pass
 
+    live_class = ""
     if effective_status == 'LIVE':
-        center = f"<span style='color:#d32f2f; font-weight:bold; font-size:1.8rem;'>{match['home_score']} - {match['away_score']}</span>"
+        center = f"<span style='color:#ef4444; font-weight:900; font-size:1.9rem; letter-spacing:2px;'>{match['home_score']} - {match['away_score']}</span>"
         status_display = '<span class="live-badge">🔴 مباشر</span>'
+        live_class = "live-card"
     elif effective_status == 'UPCOMING':
         try:
             utc_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
@@ -476,809 +722,604 @@ def render_match_card(match, show_favorite=True):
             if match_date == today:
                 diff = (local_time - datetime.now(tz_tunis)).total_seconds() / 60
                 if 0 < diff <= 30:
-                    status_display = "<span style='color:#ff8c00;'>⏳ بعد قليل</span>"
+                    status_display = "<span style='color:#f59e0b; font-size:0.8rem; font-weight:700;'>⏳ بعد قليل</span>"
                 else:
-                    status_display = "<span style='color:#666;'>لم تبدأ بعد</span>"
-                center = f"<span style='color:#1976d2; font-weight:bold; font-size:1.8rem;'>{local_time.strftime('%H:%M')}</span>"
+                    status_display = "<span style='color:#6b7280; font-size:0.8rem;'>لم تبدأ</span>"
+                center = f"<span style='color:#1976d2; font-weight:900; font-size:1.6rem;'>{local_time.strftime('%H:%M')}</span>"
             else:
-                status_display = f"<span style='color:#888;'>{match_date.strftime('%m-%d')}</span>"
-                center = f"<span style='color:#1976d2; font-weight:bold; font-size:1.8rem;'>{local_time.strftime('%H:%M')}</span>"
+                status_display = f"<span style='color:#9ca3af; font-size:0.8rem;'>{match_date.strftime('%m/%d')}</span>"
+                center = f"<span style='color:#1976d2; font-weight:900; font-size:1.6rem;'>{local_time.strftime('%H:%M')}</span>"
         except:
-            status_display = "<span style='color:#666;'>لم تبدأ بعد</span>"
+            status_display = "<span style='color:#6b7280; font-size:0.8rem;'>لم تبدأ</span>"
             center = "--:--"
     else:
         try:
             utc_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
             local_time = utc_time.astimezone(tz_tunis)
-            status_display = f"<span style='color:#888;'>{local_time.strftime('%m-%d')}</span>"
-            center = f"<span style='color:#888; font-weight:bold; font-size:1.5rem;'>{match['home_score']} - {match['away_score']}</span>"
+            status_display = f"<span style='color:#9ca3af; font-size:0.8rem;'>{local_time.strftime('%m/%d')}</span>"
+            center = f"<span style='color:#6b7280; font-weight:900; font-size:1.6rem;'>{match['home_score']} - {match['away_score']}</span>"
         except:
-            status_display = "<span style='color:#888;'>انتهت</span>"
+            status_display = "<span style='color:#9ca3af; font-size:0.8rem;'>انتهت</span>"
             center = f"{match['home_score']} - {match['away_score']}"
 
     return f"""
     <a href="/watch_stream?match_id={match['fixture_id']}" style="text-decoration:none; color:inherit; display:block;">
-        <div class="match-card">
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+        <div class="match-card {live_class}">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
                 <div style="flex:1; text-align:center;">
-                    <img src="{home_logo}" style="width:48px; height:48px; object-fit:contain; margin-bottom:6px;">
-                    <div style="font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px; margin:0 auto;">{home_team}</div>
+                    <img src="{home_logo}" style="width:52px; height:52px; object-fit:contain; margin-bottom:8px; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2));">
+                    <div style="font-weight:700; font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:90px; margin:0 auto;">{home_team}</div>
                 </div>
-                <div style="flex:1; text-align:center;">
+                <div style="flex:1; text-align:center; padding:0 8px;">
                     {center}
-                    <div style="margin-top:4px;">{status_display}</div>
+                    <div style="margin-top:6px;">{status_display}</div>
                 </div>
                 <div style="flex:1; text-align:center;">
-                    <img src="{away_logo}" style="width:48px; height:48px; object-fit:contain; margin-bottom:6px;">
-                    <div style="font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px; margin:0 auto;">{away_team}</div>
+                    <img src="{away_logo}" style="width:52px; height:52px; object-fit:contain; margin-bottom:8px; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2));">
+                    <div style="font-weight:700; font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:90px; margin:0 auto;">{away_team}</div>
                 </div>
             </div>
-            <div style="display: flex; align-items: center; gap:8px; margin-top:12px; padding-top:8px; border-top:1px solid #444;">
-                <img src="{league_logo}" style="width:20px; height:20px; object-fit:contain;">
-                <span style="color:#aaa;">{league_name}</span>
+            <div style="display:flex; align-items:center; gap:8px; margin-top:12px; padding-top:10px; border-top:1px solid rgba(128,128,128,0.15);">
+                <img src="{league_logo}" style="width:18px; height:18px; object-fit:contain; opacity:0.8;">
+                <span style="font-size:0.78rem; opacity:0.6; font-weight:600;">{league_name}</span>
             </div>
         </div>
     </a>
     """
 
-# -------------------- Main Layout with Custom Sidebar --------------------
-if st.session_state.sidebar_open:
-    sidebar_col, main_col = st.columns([1, 3])   # adjust sidebar width as needed
-    with sidebar_col:
-        # ---------- SIDEBAR CONTENT ----------
-        st.header("👤 الحساب")
-        if st.session_state.user:
-            st.write(f"مرحباً {st.session_state.user.email}")
-            if st.button("تسجيل الخروج", key="logout_main"):
-                sign_out()
-        else:
-            with st.expander("تسجيل الدخول"):
-                email = st.text_input("البريد الإلكتروني", key="login_email")
-                password = st.text_input("كلمة المرور", type="password", key="login_password")
-                if st.button("دخول", key="login_main"):
-                    sign_in(email, password)
-            with st.expander("إنشاء حساب"):
-                new_email = st.text_input("البريد الإلكتروني", key="signup_email")
-                new_pass = st.text_input("كلمة المرور", type="password", key="signup_pass")
-                if st.button("تسجيل", key="signup_main"):
-                    sign_up(new_email, new_pass)
+def render_section_header(icon, title, badge=None):
+    badge_html = f'<span class="live-count-badge">{badge}</span>' if badge else ''
+    st.markdown(f"""
+    <div class="section-header">
+        <div class="section-header-icon">{icon}</div>
+        <span class="section-header-text">{title}</span>
+        {badge_html}
+    </div>
+    """, unsafe_allow_html=True)
 
+# ==================== HEADER ====================
+now_str = datetime.now(tz_tunis).strftime("%H:%M:%S")
+
+col_burger, col_brand = st.columns([1, 11])
+
+with col_brand:
+    st.markdown(f"""
+    <div class="badrtv-header">
+        <div class="badrtv-header-brand">
+            <img src="https://vfhmznstfgxiwhcifetm.supabase.co/storage/v1/object/public/logos/app-logos/logo_app.jpg" alt="Badr TV Logo">
+            <div>
+                <div class="badrtv-header-title">Badr TV</div>
+                <span class="badrtv-header-sub">منصة كرة القدم الشاملة</span>
+            </div>
+        </div>
+        <div class="badrtv-header-right">
+            <div class="badrtv-time-badge">🕐 {now_str}</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col_burger:
+    st.markdown('<div style="padding-top: 12px;">', unsafe_allow_html=True)
+    if st.button("☰", key="sidebar_toggle", use_container_width=False):
+        st.session_state.sidebar_open = not st.session_state.sidebar_open
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ==================== SIDEBAR DRAWER ====================
+if st.session_state.sidebar_open:
+    st.markdown('<div class="sidebar-overlay"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-drawer">', unsafe_allow_html=True)
+
+    # Drawer header
+    st.markdown("""
+    <div class="sidebar-drawer-header">
+        <h3>⚙️ القائمة الرئيسية</h3>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Close button (Streamlit button, full width)
+    if st.button("✕ إغلاق", key="close_sidebar"):
+        st.session_state.sidebar_open = False
+        st.rerun()
+
+    # ---- ACCOUNT SECTION ----
+    st.markdown('<div class="sidebar-section"><div class="sidebar-section-title">👤 الحساب</div>', unsafe_allow_html=True)
+    if st.session_state.user:
+        st.markdown(f"<p style='margin:0 0 10px; font-size:0.88rem; opacity:0.8;'>مرحباً 👋<br><strong>{st.session_state.user.email}</strong></p>", unsafe_allow_html=True)
+        if st.button("تسجيل الخروج", key="logout_main"):
+            sign_out()
+    else:
+        with st.expander("تسجيل الدخول"):
+            email = st.text_input("البريد الإلكتروني", key="login_email")
+            password = st.text_input("كلمة المرور", type="password", key="login_password")
+            if st.button("دخول", key="login_main"):
+                sign_in(email, password)
+        with st.expander("إنشاء حساب"):
+            new_email = st.text_input("البريد الإلكتروني", key="signup_email")
+            new_pass = st.text_input("كلمة المرور", type="password", key="signup_pass")
+            if st.button("تسجيل", key="signup_main"):
+                sign_up(new_email, new_pass)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # ---- THEME SECTION ----
+    st.markdown('<div class="sidebar-section"><div class="sidebar-section-title">🎨 المظهر</div>', unsafe_allow_html=True)
+    theme = st.radio("", ["داكن", "فاتح"], index=0 if st.session_state.theme == "dark" else 1, key="theme_radio", horizontal=True)
+    if theme == "داكن" and st.session_state.theme != "dark":
+        st.session_state.theme = "dark"
+        st.rerun()
+    elif theme == "فاتح" and st.session_state.theme != "light":
+        st.session_state.theme = "light"
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # ---- SEARCH SECTION ----
+    st.markdown('<div class="sidebar-section"><div class="sidebar-section-title">🔍 البحث</div>', unsafe_allow_html=True)
+    search_query = st.text_input(" ", label_visibility="collapsed", key="search_input", placeholder="ابحث عن فريق أو لاعب...")
+    if search_query:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**الفرق**")
+            teams = supabase.table("teams").select("id, name, logo").ilike("name", f"%{search_query}%").execute()
+            for t in teams.data:
+                st.markdown(f"[{t['name']}](/team?team_id={t['id']})")
+        with col2:
+            st.markdown("**اللاعبين**")
+            players = supabase.table("players").select("id, name, photo").ilike("name", f"%{search_query}%").execute()
+            for p in players.data:
+                st.markdown(f"[{p['name']}](/player?player_id={p['id']})")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # ---- FAVORITES SECTION ----
+    st.markdown('<div class="sidebar-section"><div class="sidebar-section-title">⭐ المفضلة</div>', unsafe_allow_html=True)
+    if st.session_state.user:
+        if st.session_state.favorites:
+            favs_html = "".join([f'<span class="fav-team-tag">⭐ {team}</span>' for team in st.session_state.favorites])
+            st.markdown(f'<div style="margin-top:6px;">{favs_html}</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<p style="font-size:0.85rem; opacity:0.6; margin:0;">لا توجد فرق مفضلة بعد</p>', unsafe_allow_html=True)
+    else:
+        st.markdown('<p style="font-size:0.85rem; opacity:0.6; margin:0;">سجل الدخول لرؤية مفضلتك</p>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # ---- ADMIN PANEL ----
+    st.markdown('<div class="sidebar-section"><div class="sidebar-section-title">👑 لوحة التحكم</div>', unsafe_allow_html=True)
+    with st.expander("دخول المشرف", expanded=False):
+        if not st.session_state.admin_auth:
+            admin_pass = st.text_input("كلمة المرور", type="password", key="admin_pass")
+            if st.button("دخول", key="admin_login"):
+                if hashlib.sha256(admin_pass.encode()).hexdigest() == "f00bf9d13f09fa3962d4a7d21de2479699adc840b74e34195a0eedb6dd45ceb4":
+                    st.session_state.admin_auth = True
+                    st.success("تم تسجيل الدخول بنجاح")
+                    st.rerun()
+                else:
+                    st.error("كلمة المرور غير صحيحة")
+        else:
+            st.success("مرحباً أيها المشرف 👑")
+            if st.button("إظهار لوحة التحكم", key="show_admin_btn"):
+                st.session_state.show_admin = not st.session_state.show_admin
+            if st.button("تسجيل الخروج", key="admin_logout"):
+                st.session_state.admin_auth = False
+                st.session_state.show_admin = False
+                st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)  # close sidebar-drawer
+
+# ==================== ADMIN PANEL (main area) ====================
+if st.session_state.get("admin_auth") and st.session_state.get("show_admin"):
+    with st.container():
         st.markdown("---")
-        st.header("⚙️ الإعدادات")
-        theme = st.radio("المظهر", ["داكن", "فاتح"], index=0 if st.session_state.theme=="dark" else 1, key="theme_radio")
-        if theme == "داكن" and st.session_state.theme != "dark":
-            st.session_state.theme = "dark"
-            st.rerun()
-        elif theme == "فاتح" and st.session_state.theme != "light":
-            st.session_state.theme = "light"
-            st.rerun()
-        
-        st.markdown("---")
-        st.markdown('<div class="search-container">', unsafe_allow_html=True)
-        search_query = st.text_input(" ", label_visibility="collapsed", key="search_input", placeholder="ابحث عن فريق أو لاعب")
-        st.markdown('</div>', unsafe_allow_html=True)
-        if search_query:
+        st.markdown("### 👑 لوحة تحكم المشرف - إضافة روابط يدوية")
+
+        @st.cache_data(ttl=60)
+        def get_upcoming_matches():
+            try:
+                resp = supabase.table("matches")\
+                    .select("*")\
+                    .in_("status", ["UPCOMING", "LIVE"])\
+                    .order("match_time")\
+                    .execute()
+                return resp.data
+            except Exception as e:
+                print(f"Error fetching upcoming matches: {e}")
+                return []
+
+        upcoming = get_upcoming_matches()
+        if upcoming:
+            match_data = {}
+            for m in upcoming:
+                try:
+                    utc_time = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00'))
+                    local_time = utc_time.astimezone(tz_tunis)
+                    time_str = local_time.strftime("%H:%M")
+                except:
+                    time_str = "--:--"
+                label = f"{time_str} - {m['home_team']} vs {m['away_team']} ({m['league']})"
+                match_data[label] = (m['fixture_id'], m['source'])
+            selected_match = st.selectbox("اختر المباراة", list(match_data.keys()), key="match_select")
+            fixture_id, match_source = match_data[selected_match]
+
             col1, col2 = st.columns(2)
             with col1:
-                st.markdown("**الفرق**")
-                teams = supabase.table("teams").select("id, name, logo").ilike("name", f"%{search_query}%").execute()
-                for t in teams.data:
-                    st.markdown(f"[{t['name']}](/team?team_id={t['id']})")
+                stream_url = st.text_input("رابط البث", key="stream_url")
+                stream_title = st.text_input("عنوان الرابط (اختياري)", key="stream_title")
             with col2:
-                st.markdown("**اللاعبين**")
-                players = supabase.table("players").select("id, name, photo").ilike("name", f"%{search_query}%").execute()
-                for p in players.data:
-                    st.markdown(f"[{p['name']}](/player?player_id={p['id']})")
+                stream_source = st.selectbox("المصدر", ["youtube", "facebook", "custom", "official"], key="stream_source")
+                expiry_hours = st.number_input("عدد ساعات الصلاحية", min_value=1, max_value=24, value=3, key="expiry_hours")
 
-        st.markdown("---")
-        st.header("⭐ المفضلة")
-        if st.session_state.user:
-            if st.session_state.favorites:
-                for team in st.session_state.favorites:
-                    st.write(f"• {team}")
-            else:
-                st.info("لا توجد فرق مفضلة بعد")
-        else:
-            st.info("سجل الدخول لرؤية مفضلتك")
-
-        # -------------------- Admin Panel --------------------
-        # -------------------- Admin Panel --------------------
-        st.markdown("---")
-        with st.expander("👑 **لوحة التحكم**", expanded=False):
-            if not st.session_state.admin_auth:
-                admin_pass = st.text_input("كلمة المرور", type="password", key="admin_pass")
-                if st.button("دخول", key="admin_login"):
-                    if hashlib.sha256(admin_pass.encode()).hexdigest() == "f00bf9d13f09fa3962d4a7d21de2479699adc840b74e34195a0eedb6dd45ceb4":
-                        st.session_state.admin_auth = True
-                        st.success("تم تسجيل الدخول بنجاح")
-                        st.rerun()
-                    else:
-                        st.error("كلمة المرور غير صحيحة")
-            else:
-                st.success("مرحباً أيها المشرف")
-                if st.button("إظهار لوحة التحكم", key="show_admin_btn"):
-                    st.session_state.show_admin = not st.session_state.show_admin
-                if st.button("تسجيل الخروج", key="admin_logout"):
-                    st.session_state.admin_auth = False
-                    st.session_state.show_admin = False
-                    st.rerun()
-
-        if st.session_state.get("admin_auth") and st.session_state.get("show_admin"):
-            with st.container():
-                st.markdown("---")
-                st.markdown("### 👑 لوحة تحكم المشرف - إضافة روابط يدوية")
-
-                @st.cache_data(ttl=60)
-                def get_upcoming_matches():
+            if st.button("إضافة الرابط", key="add_stream_btn"):
+                if stream_url:
+                    expires_at = (datetime.now() + timedelta(hours=expiry_hours)).isoformat()
+                    data = {
+                        "fixture_id": fixture_id,
+                        "source": match_source,
+                        "stream_url": stream_url,
+                        "stream_title": stream_title or "بث مباشر",
+                        "stream_source": stream_source,
+                        "expires_at": expires_at,
+                        "is_active": True
+                    }
                     try:
-                        resp = supabase.table("matches")\
-                            .select("*")\
-                            .in_("status", ["UPCOMING", "LIVE"])\
-                            .order("match_time")\
-                            .execute()
-                        return resp.data
+                        supabase.table("admin_streams").insert(data).execute()
+                        st.success("تم إضافة الرابط بنجاح! سيتم حذفه تلقائياً بعد انتهاء المباراة.")
+                        st.cache_data.clear()
+                        time.sleep(2)
+                        st.rerun()
                     except Exception as e:
-                        print(f"Error fetching upcoming matches: {e}")
-                        return []
+                        st.error(f"حدث خطأ أثناء إضافة الرابط: {str(e)}")
+                        print(f"Error inserting admin stream: {e}")
+                else:
+                    st.error("الرجاء إدخال رابط البث")
 
-                upcoming = get_upcoming_matches()
-                if upcoming:
-                    match_data = {}
-                    for m in upcoming:
+            st.markdown("---")
+            st.subheader("الروابط الحالية")
+            try:
+                admin_streams = supabase.table("admin_streams")\
+                    .select("*, matches!inner(home_team, away_team, league, status)")\
+                    .eq("is_active", True)\
+                    .execute()\
+                    .data
+                if admin_streams:
+                    for stream in admin_streams:
+                        match = stream.get("matches", {})
                         try:
-                            utc_time = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00'))
+                            utc_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
                             local_time = utc_time.astimezone(tz_tunis)
                             time_str = local_time.strftime("%H:%M")
                         except:
                             time_str = "--:--"
-                        label = f"{time_str} - {m['home_team']} vs {m['away_team']} ({m['league']})"
-                        match_data[label] = (m['fixture_id'], m['source'])
-                    selected_match = st.selectbox("اختر المباراة", list(match_data.keys()), key="match_select")
-                    fixture_id, match_source = match_data[selected_match]
-
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        stream_url = st.text_input("رابط البث", key="stream_url")
-                        stream_title = st.text_input("عنوان الرابط (اختياري)", key="stream_title")
-                    with col2:
-                        stream_source = st.selectbox("المصدر", ["youtube", "facebook", "custom", "official"], key="stream_source")
-                        expiry_hours = st.number_input("عدد ساعات الصلاحية", min_value=1, max_value=24, value=3, key="expiry_hours")
-
-                    if st.button("إضافة الرابط", key="add_stream_btn"):
-                        if stream_url:
-                            expires_at = (datetime.now() + timedelta(hours=expiry_hours)).isoformat()
-                            data = {
-                                "fixture_id": fixture_id,
-                                "source": match_source,
-                                "stream_url": stream_url,
-                                "stream_title": stream_title or "بث مباشر",
-                                "stream_source": stream_source,
-                                "expires_at": expires_at,
-                                "is_active": True
-                            }
-                            try:
-                                supabase.table("admin_streams").insert(data).execute()
-                                st.success("تم إضافة الرابط بنجاح! سيتم حذفه تلقائياً بعد انتهاء المباراة.")
-                                st.cache_data.clear()
-                                time.sleep(2)
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"حدث خطأ أثناء إضافة الرابط: {str(e)}")
-                                print(f"Error inserting admin stream: {e}")
-                        else:
-                            st.error("الرجاء إدخال رابط البث")
-
-                    st.markdown("---")
-                    st.subheader("الروابط الحالية")
-                    try:
-                        admin_streams = supabase.table("admin_streams")\
-                            .select("*, matches!inner(home_team, away_team, league, status)")\
-                            .eq("is_active", True)\
-                            .execute()\
-                            .data
-                        if admin_streams:
-                            for stream in admin_streams:
-                                match = stream.get("matches", {})
-                                try:
-                                    utc_time = datetime.fromisoformat(match["match_time"].replace('Z', '+00:00'))
-                                    local_time = utc_time.astimezone(tz_tunis)
-                                    time_str = local_time.strftime("%H:%M")
-                                except:
-                                    time_str = "--:--"
-                                st.markdown(f"""
-                                **{match.get('home_team')} vs {match.get('away_team')}**  
-                                الوقت: {time_str}  
-                                الرابط: {stream['stream_url']}  
-                                ينتهي في: {stream['expires_at'][:16]}
-                                """)
-                                if st.button(f"حذف #{stream['id']}", key=f"del_{stream['id']}"):
-                                    supabase.table("admin_streams").update({"is_active": False}).eq("id", stream["id"]).execute()
-                                    st.success("تم الحذف")
-                                    st.rerun()
-                    except Exception as e:
-                        st.error("حدث خطأ أثناء تحميل الروابط.")
-                        print(f"Error loading admin streams: {e}")
-                else:
-                    st.info("لا توجد مباريات قادمة")
-
-                st.markdown("---")
-                st.subheader("➕ إضافة مباراة يدوية")
-                with st.form("add_custom_match_form"):
-                    custom_home = st.text_input("الفريق المستضيف")
-                    custom_away = st.text_input("الفريق الضيف")
-                    custom_league = st.text_input("الدوري")
-                    custom_date = st.date_input("التاريخ", datetime.now())
-                    custom_time = st.time_input("الوقت", datetime.now().time(), key="custom_match_time")
-                    custom_stream = st.text_input("رابط البث (اختياري)")
-                    submitted = st.form_submit_button("إضافة المباراة")
-                    if submitted and custom_home and custom_away:
-                        print(f"Input local datetime: {custom_date} {custom_time} (assumed Africa/Tunis)")
-                        local_dt = datetime.combine(custom_date, custom_time).replace(tzinfo=tz_tunis)
-                        utc_dt = local_dt.astimezone(timezone.utc)
-                        match_time = utc_dt.isoformat()
-                        new_id = -random.randint(10000, 99999)
-                        data = {
-                            "fixture_id": new_id,
-                            "home_team": custom_home,
-                            "away_team": custom_away,
-                            "league": custom_league,
-                            "match_time": match_time,
-                            "status": "UPCOMING",
-                            "home_score": 0,
-                            "away_score": 0,
-                            "streams": json.dumps([{"title": "بث يدوي", "url": custom_stream, "source": "admin", "verified": True, "admin_added": True}]) if custom_stream else "[]",
-                            "home_logo": None,
-                            "away_logo": None,
-                            "league_logo": None,
-                            "source": "custom",
-                            "is_custom": True
-                        }
-                        supabase.table("matches").insert(data).execute()
-                        st.success("تمت إضافة المباراة بنجاح")
-                        st.rerun()
-
-                st.markdown("---")
-                st.subheader("🖼️ ربط الشعارات تلقائياً")
-                with st.expander("ربط شعارات الفرق"):
-                    st.markdown("""
-                    **سيقوم هذا الأمر بالبحث عن شعارات الفرق في مخزن Supabase باستخدام عدة صيغ للأسماء.**  
-                    يمكنك بعد ذلك تنزيل قائمة الفرق التي لم يتم العثور على شعار لها لمعالجتها يدوياً.
-                    """)
-                    st.info("""
-                    **المجلدات المتوقعة:**  
-                    Italy - Serie A, England - Premier League, Spain - LaLiga, Germany - Bundesliga, France - Ligue 1, Portugal - Liga Portugal, International - Champions League, International - World Cup
-                    """)
-
-                    if st.button("🔍 بدء البحث المتقدم", key="search_team_logos"):
-                        with st.spinner("جاري البحث عن الشعارات..."):
-                            teams_resp = supabase.table("matches").select("home_team, away_team").execute()
-                            teams = set()
-                            for row in teams_resp.data:
-                                if row.get("home_team"):
-                                    teams.add(row["home_team"])
-                                if row.get("away_team"):
-                                    teams.add(row["away_team"])
-                            teams = sorted(list(teams))
-                            total = len(teams)
-                            st.info(f"تم العثور على {total} فريق في قاعدة البيانات.")
-
-                            league_folders = [
-                                "Italy - Serie A", "England - Premier League", "Spain - LaLiga",
-                                "Germany - Bundesliga", "France - Ligue 1", "Portugal - Liga Portugal",
-                                "International - Champions League", "International - World Cup"
-                            ]
-                            BUCKET_BASE = f"{SUPABASE_URL}/storage/v1/object/public/logos"
-                            progress_bar = st.progress(0)
-                            status_text = st.empty()
-                            results = {"found": 0, "not_found": 0}
-                            missing_teams = []
-
-                            def generate_name_variations(team_name):
-                                variations = [team_name]
-                                suffixes = [" FC", " AFC", " United", " City", " Real", " CF", " AC", " AS", " SS", " SC", " Club", " Deportivo", " Futebol", " Clube"]
-                                base = team_name
-                                for suffix in suffixes:
-                                    if base.endswith(suffix):
-                                        base = base[:-len(suffix)]
-                                        variations.append(base)
-                                        break
-                                variations.append(team_name.replace(" ", "_"))
-                                if base != team_name:
-                                    variations.append(base.replace(" ", "_"))
-                                return list(set(variations))
-
-                            for i, team in enumerate(teams):
-                                status_text.text(f"معالجة {team}... ({i+1}/{total})")
-                                name_variations = generate_name_variations(team)
-                                found = False
-                                for name in name_variations:
-                                    filename = f"{name}.png"
-                                    for folder in league_folders:
-                                        url = f"{BUCKET_BASE}/{folder}/{filename}"
-                                        try:
-                                            resp = requests.head(url, timeout=3)
-                                            if resp.status_code == 200:
-                                                supabase.table("team_logos").upsert(
-                                                    {"team_name": team, "logo_url": url},
-                                                    on_conflict="team_name"
-                                                ).execute()
-                                                results["found"] += 1
-                                                found = True
-                                                st.success(f"✅ {team} -> {folder}/{filename}")
-                                                break
-                                        except:
-                                            continue
-                                    if found:
-                                        break
-                                if not found:
-                                    results["not_found"] += 1
-                                    missing_teams.append(team)
-                                    st.warning(f"❌ {team} – لم يتم العثور على شعار")
-                                progress_bar.progress((i+1)/total)
-
-                            status_text.text("اكتمل البحث!")
-                            st.success(f"النتائج: تم العثور على {results['found']} شعار، لم يتم العثور على {results['not_found']}")
-
-                            if missing_teams:
-                                missing_text = "\n".join(missing_teams)
-                                st.download_button(
-                                    label="📥 تنزيل قائمة الفرق بدون شعار",
-                                    data=missing_text,
-                                    file_name="missing_logos.txt",
-                                    mime="text/plain"
-                                )
-
-                with st.expander("ربط شعارات البطولات"):
-                    if st.button("🔍 تحديث شعارات البطولات", key="search_league_logos"):
-                        leagues_resp = supabase.table("matches").select("league").execute()
-                        leagues = list(set([m["league"] for m in leagues_resp.data if m.get("league")]))
-                        if not leagues:
-                            st.warning("لا توجد بطولات لعرضها.")
-                        else:
-                            with st.spinner("جاري البحث عن شعارات البطولات..."):
-                                found = 0
-                                not_found = 0
-                                for league in leagues:
-                                    name = league.replace(' ', '_')
-                                    url = f"{SUPABASE_URL}/storage/v1/object/public/logos/leagues/{name}.png"
-                                    try:
-                                        resp = requests.head(url, timeout=3)
-                                        if resp.status_code == 200:
-                                            supabase.table("league_logos").upsert(
-                                                {"league_name": league, "logo_url": url},
-                                                on_conflict="league_name"
-                                            ).execute()
-                                            st.success(f"✅ {league}")
-                                            found += 1
-                                        else:
-                                            st.warning(f"❌ {league}")
-                                            not_found += 1
-                                    except:
-                                        st.warning(f"❌ {league} (فشل الاتصال)")
-                                        not_found += 1
-                                st.info(f"النتائج: {found} تم العثور عليها، {not_found} لم يتم العثور عليها.")
-
-    with main_col:
-        matches = get_matches()
-        # -------------------- Tabs --------------------
-        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 المباريات", "📊 النتائج", "🏆 الترتيب", "⭐ المفضلة", "📰 الأخبار", "🔮 التوقعات"])
-
-        with tab1:
-            st.header("🔥 المباريات المباشرة الآن")
-            live_result = supabase.table("matches").select("*").eq("status", "LIVE").execute()
-            live_matches = live_result.data
-            if live_matches:
-                for m in live_matches:
-                    st.markdown(render_match_card(m), unsafe_allow_html=True)
-            else:
-                st.info("لا توجد مباريات مباشرة حالياً")
-
-            st.header("📅 المباريات القادمة")
-            upcoming_result = supabase.table("matches")\
-                .select("*")\
-                .eq("status", "UPCOMING")\
-                .order("match_time")\
-                .execute()
-            upcoming = upcoming_result.data
-            if upcoming:
-                for m in upcoming:
-                    st.markdown(render_match_card(m), unsafe_allow_html=True)
-            else:
-                st.write("لا توجد مباريات قادمة")
-
-        with tab2:
-            st.header("📊 النتائج")
-            finished_result = supabase.table("matches")\
-                .select("*")\
-                .eq("status", "FINISHED")\
-                .order("match_time", desc=True)\
-                .execute()
-            finished = finished_result.data
-            if finished:
-                for m in finished:
-                    home_team = html.escape(m['home_team'])
-                    away_team = html.escape(m['away_team'])
-                    home_logo = m.get('home_logo') or get_team_logo(home_team)
-                    away_logo = m.get('away_logo') or get_team_logo(away_team)
-                    try:
-                        utc_time = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00'))
-                        local_time = utc_time.astimezone(tz_tunis)
-                        date_str = local_time.strftime('%Y-%m-%d')
-                    except:
-                        date_str = "---"
-                    st.markdown(f"""
-                    <a href="/match_details?match_id={m['fixture_id']}" style="text-decoration:none; color:inherit; display:block;">
-                        <div class="match-card">
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <div style="flex:1; text-align:center;">
-                                    <img src="{home_logo}" style="width:32px; height:32px; object-fit:contain;">
-                                    <div>{home_team}</div>
-                                </div>
-                                <div><strong style="font-size:1.2rem;">{m['home_score']} - {m['away_score']}</strong></div>
-                                <div style="flex:1; text-align:center;">
-                                    <img src="{away_logo}" style="width:32px; height:32px; object-fit:contain;">
-                                    <div>{away_team}</div>
-                                </div>
-                            </div>
-                            <div style="text-align:center; color:#aaa; margin-top:8px;">
-                                {html.escape(m.get('league',''))} • {date_str}
-                            </div>
-                        </div>
-                    </a>
-                    """, unsafe_allow_html=True)
-            else:
-                st.info("لا توجد نتائج بعد")
-
-        with tab3:
-            st.header("🏆 جدول الترتيب")
-            try:
-                @st.cache_data(ttl=3600)
-                def get_competitions_with_standings():
-                    resp = supabase.table("standings").select("competition_code, competition_name, data").execute()
-                    return resp.data if resp.data else []
-
-                comps = get_competitions_with_standings()
-                if not comps:
-                    st.info("لا توجد ترتيبات متاحة حالياً")
-                else:
-                    comp_names = [c["competition_name"] for c in comps]
-                    selected_comp = st.selectbox("اختر البطولة", comp_names, key="standings_select")
-                    comp_data = next(c for c in comps if c["competition_name"] == selected_comp)
-                    standings = comp_data["data"].get("standings", [])
-                    if not standings:
-                        st.warning("لا توجد معلومات ترتيب لهذه البطولة")
-                    else:
-                        table = standings[0].get("table", [])
-                        if table:
-                            html_table = '<div style="overflow-x: auto;">'
-                            html_table += '<table class="standings-table">'
-                            html_table += '<thead><th>المركز</th><th>الفريق</th><th>لعب</th><th>فوز</th><th>تعادل</th><th>خسارة</th><th>له</th><th>عليه</th><th>فارق</th><th>نقاط</th></thead>'
-                            for row in table:
-                                team_id = row["team"]["id"]
-                                team_name = row["team"]["name"]
-                                html_table += '<tr>'
-                                html_table += f' Ways{row["position"]} Ways'
-                                html_table += f' Ways<a href="/team?team_id={team_id}" style="color: inherit; text-decoration: none;">{team_name}</a> Ways'
-                                html_table += f' Ways{row["playedGames"]} Ways'
-                                html_table += f' Ways{row["won"]} Ways'
-                                html_table += f' Ways{row["draw"]} Ways'
-                                html_table += f' Ways{row["lost"]} Ways'
-                                html_table += f' Ways{row["goalsFor"]} Ways'
-                                html_table += f' Ways{row["goalsAgainst"]} Ways'
-                                html_table += f' Ways{row["goalDifference"]} Ways'
-                                html_table += f' Ways{row["points"]} Ways'
-                                html_table += ' </tr>'
-                            html_table += ' </table>'
-                            html_table += '</div>'
-                            st.markdown(html_table, unsafe_allow_html=True)
-                        else:
-                            st.info("لا توجد بيانات جدول متاحة")
+                        st.markdown(f"""
+                        **{match.get('home_team')} vs {match.get('away_team')}**  
+                        الوقت: {time_str}  
+                        الرابط: {stream['stream_url']}  
+                        ينتهي في: {stream['expires_at'][:16]}
+                        """)
+                        if st.button(f"حذف #{stream['id']}", key=f"del_{stream['id']}"):
+                            supabase.table("admin_streams").update({"is_active": False}).eq("id", stream["id"]).execute()
+                            st.success("تم الحذف")
+                            st.rerun()
             except Exception as e:
-                if "relation" in str(e) or "does not exist" in str(e):
-                    st.warning("جدول الترتيب غير موجود. يرجى تشغيل السكربت الكامل لإنشاء الجداول المطلوبة.")
-                else:
-                    st.error(f"حدث خطأ: {e}")
+                st.error("حدث خطأ أثناء تحميل الروابط.")
+                print(f"Error loading admin streams: {e}")
+        else:
+            st.info("لا توجد مباريات قادمة")
 
-        with tab4:
-            st.header("⭐ مبارياتي المفضلة")
-            if st.session_state.user:
-                if st.session_state.favorites:
-                    fav_matches = [m for m in matches if m['home_team'] in st.session_state.favorites or m['away_team'] in st.session_state.favorites]
-                    if fav_matches:
-                        for m in fav_matches:
-                            st.markdown(render_match_card(m, show_favorite=False), unsafe_allow_html=True)
-                    else:
-                        st.info("لا توجد مباريات لفرقك المفضلة حالياً")
-                else:
-                    st.info("أضف فرقاً إلى المفضلة من خلال الضغط على ☆ في بطاقة المباراة")
-            else:
-                st.info("سجل الدخول لاستخدام المفضلة")
+        st.markdown("---")
+        st.subheader("➕ إضافة مباراة يدوية")
+        with st.form("add_custom_match_form"):
+            custom_home = st.text_input("الفريق المستضيف")
+            custom_away = st.text_input("الفريق الضيف")
+            custom_league = st.text_input("الدوري")
+            custom_date = st.date_input("التاريخ", datetime.now())
+            custom_time = st.time_input("الوقت", datetime.now().time(), key="custom_match_time")
+            custom_stream = st.text_input("رابط البث (اختياري)")
+            submitted = st.form_submit_button("إضافة المباراة")
+            if submitted and custom_home and custom_away:
+                print(f"Input local datetime: {custom_date} {custom_time} (assumed Africa/Tunis)")
+                local_dt = datetime.combine(custom_date, custom_time).replace(tzinfo=tz_tunis)
+                utc_dt = local_dt.astimezone(timezone.utc)
+                match_time = utc_dt.isoformat()
+                new_id = -random.randint(10000, 99999)
+                data = {
+                    "fixture_id": new_id,
+                    "home_team": custom_home,
+                    "away_team": custom_away,
+                    "league": custom_league,
+                    "match_time": match_time,
+                    "status": "UPCOMING",
+                    "home_score": 0,
+                    "away_score": 0,
+                    "streams": json.dumps([{"title": "بث يدوي", "url": custom_stream, "source": "admin", "verified": True, "admin_added": True}]) if custom_stream else "[]",
+                    "home_logo": None,
+                    "away_logo": None,
+                    "league_logo": None,
+                    "source": "custom",
+                    "is_custom": True
+                }
+                supabase.table("matches").insert(data).execute()
+                st.success("تمت إضافة المباراة بنجاح")
+                st.rerun()
 
-        with tab5:
-            st.header("📰 آخر الأخبار")
+# ==================== MAIN CONTENT ====================
+st.markdown(f'<div class="last-updated">🔄 آخر تحديث: {now_str}</div>', unsafe_allow_html=True)
 
-            @st.cache_data(ttl=3600)
-            def get_news():
-                cutoff = (datetime.now() - timedelta(days=14)).isoformat()
-                try:
-                    res = supabase.table("news")\
-                        .select("*")\
-                        .gte("published_at", cutoff)\
-                        .order("published_at", desc=True)\
-                        .limit(50)\
-                        .execute()
-                    return res.data
-                except Exception as e:
-                    st.error(f"حدث خطأ في جلب الأخبار: {e}")
-                    return []
+matches = get_matches()
 
-            news = get_news()
-            if not news:
-                st.info("لا توجد أخبار حالياً")
-            else:
-                for item in news:
-                    safe_title = html.escape(item.get('title', ''))
-                    safe_content = html.escape(item.get('content', ''))[:200] + "..." if item.get('content') else ''
-                    safe_source = html.escape(item.get('source', 'مصدر غير معروف'))
-                    safe_url = html.escape(item.get('url', ''))
-                    safe_image = html.escape(item.get('image', '')) if item.get('image') else None
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "📅 المباريات",
+    "📊 النتائج",
+    "📰 الأخبار",
+    "🏆 الترتيب",
+    "⭐ المفضلة",
+    "🔮 التوقعات"
+])
 
-                    try:
-                        pub_date = datetime.fromisoformat(item["published_at"].replace('Z', '+00:00'))
-                        date_str = pub_date.strftime("%Y-%m-%d %H:%M")
-                    except:
-                        date_str = "تاريخ غير معروف"
+# ---- TAB 1: MATCHES ----
+with tab1:
+    live_result = supabase.table("matches").select("*").eq("status", "LIVE").execute()
+    live_matches = live_result.data
 
-                    lang = item.get("language", "ar")
-                    lang_badge = '<span class="lang-badge en">🇬🇧 EN</span>' if lang == "en" else '<span class="lang-badge">🇸🇦 AR</span>'
+    live_count = len(live_matches) if live_matches else None
+    render_section_header("🔴", "المباريات المباشرة الآن", badge=live_count)
 
-                    card_html = '<div class="news-card">'
-                    if safe_image:
-                        card_html += f'<img src="{safe_image}" class="news-image">'
-                    card_html += f'''
-                        <a href="{safe_url}" target="_blank" class="news-title">
-                            <h3>{safe_title}</h3>
-                        </a>
-                        <div class="news-content">{safe_content}</div>
-                        <div class="news-meta">
-                            <span class="source-badge">📰 {safe_source}</span>
-                            <span>🕒 {date_str}</span>
-                            {lang_badge}
+    if live_matches:
+        for m in live_matches:
+            st.markdown(render_match_card(m), unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div class="empty-state">
+            <span class="empty-state-icon">📡</span>
+            لا توجد مباريات مباشرة حالياً
+        </div>
+        """, unsafe_allow_html=True)
+
+    render_section_header("📅", "المباريات القادمة")
+    upcoming_result = supabase.table("matches")\
+        .select("*")\
+        .eq("status", "UPCOMING")\
+        .order("match_time")\
+        .execute()
+    upcoming = upcoming_result.data
+    if upcoming:
+        for m in upcoming:
+            st.markdown(render_match_card(m), unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div class="empty-state">
+            <span class="empty-state-icon">📆</span>
+            لا توجد مباريات قادمة
+        </div>
+        """, unsafe_allow_html=True)
+
+# ---- TAB 2: RESULTS ----
+with tab2:
+    render_section_header("📊", "النتائج الأخيرة")
+    finished_result = supabase.table("matches")\
+        .select("*")\
+        .eq("status", "FINISHED")\
+        .order("match_time", desc=True)\
+        .execute()
+    finished = finished_result.data
+    if finished:
+        for m in finished:
+            home_team = html.escape(m['home_team'])
+            away_team = html.escape(m['away_team'])
+            home_logo = m.get('home_logo') or get_team_logo(home_team)
+            away_logo = m.get('away_logo') or get_team_logo(away_team)
+            try:
+                utc_time = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00'))
+                local_time = utc_time.astimezone(tz_tunis)
+                date_str = local_time.strftime('%Y-%m-%d')
+            except:
+                date_str = "---"
+            st.markdown(f"""
+            <a href="/match_details?match_id={m['fixture_id']}" style="text-decoration:none; color:inherit; display:block;">
+                <div class="match-card">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div style="flex:1; text-align:center;">
+                            <img src="{home_logo}" style="width:40px; height:40px; object-fit:contain; margin-bottom:6px;">
+                            <div style="font-weight:700; font-size:0.85rem;">{home_team}</div>
+                        </div>
+                        <div style="flex:1; text-align:center;">
+                            <strong style="font-size:1.6rem; font-weight:900; letter-spacing:3px;">{m['home_score']} - {m['away_score']}</strong>
+                            <div style="margin-top:4px; font-size:0.75rem; opacity:0.5;">نهائي</div>
+                        </div>
+                        <div style="flex:1; text-align:center;">
+                            <img src="{away_logo}" style="width:40px; height:40px; object-fit:contain; margin-bottom:6px;">
+                            <div style="font-weight:700; font-size:0.85rem;">{away_team}</div>
                         </div>
                     </div>
-                    '''
-                    try:
-                        if hasattr(st, 'html'):
-                            st.html(card_html)
-                        else:
-                            st.markdown(card_html, unsafe_allow_html=True)
-                    except Exception as e:
-                        st.error(f"حدث خطأ في عرض الخبر: {e}")
-
-        with tab6:
-            st.header("🔮 توقعات المباريات")
-            upcoming_pred = supabase.table("matches").select("fixture_id, home_team, away_team, match_time").eq("status", "UPCOMING").order("match_time").limit(10).execute()
-            for m in upcoming_pred.data:
-                pred = supabase.table("predictions").select("*").eq("fixture_id", m["fixture_id"]).execute()
-                if pred.data:
-                    p = pred.data[0]
-                    st.write(f"{m['home_team']} vs {m['away_team']}")
-                    st.progress(p["home_win_prob"], text=f"فوز {m['home_team']}")
-                    st.progress(p["draw_prob"], text="تعادل")
-                    st.progress(p["away_win_prob"], text=f"فوز {m['away_team']}")
-                else:
-                    st.write(f"{m['home_team']} vs {m['away_team']} – لا توجد توقعات بعد")
-
-else:
-    # When sidebar is closed, use a single container for the main content
-    main_col = st.container()
-    with main_col:
-        matches = get_matches()
-        # -------------------- Tabs --------------------
-        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 المباريات", "📊 النتائج", "🏆 الترتيب", "⭐ المفضلة", "📰 الأخبار", "🔮 التوقعات"])
-
-        with tab1:
-            st.header("🔥 المباريات المباشرة الآن")
-            live_result = supabase.table("matches").select("*").eq("status", "LIVE").execute()
-            live_matches = live_result.data
-            if live_matches:
-                for m in live_matches:
-                    st.markdown(render_match_card(m), unsafe_allow_html=True)
-            else:
-                st.info("لا توجد مباريات مباشرة حالياً")
-
-            st.header("📅 المباريات القادمة")
-            upcoming_result = supabase.table("matches")\
-                .select("*")\
-                .eq("status", "UPCOMING")\
-                .order("match_time")\
-                .execute()
-            upcoming = upcoming_result.data
-            if upcoming:
-                for m in upcoming:
-                    st.markdown(render_match_card(m), unsafe_allow_html=True)
-            else:
-                st.write("لا توجد مباريات قادمة")
-
-        with tab2:
-            st.header("📊 النتائج")
-            finished_result = supabase.table("matches")\
-                .select("*")\
-                .eq("status", "FINISHED")\
-                .order("match_time", desc=True)\
-                .execute()
-            finished = finished_result.data
-            if finished:
-                for m in finished:
-                    home_team = html.escape(m['home_team'])
-                    away_team = html.escape(m['away_team'])
-                    home_logo = m.get('home_logo') or get_team_logo(home_team)
-                    away_logo = m.get('away_logo') or get_team_logo(away_team)
-                    try:
-                        utc_time = datetime.fromisoformat(m["match_time"].replace('Z', '+00:00'))
-                        local_time = utc_time.astimezone(tz_tunis)
-                        date_str = local_time.strftime('%Y-%m-%d')
-                    except:
-                        date_str = "---"
-                    st.markdown(f"""
-                    <a href="/match_details?match_id={m['fixture_id']}" style="text-decoration:none; color:inherit; display:block;">
-                        <div class="match-card">
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <div style="flex:1; text-align:center;">
-                                    <img src="{home_logo}" style="width:32px; height:32px; object-fit:contain;">
-                                    <div>{home_team}</div>
-                                </div>
-                                <div><strong style="font-size:1.2rem;">{m['home_score']} - {m['away_score']}</strong></div>
-                                <div style="flex:1; text-align:center;">
-                                    <img src="{away_logo}" style="width:32px; height:32px; object-fit:contain;">
-                                    <div>{away_team}</div>
-                                </div>
-                            </div>
-                            <div style="text-align:center; color:#aaa; margin-top:8px;">
-                                {html.escape(m.get('league',''))} • {date_str}
-                            </div>
-                        </div>
-                    </a>
-                    """, unsafe_allow_html=True)
-            else:
-                st.info("لا توجد نتائج بعد")
-
-        with tab3:
-            st.header("🏆 جدول الترتيب")
-            try:
-                @st.cache_data(ttl=3600)
-                def get_competitions_with_standings():
-                    resp = supabase.table("standings").select("competition_code, competition_name, data").execute()
-                    return resp.data if resp.data else []
-
-                comps = get_competitions_with_standings()
-                if not comps:
-                    st.info("لا توجد ترتيبات متاحة حالياً")
-                else:
-                    comp_names = [c["competition_name"] for c in comps]
-                    selected_comp = st.selectbox("اختر البطولة", comp_names, key="standings_select")
-                    comp_data = next(c for c in comps if c["competition_name"] == selected_comp)
-                    standings = comp_data["data"].get("standings", [])
-                    if not standings:
-                        st.warning("لا توجد معلومات ترتيب لهذه البطولة")
-                    else:
-                        table = standings[0].get("table", [])
-                        if table:
-                            html_table = '<div style="overflow-x: auto;">'
-                            html_table += '<table class="standings-table">'
-                            html_table += '<thead><th>المركز</th><th>الفريق</th><th>لعب</th><th>فوز</th><th>تعادل</th><th>خسارة</th><th>له</th><th>عليه</th><th>فارق</th><th>نقاط</th></thead>'
-                            for row in table:
-                                team_id = row["team"]["id"]
-                                team_name = row["team"]["name"]
-                                html_table += '<tr>'
-                                html_table += f' Ways{row["position"]} Ways'
-                                html_table += f' Ways<a href="/team?team_id={team_id}" style="color: inherit; text-decoration: none;">{team_name}</a> Ways'
-                                html_table += f' Ways{row["playedGames"]} Ways'
-                                html_table += f' Ways{row["won"]} Ways'
-                                html_table += f' Ways{row["draw"]} Ways'
-                                html_table += f' Ways{row["lost"]} Ways'
-                                html_table += f' Ways{row["goalsFor"]} Ways'
-                                html_table += f' Ways{row["goalsAgainst"]} Ways'
-                                html_table += f' Ways{row["goalDifference"]} Ways'
-                                html_table += f' Ways{row["points"]} Ways'
-                                html_table += ' </tr>'
-                            html_table += ' </table>'
-                            html_table += '</div>'
-                            st.markdown(html_table, unsafe_allow_html=True)
-                        else:
-                            st.info("لا توجد بيانات جدول متاحة")
-            except Exception as e:
-                if "relation" in str(e) or "does not exist" in str(e):
-                    st.warning("جدول الترتيب غير موجود. يرجى تشغيل السكربت الكامل لإنشاء الجداول المطلوبة.")
-                else:
-                    st.error(f"حدث خطأ: {e}")
-
-        with tab4:
-            st.header("⭐ مبارياتي المفضلة")
-            if st.session_state.user:
-                if st.session_state.favorites:
-                    fav_matches = [m for m in matches if m['home_team'] in st.session_state.favorites or m['away_team'] in st.session_state.favorites]
-                    if fav_matches:
-                        for m in fav_matches:
-                            st.markdown(render_match_card(m, show_favorite=False), unsafe_allow_html=True)
-                    else:
-                        st.info("لا توجد مباريات لفرقك المفضلة حالياً")
-                else:
-                    st.info("أضف فرقاً إلى المفضلة من خلال الضغط على ☆ في بطاقة المباراة")
-            else:
-                st.info("سجل الدخول لاستخدام المفضلة")
-
-        with tab5:
-            st.header("📰 آخر الأخبار")
-
-            @st.cache_data(ttl=3600)
-            def get_news():
-                cutoff = (datetime.now() - timedelta(days=14)).isoformat()
-                try:
-                    res = supabase.table("news")\
-                        .select("*")\
-                        .gte("published_at", cutoff)\
-                        .order("published_at", desc=True)\
-                        .limit(50)\
-                        .execute()
-                    return res.data
-                except Exception as e:
-                    st.error(f"حدث خطأ في جلب الأخبار: {e}")
-                    return []
-
-            news = get_news()
-            if not news:
-                st.info("لا توجد أخبار حالياً")
-            else:
-                for item in news:
-                    safe_title = html.escape(item.get('title', ''))
-                    safe_content = html.escape(item.get('content', ''))[:200] + "..." if item.get('content') else ''
-                    safe_source = html.escape(item.get('source', 'مصدر غير معروف'))
-                    safe_url = html.escape(item.get('url', ''))
-                    safe_image = html.escape(item.get('image', '')) if item.get('image') else None
-
-                    try:
-                        pub_date = datetime.fromisoformat(item["published_at"].replace('Z', '+00:00'))
-                        date_str = pub_date.strftime("%Y-%m-%d %H:%M")
-                    except:
-                        date_str = "تاريخ غير معروف"
-
-                    lang = item.get("language", "ar")
-                    lang_badge = '<span class="lang-badge en">🇬🇧 EN</span>' if lang == "en" else '<span class="lang-badge">🇸🇦 AR</span>'
-
-                    card_html = '<div class="news-card">'
-                    if safe_image:
-                        card_html += f'<img src="{safe_image}" class="news-image">'
-                    card_html += f'''
-                        <a href="{safe_url}" target="_blank" class="news-title">
-                            <h3>{safe_title}</h3>
-                        </a>
-                        <div class="news-content">{safe_content}</div>
-                        <div class="news-meta">
-                            <span class="source-badge">📰 {safe_source}</span>
-                            <span>🕒 {date_str}</span>
-                            {lang_badge}
-                        </div>
+                    <div style="text-align:center; opacity:0.5; margin-top:8px; font-size:0.78rem; font-weight:600;">
+                        {html.escape(m.get('league',''))} • {date_str}
                     </div>
-                    '''
-                    try:
-                        if hasattr(st, 'html'):
-                            st.html(card_html)
-                        else:
-                            st.markdown(card_html, unsafe_allow_html=True)
-                    except Exception as e:
-                        st.error(f"حدث خطأ في عرض الخبر: {e}")
+                </div>
+            </a>
+            """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div class="empty-state">
+            <span class="empty-state-icon">📭</span>
+            لا توجد نتائج بعد
+        </div>
+        """, unsafe_allow_html=True)
 
-        with tab6:
-            st.header("🔮 توقعات المباريات")
-            upcoming_pred = supabase.table("matches").select("fixture_id, home_team, away_team, match_time").eq("status", "UPCOMING").order("match_time").limit(10).execute()
-            for m in upcoming_pred.data:
-                pred = supabase.table("predictions").select("*").eq("fixture_id", m["fixture_id"]).execute()
-                if pred.data:
-                    p = pred.data[0]
-                    st.write(f"{m['home_team']} vs {m['away_team']}")
-                    st.progress(p["home_win_prob"], text=f"فوز {m['home_team']}")
-                    st.progress(p["draw_prob"], text="تعادل")
-                    st.progress(p["away_win_prob"], text=f"فوز {m['away_team']}")
+# ---- TAB 3: NEWS ----
+with tab3:
+    render_section_header("📰", "آخر الأخبار")
+
+    @st.cache_data(ttl=3600)
+    def get_news():
+        cutoff = (datetime.now() - timedelta(days=14)).isoformat()
+        try:
+            res = supabase.table("news")\
+                .select("*")\
+                .gte("published_at", cutoff)\
+                .order("published_at", desc=True)\
+                .limit(50)\
+                .execute()
+            return res.data
+        except Exception as e:
+            st.error(f"حدث خطأ في جلب الأخبار: {e}")
+            return []
+
+    news = get_news()
+    if not news:
+        st.markdown("""
+        <div class="empty-state">
+            <span class="empty-state-icon">📭</span>
+            لا توجد أخبار حالياً
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        for item in news:
+            safe_title = html.escape(item.get('title', ''))
+            safe_content = html.escape(item.get('content', ''))[:200] + "..." if item.get('content') else ''
+            safe_source = html.escape(item.get('source', 'مصدر غير معروف'))
+            safe_url = html.escape(item.get('url', ''))
+            safe_image = html.escape(item.get('image', '')) if item.get('image') else None
+
+            try:
+                pub_date = datetime.fromisoformat(item["published_at"].replace('Z', '+00:00'))
+                date_str = pub_date.strftime("%Y-%m-%d %H:%M")
+            except:
+                date_str = "تاريخ غير معروف"
+
+            lang = item.get("language", "ar")
+            lang_badge = '<span class="lang-badge en">🇬🇧 EN</span>' if lang == "en" else '<span class="lang-badge">🇸🇦 AR</span>'
+
+            card_html = '<div class="news-card">'
+            if safe_image:
+                card_html += f'<img src="{safe_image}" class="news-image">'
+            card_html += f'''
+                <a href="{safe_url}" target="_blank" class="news-title">
+                    <h3>{safe_title}</h3>
+                </a>
+                <div class="news-content">{safe_content}</div>
+                <div class="news-meta">
+                    <span class="source-badge">📰 {safe_source}</span>
+                    <span style="font-size:0.75rem;">🕒 {date_str}</span>
+                    {lang_badge}
+                </div>
+            </div>
+            '''
+            try:
+                if hasattr(st, 'html'):
+                    st.html(card_html)
                 else:
-                    st.write(f"{m['home_team']} vs {m['away_team']} – لا توجد توقعات بعد")
+                    st.markdown(card_html, unsafe_allow_html=True)
+            except Exception as e:
+                st.error(f"حدث خطأ في عرض الخبر: {e}")
+
+# ---- TAB 4: STANDINGS ----
+with tab4:
+    render_section_header("🏆", "جدول الترتيب")
+    try:
+        @st.cache_data(ttl=3600)
+        def get_competitions_with_standings():
+            resp = supabase.table("standings").select("competition_code, competition_name, data").execute()
+            return resp.data if resp.data else []
+
+        comps = get_competitions_with_standings()
+        if not comps:
+            st.info("لا توجد ترتيبات متاحة حالياً")
+        else:
+            comp_names = [c["competition_name"] for c in comps]
+            selected_comp = st.selectbox("اختر البطولة", comp_names, key="standings_select")
+            comp_data = next(c for c in comps if c["competition_name"] == selected_comp)
+            standings = comp_data["data"].get("standings", [])
+            if not standings:
+                st.warning("لا توجد معلومات ترتيب لهذه البطولة")
+            else:
+                table = standings[0].get("table", [])
+                if table:
+                    html_table = '<div style="overflow-x: auto; border-radius:14px; margin-top:12px;">'
+                    html_table += '<table class="standings-table">'
+                    html_table += '<thead><tr><th>#</th><th>الفريق</th><th>لعب</th><th>فوز</th><th>تعادل</th><th>خسارة</th><th>له</th><th>عليه</th><th>فارق</th><th>نقاط</th></tr></thead>'
+                    html_table += '<tbody>'
+                    for row in table:
+                        team_id = row["team"]["id"]
+                        team_name = row["team"]["name"]
+                        pos = row["position"]
+                        pts = row["points"]
+                        html_table += f'<tr>'
+                        html_table += f'<td><strong>{pos}</strong></td>'
+                        html_table += f'<td style="text-align:right; padding-right:12px;"><a href="/team?team_id={team_id}" style="color: inherit; text-decoration: none;">{team_name}</a></td>'
+                        html_table += f'<td>{row["playedGames"]}</td>'
+                        html_table += f'<td style="color:#22c55e; font-weight:700;">{row["won"]}</td>'
+                        html_table += f'<td>{row["draw"]}</td>'
+                        html_table += f'<td style="color:#ef4444;">{row["lost"]}</td>'
+                        html_table += f'<td>{row["goalsFor"]}</td>'
+                        html_table += f'<td>{row["goalsAgainst"]}</td>'
+                        gd = row["goalDifference"]
+                        gd_color = "#22c55e" if gd > 0 else ("#ef4444" if gd < 0 else "inherit")
+                        gd_str = f"+{gd}" if gd > 0 else str(gd)
+                        html_table += f'<td style="color:{gd_color}; font-weight:700;">{gd_str}</td>'
+                        html_table += f'<td><strong style="font-size:1rem;">{pts}</strong></td>'
+                        html_table += '</tr>'
+                    html_table += '</tbody></table></div>'
+                    st.markdown(html_table, unsafe_allow_html=True)
+                else:
+                    st.info("لا توجد بيانات جدول متاحة")
+    except Exception as e:
+        if "relation" in str(e) or "does not exist" in str(e):
+            st.warning("جدول الترتيب غير موجود. يرجى تشغيل السكربت الكامل لإنشاء الجداول المطلوبة.")
+        else:
+            st.error(f"حدث خطأ: {e}")
+
+# ---- TAB 5: FAVORITES ----
+with tab5:
+    render_section_header("⭐", "مبارياتي المفضلة")
+    if st.session_state.user:
+        if st.session_state.favorites:
+            fav_matches = [m for m in matches if m['home_team'] in st.session_state.favorites or m['away_team'] in st.session_state.favorites]
+            if fav_matches:
+                for m in fav_matches:
+                    st.markdown(render_match_card(m, show_favorite=False), unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                <div class="empty-state">
+                    <span class="empty-state-icon">📡</span>
+                    لا توجد مباريات لفرقك المفضلة حالياً
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div class="empty-state">
+                <span class="empty-state-icon">☆</span>
+                أضف فرقاً إلى المفضلة من خلال الضغط على ☆ في بطاقة المباراة
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div class="empty-state">
+            <span class="empty-state-icon">🔐</span>
+            سجل الدخول لاستخدام المفضلة
+        </div>
+        """, unsafe_allow_html=True)
+
+# ---- TAB 6: PREDICTIONS ----
+with tab6:
+    render_section_header("🔮", "توقعات المباريات")
+    upcoming_pred = supabase.table("matches").select("fixture_id, home_team, away_team, match_time").eq("status", "UPCOMING").order("match_time").limit(10).execute()
+    for m in upcoming_pred.data:
+        pred = supabase.table("predictions").select("*").eq("fixture_id", m["fixture_id"]).execute()
+        if pred.data:
+            p = pred.data[0]
+            st.markdown(f"""
+            <div class="prediction-card">
+                <div class="prediction-teams">{m['home_team']} ⚔️ {m['away_team']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown(f'<div class="pred-label">فوز {m["home_team"]}</div>', unsafe_allow_html=True)
+            st.progress(p["home_win_prob"])
+            st.markdown('<div class="pred-label">تعادل</div>', unsafe_allow_html=True)
+            st.progress(p["draw_prob"])
+            st.markdown(f'<div class="pred-label">فوز {m["away_team"]}</div>', unsafe_allow_html=True)
+            st.progress(p["away_win_prob"])
+        else:
+            st.markdown(f"""
+            <div class="prediction-card">
+                <div class="prediction-teams">{m['home_team']} ⚔️ {m['away_team']}</div>
+                <div style="text-align:center; opacity:0.5; font-size:0.85rem;">لا توجد توقعات بعد</div>
+            </div>
+            """, unsafe_allow_html=True)
