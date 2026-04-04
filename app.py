@@ -232,12 +232,21 @@ div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:first-child .st
 }}
 
 /* ── DRAWER ──────────────────────────────── */
+/*
+  FIX: sidebar-overlay used z-index:1000 with no pointer-events:none,
+  which completely blocked all Streamlit React widget clicks (buttons,
+  radio, text inputs). The overlay is now visual-only.
+  The drawer keeps pointer-events:auto so its own content works.
+*/
 .sidebar-overlay {{
-    position: fixed; inset: 0; background: rgba(0,0,0,.55);
-    z-index: 1000; backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+    position: fixed; inset: 0; background: rgba(0,0,0,.5);
+    z-index: 999;
+    backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+    pointer-events: none;
 }}
 .sidebar-drawer {{
     position: fixed; top: 0; right: 0;
+    pointer-events: auto;
     width: min(340px, 88vw); height: 100dvh;
     background: {sidebar_bg}; z-index: 1001;
     overflow-y: auto;
@@ -969,7 +978,9 @@ with tab3:
                 </div>
             </div>'''
             try:
-                st.html(card_html) if hasattr(st, 'html') else st.markdown(card_html, unsafe_allow_html=True)
+                # FIX: st.html() is broken in Streamlit 1.56 — outputs raw protobuf debug
+                # text instead of rendering HTML. Always use st.markdown() instead.
+                st.markdown(card_html, unsafe_allow_html=True)
             except Exception as e:
                 st.error(f"خطأ في عرض الخبر: {e}")
 
