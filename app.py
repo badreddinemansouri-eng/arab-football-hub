@@ -239,9 +239,8 @@ div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:first-child .st
   The drawer keeps pointer-events:auto so its own content works.
 */
 .sidebar-overlay {{
-    position: fixed; inset: 0; background: rgba(0,0,0,.5);
+    position: fixed; inset: 0; background: rgba(0,0,0,.35);
     z-index: 999;
-    backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
     pointer-events: none;
 }}
 .sidebar-drawer {{
