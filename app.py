@@ -42,7 +42,7 @@ _defaults = {
     "user":         None,
     "profile":      None,
     "favorites":    [],
-    "theme":        "dark",
+    "theme":        "light",
     "sidebar_open": False,
     "admin_auth":   False,
     "show_admin":   False,
