@@ -299,27 +299,166 @@ if selected_url:
               {"<span class='live-badge-sm'>● LIVE</span>" if is_live else ""}
               <span class="ptb-title">{home_team} vs {away_team}</span>
             </div>
-            <a href="{selected_url}" target="_blank" class="ptb-ext"><i class="fa fa-external-link-alt"></i> خارجي</a>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span id="stream-status" style="font-size:.68rem;color:rgba(255,255,255,.6);font-weight:600;">جاري التحميل...</span>
+              <a href="{selected_url}" target="_blank" class="ptb-ext"><i class="fa fa-external-link-alt"></i> خارجي</a>
+            </div>
           </div>
           <div class="player-ratio">
-            <div id="hlsp"></div>
+            <div id="hlsp" style="width:100%;height:100%;background:#000;"></div>
           </div>
         </div>
-        <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+        <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js"></script>
         <script>
         (function(){{
-          var c=document.getElementById('hlsp');
-          var v=document.createElement('video');
-          v.controls=true; v.autoplay=true; v.playsinline=true;
-          v.style.cssText='width:100%;height:100%;background:#000;';
+          var SRC    = '{embed_url}';
+          var status = document.getElementById('stream-status');
+          var c      = document.getElementById('hlsp');
+          var v      = document.createElement('video');
+          var retries = 0;
+          var MAX_RETRIES = 10;
+          var hls;
+
+          v.controls   = true;
+          v.autoplay   = true;
+          v.playsinline = true;
+          v.muted      = false;
+          v.style.cssText = 'width:100%;height:100%;background:#000;display:block;';
           c.appendChild(v);
-          if(Hls.isSupported()){{
-            var h=new Hls({{maxBufferLength:60}});
-            h.loadSource('{embed_url}');h.attachMedia(v);
-            h.on(Hls.Events.MANIFEST_PARSED,function(){{v.play();}});
-          }}else if(v.canPlayType('application/vnd.apple.mpegurl')){{
-            v.src='{embed_url}';v.play();
+
+          function setStatus(txt, color){{
+            if(status){{ status.textContent = txt; status.style.color = color || 'rgba(255,255,255,.6)'; }}
           }}
+
+          function initHls(){{
+            if(hls){{ hls.destroy(); }}
+
+            hls = new Hls({{
+              // ── BUFFER SETTINGS ──────────────────────────────
+              maxBufferLength:          90,   // keep 90s buffer
+              maxMaxBufferLength:       180,  // allow up to 3min buffer
+              maxBufferSize:            200*1024*1024, // 200MB buffer
+              maxBufferHole:            1.5,  // tolerate 1.5s holes
+              // ── LIVE STREAM SETTINGS ─────────────────────────
+              liveSyncDurationCount:    3,    // stay 3 segments behind live edge
+              liveMaxLatencyDurationCount: 10,
+              liveBackBufferLength:     60,
+              // ── NETWORK RETRY SETTINGS ───────────────────────
+              manifestLoadingMaxRetry:  6,
+              manifestLoadingRetryDelay:2000,
+              manifestLoadingMaxRetryTimeout: 32000,
+              levelLoadingMaxRetry:     6,
+              levelLoadingRetryDelay:   2000,
+              fragLoadingMaxRetry:      8,
+              fragLoadingRetryDelay:    1500,
+              // ── QUALITY SETTINGS ─────────────────────────────
+              startLevel:              -1,   // auto quality selection
+              abrEwmaDefaultEstimate:  500000,
+              // ── STABILITY ────────────────────────────────────
+              enableWorker:            true,
+              lowLatencyMode:          false, // disable for stability
+              backBufferLength:        60,
+            }});
+
+            hls.loadSource(SRC);
+            hls.attachMedia(v);
+
+            hls.on(Hls.Events.MANIFEST_PARSED, function(e, data){{
+              setStatus('✅ جاهز للبث', '#4ade80');
+              retries = 0;
+              v.play().catch(function(){{
+                // autoplay blocked — user needs to tap play
+                setStatus('▶ اضغط للتشغيل', 'rgba(255,255,255,.8)');
+              }});
+            }});
+
+            hls.on(Hls.Events.FRAG_BUFFERED, function(){{
+              setStatus('🔴 بث مباشر', '#ef4444');
+            }});
+
+            // ── STALL DETECTION ──────────────────────────────
+            var stallTimer = null;
+            var lastTime   = 0;
+            v.addEventListener('timeupdate', function(){{
+              lastTime = v.currentTime;
+            }});
+            v.addEventListener('waiting', function(){{
+              setStatus('⏳ جاري التحميل...', '#fbbf24');
+              // if stalled for 8s, skip forward to live edge
+              stallTimer = setTimeout(function(){{
+                if(v.buffered.length > 0){{
+                  var end = v.buffered.end(v.buffered.length - 1);
+                  if(end - v.currentTime > 5){{
+                    v.currentTime = end - 1;
+                    setStatus('⏩ تخطي للحظي', '#60a5fa');
+                  }}
+                }}
+              }}, 8000);
+            }});
+            v.addEventListener('playing', function(){{
+              if(stallTimer) clearTimeout(stallTimer);
+              setStatus('🔴 بث مباشر', '#ef4444');
+            }});
+
+            // ── LIVE EDGE SYNC: every 30s, drift back to live ──
+            setInterval(function(){{
+              if(!v.paused && hls && hls.liveSyncPosition){{
+                var drift = hls.liveSyncPosition - v.currentTime;
+                if(drift > 20){{   // if more than 20s behind live
+                  v.currentTime = hls.liveSyncPosition;
+                  setStatus('⏩ مزامنة مع البث', '#60a5fa');
+                }}
+              }}
+            }}, 30000);
+
+            // ── ERROR HANDLER & AUTO-RECONNECT ───────────────
+            hls.on(Hls.Events.ERROR, function(event, data){{
+              if(!data.fatal) return; // non-fatal: hls.js handles internally
+
+              if(data.type === Hls.ErrorTypes.NETWORK_ERROR){{
+                retries++;
+                if(retries <= MAX_RETRIES){{
+                  var delay = Math.min(2000 * retries, 16000);
+                  setStatus('⚠️ إعادة الاتصال ' + retries + '/' + MAX_RETRIES + '...', '#fbbf24');
+                  setTimeout(function(){{ hls.startLoad(); }}, delay);
+                }} else {{
+                  setStatus('❌ فشل الاتصال — يعاد المحاولة...', '#f87171');
+                  // Full restart after 20s
+                  setTimeout(function(){{ retries=0; initHls(); }}, 20000);
+                }}
+              }} else if(data.type === Hls.ErrorTypes.MEDIA_ERROR){{
+                setStatus('🔧 إصلاح الوسائط...', '#fbbf24');
+                hls.recoverMediaError();
+              }} else {{
+                // Fatal: destroy and restart
+                setStatus('🔄 إعادة تشغيل البث...', '#fbbf24');
+                setTimeout(function(){{ retries=0; initHls(); }}, 5000);
+              }}
+            }});
+          }}
+
+          if(Hls.isSupported()){{
+            initHls();
+          }} else if(v.canPlayType('application/vnd.apple.mpegurl')){{
+            // Native HLS (iOS Safari / macOS Safari)
+            v.src = SRC;
+            v.addEventListener('loadedmetadata', function(){{ v.play(); }});
+            setStatus('📱 HLS نيتف', '#4ade80');
+          }} else {{
+            setStatus('❌ المتصفح لا يدعم HLS', '#f87171');
+          }}
+
+          // ── PAGE VISIBILITY: pause/resume on tab switch ──
+          document.addEventListener('visibilitychange', function(){{
+            if(document.hidden){{
+              // tab hidden — don't destroy, just note
+            }} else {{
+              // came back — sync to live edge
+              if(hls && hls.liveSyncPosition && !v.paused){{
+                v.currentTime = hls.liveSyncPosition;
+              }}
+            }}
+          }});
         }})();
         </script>"""
     elif etype == "video":
@@ -349,18 +488,86 @@ if selected_url:
               {"<span class='live-badge-sm'>● LIVE</span>" if is_live else ""}
               <span class="ptb-title">{home_team} vs {away_team}</span>
             </div>
-            <a href="{selected_url}" target="_blank" class="ptb-ext"><i class="fa fa-external-link-alt"></i> خارجي</a>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span id="ifr-status" style="font-size:.68rem;color:rgba(255,255,255,.6);font-weight:600;">جاري التحميل...</span>
+              <a href="{selected_url}" target="_blank" class="ptb-ext"><i class="fa fa-external-link-alt"></i> خارجي</a>
+            </div>
           </div>
-          <div class="player-ratio">
-            <iframe src="{embed_url}"
+          <div class="player-ratio" id="player-wrap">
+            <iframe id="stream-frame"
+              src="{embed_url}"
               allow="autoplay;fullscreen;encrypted-media;picture-in-picture;accelerometer;gyroscope"
               allowfullscreen
               referrerpolicy="no-referrer-when-downgrade"
               scrolling="no"
-              style="width:100%;height:100%;border:none;background:#000;">
+              style="width:100%;height:100%;border:none;background:#000;"
+              onload="document.getElementById('ifr-status').textContent='✅ تم التحميل';
+                      document.getElementById('ifr-status').style.color='#4ade80';">
             </iframe>
           </div>
-        </div>"""
+        </div>
+        <script>
+        (function(){{
+          var frame  = document.getElementById('stream-frame');
+          var status = document.getElementById('ifr-status');
+          var wrap   = document.getElementById('player-wrap');
+          var reloadCount = 0;
+          var MAX_RELOADS = 5;
+          var SRC = '{embed_url}';
+          var ORIG_SRC = '{selected_url}';
+
+          function setStatus(txt, color){{
+            if(status){{ status.textContent=txt; status.style.color=color||'rgba(255,255,255,.6)'; }}
+          }}
+
+          // ── IFRAME LOAD EVENTS ────────────────────────────
+          frame.addEventListener('load', function(){{
+            setStatus('✅ البث جاهز', '#4ade80');
+            reloadCount = 0;
+          }});
+          frame.addEventListener('error', function(){{
+            handleError();
+          }});
+
+          function handleError(){{
+            reloadCount++;
+            if(reloadCount <= MAX_RELOADS){{
+              var delay = Math.min(3000 * reloadCount, 15000);
+              setStatus('⚠️ إعادة التحميل ' + reloadCount + '...', '#fbbf24');
+              setTimeout(function(){{
+                frame.src = SRC + (SRC.includes('?') ? '&' : '?') + '_r=' + Date.now();
+              }}, delay);
+            }} else {{
+              setStatus('❌ فشل البث - جرب رابطاً آخر', '#f87171');
+              // Show open externally button prominently
+              wrap.innerHTML = '<div style="width:100%;height:100%;background:#000814;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px;text-align:center;">'
+                + '<div style="font-size:3rem;">📡</div>'
+                + '<div style="color:rgba(255,255,255,.7);font-size:.9rem;font-weight:600;">تعذّر عرض البث داخل الصفحة</div>'
+                + '<a href="' + ORIG_SRC + '" target="_blank" style="background:linear-gradient(135deg,#c91c1c,#ef4444);color:#fff;padding:12px 28px;border-radius:14px;text-decoration:none;font-weight:800;font-size:.9rem;box-shadow:0 8px 24px rgba(239,68,68,.4);">▶ فتح البث مباشرة</a>'
+                + '</div>';
+            }}
+          }}
+
+          // ── AUTO-REFRESH for stale streams ──────────────
+          // Many streaming sites expire their embed token every ~30min
+          var refreshTimer = setInterval(function(){{
+            if(!document.hidden && reloadCount < MAX_RELOADS){{
+              setStatus('🔄 تحديث البث...', '#60a5fa');
+              frame.src = SRC + (SRC.includes('?') ? '&' : '?') + '_t=' + Date.now();
+            }}
+          }}, 25 * 60 * 1000); // refresh every 25 minutes
+
+          // ── VISIBILITY: resync when tab becomes active ───
+          document.addEventListener('visibilitychange', function(){{
+            if(!document.hidden){{
+              setStatus('🔄 مزامنة...', '#60a5fa');
+              setTimeout(function(){{
+                frame.src = SRC + (SRC.includes('?') ? '&' : '?') + '_v=' + Date.now();
+              }}, 500);
+            }}
+          }});
+        }})();
+        </script>"""
 
 # ═══════════════════════════════════════════════
 #  BUILD STREAM CARDS HTML
