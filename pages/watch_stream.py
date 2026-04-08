@@ -171,51 +171,86 @@ def extract_embed(url):
         except: pass
     return None
 
+def upgrade_url(url):
+    """
+    MIXED CONTENT FIX:
+    Browsers block HTTP resources on HTTPS pages (Mixed Content Policy).
+    Strategy 1: Try upgrading http:// → https:// directly (works for most CDNs).
+    Strategy 2: Route through a public HTTPS CORS proxy as fallback.
+    Strategy 3: Use allorigins as a last resort for m3u8 manifest only.
+    """
+    if url.startswith("https://"):
+        return url, False  # already secure
+
+    # Strategy 1: Direct upgrade — works when the server supports HTTPS
+    https_url = "https://" + url[7:]
+
+    # Strategy 2: CORS proxy wrapping (proxies are HTTPS, they fetch HTTP)
+    # Use for m3u8 manifests only — segment proxying is too slow
+    proxy_url = f"https://api.allorigins.win/raw?url={quote(url)}"
+
+    return https_url, True  # return upgraded + flag that it was http
+
 def build_embed(url):
+    # ── HTTP UPGRADE FIRST ─────────────────────────────────
+    # This is the #1 cause of streams not working: HTTP on HTTPS page
+    original_url = url
+    was_http = url.startswith("http://")
+    if was_http:
+        url = "https://" + url[7:]  # upgrade to HTTPS — works for most CDNs
+
     p = urlparse(url); d = p.netloc.lower(); path = p.path.lower(); q = parse_qs(p.query)
+
     if any(x in d for x in ["youtube.com","youtu.be"]):
         vid = path.strip('/') if "youtu.be" in d else q.get("v",[None])[0]
-        if vid: return {"url":f"https://www.youtube.com/embed/{vid}?autoplay=1&rel=0","type":"iframe","name":"YouTube"}
+        if vid: return {"url":f"https://www.youtube.com/embed/{vid}?autoplay=1&rel=0","type":"iframe","name":"YouTube","was_http":False}
     if "facebook.com" in d and any(x in url for x in ["/videos/","/watch/","/reel/"]):
-        return {"url":f"https://www.facebook.com/plugins/video.php?href={quote(url)}&show_text=0&width=1280&autoplay=1","type":"iframe","name":"Facebook"}
+        return {"url":f"https://www.facebook.com/plugins/video.php?href={quote(url)}&show_text=0&width=1280&autoplay=1","type":"iframe","name":"Facebook","was_http":False}
     if "instagram.com" in d:
         parts = path.split('/')
-        if len(parts)>=3: return {"url":f"https://www.instagram.com/p/{parts[2]}/embed","type":"iframe","name":"Instagram"}
+        if len(parts)>=3: return {"url":f"https://www.instagram.com/p/{parts[2]}/embed","type":"iframe","name":"Instagram","was_http":False}
     if "twitter.com" in d or "x.com" in d:
         m = re.search(r'/status/(\d+)', path)
-        if m: return {"url":f"https://twitframe.com/show?url={quote(url)}","type":"iframe","name":"Twitter"}
+        if m: return {"url":f"https://twitframe.com/show?url={quote(url)}","type":"iframe","name":"Twitter","was_http":False}
     if "tiktok.com" in d:
         m = re.search(r'/video/(\d+)', path)
-        if m: return {"url":f"https://www.tiktok.com/embed/v2/{m.group(1)}","type":"iframe","name":"TikTok"}
+        if m: return {"url":f"https://www.tiktok.com/embed/v2/{m.group(1)}","type":"iframe","name":"TikTok","was_http":False}
     if "dailymotion.com" in d or "dai.ly" in d:
         m = re.search(r'/video/([^_?/]+)', url)
-        if m: return {"url":f"https://www.dailymotion.com/embed/video/{m.group(1)}?autoplay=1","type":"iframe","name":"Dailymotion"}
+        if m: return {"url":f"https://www.dailymotion.com/embed/video/{m.group(1)}?autoplay=1","type":"iframe","name":"Dailymotion","was_http":False}
     if "vimeo.com" in d:
         vid = path.strip('/').split('/')[0]
-        if vid.isdigit(): return {"url":f"https://player.vimeo.com/video/{vid}?autoplay=1","type":"iframe","name":"Vimeo"}
+        if vid.isdigit(): return {"url":f"https://player.vimeo.com/video/{vid}?autoplay=1","type":"iframe","name":"Vimeo","was_http":False}
     if "ok.ru" in d:
         m = re.search(r'/video(?:/|embed/)?(\d+)', url)
-        if m: return {"url":f"https://ok.ru/videoembed/{m.group(1)}","type":"iframe","name":"OK.ru"}
+        if m: return {"url":f"https://ok.ru/videoembed/{m.group(1)}","type":"iframe","name":"OK.ru","was_http":False}
     if "vk.com" in d:
         m = re.search(r'video(-?\d+)_(\d+)', url)
         if m:
             oid,vid=m.groups()
-            return {"url":f"https://vk.com/video_ext.php?oid={oid}&id={vid}&hash=&autoplay=1","type":"iframe","name":"VK"}
+            return {"url":f"https://vk.com/video_ext.php?oid={oid}&id={vid}&hash=&autoplay=1","type":"iframe","name":"VK","was_http":False}
     if "streamable.com" in d:
         vid = path.strip('/')
-        if vid: return {"url":f"https://streamable.com/e/{vid}","type":"iframe","name":"Streamable"}
+        if vid: return {"url":f"https://streamable.com/e/{vid}","type":"iframe","name":"Streamable","was_http":False}
     if "rutube.ru" in d:
         m = re.search(r'/video/([a-zA-Z0-9]+)', url)
-        if m: return {"url":f"https://rutube.ru/play/embed/{m.group(1)}","type":"iframe","name":"Rutube"}
+        if m: return {"url":f"https://rutube.ru/play/embed/{m.group(1)}","type":"iframe","name":"Rutube","was_http":False}
     if "twitch.tv" in d:
         ch = path.strip('/')
-        if ch: return {"url":f"https://player.twitch.tv/?channel={ch}&parent=badr.streamlit.app&autoplay=true","type":"iframe","name":"Twitch"}
+        if ch: return {"url":f"https://player.twitch.tv/?channel={ch}&parent=badr.streamlit.app&autoplay=true","type":"iframe","name":"Twitch","was_http":False}
     if path.endswith('.m3u8') or 'm3u8' in url:
-        return {"url":url,"type":"hls","name":"HLS Stream"}
+        # For HLS: always use the HTTPS-upgraded URL directly.
+        # HLS.js will handle CORS on the segments.
+        # If the server truly only speaks HTTP, segments will fail;
+        # in that case the JS player falls back to the proxy chain.
+        return {"url": url, "type":"hls", "name":"HLS Stream",
+                "was_http": was_http,
+                "original_http_url": original_url if was_http else None}
     if path.endswith(('.mp4','.webm','.ogg')):
-        return {"url":url,"type":"video","name":"Video"}
-    # Universal fallback — try direct iframe for any streaming site
-    return {"url":url,"type":"iframe","name":"بث مباشر"}
+        return {"url": url, "type":"video", "name":"Video", "was_http": was_http}
+    # Universal fallback
+    return {"url": url, "type":"iframe", "name":"بث مباشر", "was_http": was_http}
+
 
 # ═══════════════════════════════════════════════
 #  BUILD MATCH META
@@ -291,6 +326,17 @@ if selected_url:
         etype       = extracted_e["type"]
 
     if etype == "hls":
+        # If original was HTTP, prepare proxy fallback URLs
+        original_http = embed.get("original_http_url", "")
+        proxy_urls_js = "[]"
+        if original_http:
+            proxies = [
+                f"https://api.allorigins.win/raw?url={quote(original_http)}",
+                f"https://thingproxy.freeboard.io/fetch/{original_http}",
+                f"https://corsproxy.io/?{quote(original_http)}",
+            ]
+            proxy_urls_js = json.dumps(proxies)
+
         player_html = f"""
         <div class="player-shell">
           <div class="player-bar"></div>
@@ -311,12 +357,14 @@ if selected_url:
         <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js"></script>
         <script>
         (function(){{
-          var SRC    = '{embed_url}';
-          var status = document.getElementById('stream-status');
-          var c      = document.getElementById('hlsp');
-          var v      = document.createElement('video');
-          var retries = 0;
-          var MAX_RETRIES = 10;
+          // Primary: HTTPS-upgraded URL. Fallbacks: proxy chain for HTTP-only servers.
+          var SOURCES   = ['{embed_url}'].concat({proxy_urls_js});
+          var srcIdx    = 0;
+          var status    = document.getElementById('stream-status');
+          var c         = document.getElementById('hlsp');
+          var v         = document.createElement('video');
+          var retries   = 0;
+          var MAX_RETRIES = 8;
           var hls;
 
           v.controls   = true;
@@ -327,48 +375,61 @@ if selected_url:
           c.appendChild(v);
 
           function setStatus(txt, color){{
-            if(status){{ status.textContent = txt; status.style.color = color || 'rgba(255,255,255,.6)'; }}
+            if(status){{ status.textContent=txt; status.style.color=color||'rgba(255,255,255,.6)'; }}
           }}
 
-          function initHls(){{
-            if(hls){{ hls.destroy(); }}
+          function tryNextSource(){{
+            srcIdx++;
+            if(srcIdx < SOURCES.length){{
+              setStatus('🔄 جاري تجربة مصدر بديل...', '#fbbf24');
+              retries = 0;
+              initHls(SOURCES[srcIdx]);
+            }} else {{
+              setStatus('❌ تعذّر تشغيل البث', '#f87171');
+              c.innerHTML = '<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;text-align:center;">'
+                + '<div style="font-size:3rem;">📡</div>'
+                + '<div style="color:rgba(255,255,255,.7);font-size:.9rem;font-weight:600;">تعذّر تشغيل البث تلقائياً</div>'
+                + '<a href="{selected_url}" target="_blank" style="background:linear-gradient(135deg,#c91c1c,#ef4444);color:#fff;padding:10px 24px;border-radius:12px;font-weight:800;font-size:.88rem;">▶ فتح مباشرة</a>'
+                + '</div>';
+            }}
+          }}
 
+          function initHls(src){{
+            if(hls){{ hls.destroy(); }}
             hls = new Hls({{
-              // ── BUFFER SETTINGS ──────────────────────────────
-              maxBufferLength:          90,   // keep 90s buffer
-              maxMaxBufferLength:       180,  // allow up to 3min buffer
-              maxBufferSize:            200*1024*1024, // 200MB buffer
-              maxBufferHole:            1.5,  // tolerate 1.5s holes
-              // ── LIVE STREAM SETTINGS ─────────────────────────
-              liveSyncDurationCount:    3,    // stay 3 segments behind live edge
-              liveMaxLatencyDurationCount: 10,
-              liveBackBufferLength:     60,
-              // ── NETWORK RETRY SETTINGS ───────────────────────
-              manifestLoadingMaxRetry:  6,
-              manifestLoadingRetryDelay:2000,
-              manifestLoadingMaxRetryTimeout: 32000,
-              levelLoadingMaxRetry:     6,
-              levelLoadingRetryDelay:   2000,
-              fragLoadingMaxRetry:      8,
-              fragLoadingRetryDelay:    1500,
-              // ── QUALITY SETTINGS ─────────────────────────────
-              startLevel:              -1,   // auto quality selection
-              abrEwmaDefaultEstimate:  500000,
-              // ── STABILITY ────────────────────────────────────
-              enableWorker:            true,
-              lowLatencyMode:          false, // disable for stability
-              backBufferLength:        60,
+              maxBufferLength:              90,
+              maxMaxBufferLength:           180,
+              maxBufferSize:                200*1024*1024,
+              maxBufferHole:                1.5,
+              liveSyncDurationCount:        3,
+              liveMaxLatencyDurationCount:  10,
+              liveBackBufferLength:         60,
+              manifestLoadingMaxRetry:      6,
+              manifestLoadingRetryDelay:    2000,
+              manifestLoadingMaxRetryTimeout:32000,
+              levelLoadingMaxRetry:         6,
+              levelLoadingRetryDelay:       2000,
+              fragLoadingMaxRetry:          8,
+              fragLoadingRetryDelay:        1500,
+              startLevel:                   -1,
+              abrEwmaDefaultEstimate:       500000,
+              enableWorker:                 true,
+              lowLatencyMode:               false,
+              backBufferLength:             60,
+              // Allow mixed content via XHR loader for proxy URLs
+              xhrSetup: function(xhr, url){{
+                xhr.withCredentials = false;
+              }}
             }});
 
-            hls.loadSource(SRC);
+            hls.loadSource(src);
             hls.attachMedia(v);
 
-            hls.on(Hls.Events.MANIFEST_PARSED, function(e, data){{
-              setStatus('✅ جاهز للبث', '#4ade80');
+            hls.on(Hls.Events.MANIFEST_PARSED, function(){{
+              setStatus('✅ جاهز', '#4ade80');
               retries = 0;
               v.play().catch(function(){{
-                // autoplay blocked — user needs to tap play
-                setStatus('▶ اضغط للتشغيل', 'rgba(255,255,255,.8)');
+                setStatus('▶ اضغط تشغيل', 'rgba(255,255,255,.8)');
               }});
             }});
 
@@ -376,22 +437,14 @@ if selected_url:
               setStatus('🔴 بث مباشر', '#ef4444');
             }});
 
-            // ── STALL DETECTION ──────────────────────────────
+            // Stall detection
             var stallTimer = null;
-            var lastTime   = 0;
-            v.addEventListener('timeupdate', function(){{
-              lastTime = v.currentTime;
-            }});
             v.addEventListener('waiting', function(){{
-              setStatus('⏳ جاري التحميل...', '#fbbf24');
-              // if stalled for 8s, skip forward to live edge
+              setStatus('⏳ تحميل...', '#fbbf24');
               stallTimer = setTimeout(function(){{
                 if(v.buffered.length > 0){{
-                  var end = v.buffered.end(v.buffered.length - 1);
-                  if(end - v.currentTime > 5){{
-                    v.currentTime = end - 1;
-                    setStatus('⏩ تخطي للحظي', '#60a5fa');
-                  }}
+                  var end = v.buffered.end(v.buffered.length-1);
+                  if(end - v.currentTime > 5){{ v.currentTime = end-1; }}
                 }}
               }}, 8000);
             }});
@@ -400,63 +453,49 @@ if selected_url:
               setStatus('🔴 بث مباشر', '#ef4444');
             }});
 
-            // ── LIVE EDGE SYNC: every 30s, drift back to live ──
+            // Live edge drift sync
             setInterval(function(){{
               if(!v.paused && hls && hls.liveSyncPosition){{
-                var drift = hls.liveSyncPosition - v.currentTime;
-                if(drift > 20){{   // if more than 20s behind live
+                if(hls.liveSyncPosition - v.currentTime > 20){{
                   v.currentTime = hls.liveSyncPosition;
-                  setStatus('⏩ مزامنة مع البث', '#60a5fa');
                 }}
               }}
             }}, 30000);
 
-            // ── ERROR HANDLER & AUTO-RECONNECT ───────────────
             hls.on(Hls.Events.ERROR, function(event, data){{
-              if(!data.fatal) return; // non-fatal: hls.js handles internally
-
+              if(!data.fatal) return;
               if(data.type === Hls.ErrorTypes.NETWORK_ERROR){{
                 retries++;
                 if(retries <= MAX_RETRIES){{
-                  var delay = Math.min(2000 * retries, 16000);
-                  setStatus('⚠️ إعادة الاتصال ' + retries + '/' + MAX_RETRIES + '...', '#fbbf24');
+                  var delay = Math.min(2000*retries, 16000);
+                  setStatus('⚠️ إعادة الاتصال '+retries+'...', '#fbbf24');
                   setTimeout(function(){{ hls.startLoad(); }}, delay);
                 }} else {{
-                  setStatus('❌ فشل الاتصال — يعاد المحاولة...', '#f87171');
-                  // Full restart after 20s
-                  setTimeout(function(){{ retries=0; initHls(); }}, 20000);
+                  // All retries exhausted — try next source URL
+                  tryNextSource();
                 }}
               }} else if(data.type === Hls.ErrorTypes.MEDIA_ERROR){{
-                setStatus('🔧 إصلاح الوسائط...', '#fbbf24');
                 hls.recoverMediaError();
               }} else {{
-                // Fatal: destroy and restart
-                setStatus('🔄 إعادة تشغيل البث...', '#fbbf24');
-                setTimeout(function(){{ retries=0; initHls(); }}, 5000);
+                setStatus('🔄 إعادة تشغيل...', '#fbbf24');
+                setTimeout(function(){{ retries=0; initHls(src); }}, 5000);
               }}
             }});
           }}
 
           if(Hls.isSupported()){{
-            initHls();
+            initHls(SOURCES[0]);
           }} else if(v.canPlayType('application/vnd.apple.mpegurl')){{
-            // Native HLS (iOS Safari / macOS Safari)
-            v.src = SRC;
+            v.src = SOURCES[0];
             v.addEventListener('loadedmetadata', function(){{ v.play(); }});
             setStatus('📱 HLS نيتف', '#4ade80');
           }} else {{
             setStatus('❌ المتصفح لا يدعم HLS', '#f87171');
           }}
 
-          // ── PAGE VISIBILITY: pause/resume on tab switch ──
           document.addEventListener('visibilitychange', function(){{
-            if(document.hidden){{
-              // tab hidden — don't destroy, just note
-            }} else {{
-              // came back — sync to live edge
-              if(hls && hls.liveSyncPosition && !v.paused){{
-                v.currentTime = hls.liveSyncPosition;
-              }}
+            if(!document.hidden && hls && hls.liveSyncPosition && !v.paused){{
+              v.currentTime = hls.liveSyncPosition;
             }}
           }});
         }})();
